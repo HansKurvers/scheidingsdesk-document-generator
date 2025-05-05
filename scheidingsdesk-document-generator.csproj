@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Functions/1.0.14">
+﻿<Project Sdk="Microsoft.NET.Sdk.Functions/4.0.1">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
