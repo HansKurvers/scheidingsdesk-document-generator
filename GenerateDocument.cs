@@ -15,6 +15,7 @@ namespace Scheidingsdesk
 {
     public static class GenerateDocument
     {
+        [Function("GenerateDocument")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
