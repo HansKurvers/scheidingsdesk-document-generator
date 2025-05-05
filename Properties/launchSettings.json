@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "scheidingsdesk_document_generator": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7105",
+      "launchBrowser": false
+    }
+  }
+}
