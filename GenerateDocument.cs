@@ -2,22 +2,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using System.Linq;
-using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Query;
@@ -26,7 +15,6 @@ namespace Scheidingsdesk
 {
     public static class GenerateDocument
     {
-        [FunctionName("GenerateDocument")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
@@ -272,18 +260,23 @@ namespace Scheidingsdesk
                     }
                 }
                 
-                // Copy the content of the SDT element
-                var sdtContent = sdt.SdtContentElement;
-                if (sdtContent != null)
+                // Find the content part of the SDT
+                var sdtContentPart = sdt.Descendants<SdtContentBlock>().FirstOrDefault() ?? (OpenXmlElement)sdt.Descendants<SdtContentRun>().FirstOrDefault();
+
+                if (sdtContentPart != null)
                 {
-                    // Create a new parent element to hold the content
                     var parent = sdt.Parent;
-                    
-                    // Clone all the content
-                    var clonedContent = sdtContent.CloneNode(true);
-                    
-                    // Replace the SDT with its content in the document
-                    parent.ReplaceChild(clonedContent, sdt);
+                    // Get the children of the content part
+                    var contentChildren = sdtContentPart.Elements().ToList();
+
+                    // Insert the children before the SDT
+                    foreach (var child in contentChildren)
+                    {
+                        parent.InsertBefore(child.CloneNode(true), sdt);
+                    }
+
+                    // Remove the SDT
+                    sdt.Remove();
                 }
             }
         }
