@@ -121,10 +121,35 @@ namespace Scheidingsdesk
                 // If there are children to preserve, insert them all at once
                 if (contentToPreserve.Any())
                 {
-                    // Insert all children in one go for better performance
+                    // Process each Run element to ensure proper formatting and color
                     foreach (var child in contentToPreserve)
                     {
-                        parent.InsertBefore(child.CloneNode(true), sdt);
+                        // Deep clone to preserve all formatting and properties
+                        var clonedChild = child.CloneNode(true);
+                        
+                        // Fix text formatting on all Run elements inside this content
+                        foreach (var run in clonedChild.Descendants<Run>())
+                        {
+                            // Ensure run properties contain proper color settings
+                            var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
+                            
+                            // Make sure there's no gray color applied (common for content controls)
+                            // Remove any existing color and rely on the document's default
+                            var colorElements = runProps.Elements<Color>().ToList();
+                            foreach (var color in colorElements)
+                            {
+                                runProps.RemoveChild(color);
+                            }
+                            
+                            // Remove any shading that might affect text appearance
+                            var shadingElements = runProps.Elements<Shading>().ToList();
+                            foreach (var shading in shadingElements)
+                            {
+                                runProps.RemoveChild(shading);
+                            }
+                        }
+                        
+                        parent.InsertBefore(clonedChild, sdt);
                     }
                 }
                 
