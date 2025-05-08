@@ -9,11 +9,11 @@ using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace Scheidingsdesk
 {
-    public class GenerateDocument
+    public class DocumentGenerator
     {
-        private readonly ILogger<GenerateDocument> _logger;
+        private readonly ILogger<DocumentGenerator> _logger;
 
-        public GenerateDocument(ILogger<GenerateDocument> logger)
+        public DocumentGenerator(ILogger<DocumentGenerator> logger)
         {
             _logger = logger;
         }
