@@ -30,8 +30,7 @@ namespace Scheidingsdesk
 
             // Get the uploaded file
             var formData = await req.ReadFormAsync();
-            var file = formData.Files["document"];
-            
+            var file = formData.Files.GetFile("document") ?? formData.Files.GetFile("file");            
             if (file == null)
             {
                 return new BadRequestObjectResult("Please upload a Word document.");
