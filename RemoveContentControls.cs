@@ -45,7 +45,7 @@ namespace Scheidingsdesk
             
             // Process the document
             try
-            {
+            {  
                 // Process the document directly from the input stream to avoid unnecessary copying
                 using (WordprocessingDocument doc = WordprocessingDocument.Open(inputStream, false))
                 {
