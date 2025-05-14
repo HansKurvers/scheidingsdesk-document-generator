@@ -134,12 +134,15 @@ namespace Scheidingsdesk
                             var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
                             
                             // Make sure there's no gray color applied (common for content controls)
-                            // Remove any existing color and rely on the document's default
+                            // Remove any existing color and explicitly set to black
                             var colorElements = runProps.Elements<Color>().ToList();
                             foreach (var color in colorElements)
                             {
                                 runProps.RemoveChild(color);
                             }
+                            
+                            // Explicitly set text color to black
+                            runProps.AppendChild(new Color() { Val = "000000" });
                             
                             // Remove any shading that might affect text appearance
                             var shadingElements = runProps.Elements<Shading>().ToList();
