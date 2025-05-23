@@ -10,7 +10,6 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using System.Linq;
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace Scheidingsdesk
@@ -48,7 +47,7 @@ namespace Scheidingsdesk
             // Process the document
             try
             {  
-                // Process the document directly from the input stream to avoid unnecessary copying
+                // Process the document directly from the input stream
                 using (WordprocessingDocument doc = WordprocessingDocument.Open(inputStream, false))
                 {
                     _logger.LogInformation("Document opened successfully.");
@@ -66,15 +65,12 @@ namespace Scheidingsdesk
                         var mainPart = outputDoc.MainDocumentPart;
                         if (mainPart != null)
                         {
-                            // Find and process all structured document tags (content controls)
-                            ProcessContentControls(mainPart.Document);
-                            
-                            // After removing empty content controls, renormalize numbering
-                            RenormalizeNumbering(mainPart.Document);
+                            // Process everything in one pass
+                            ProcessDocument(mainPart.Document);
                             
                             // Save the changes
                             mainPart.Document.Save();
-                            _logger.LogInformation("Content controls processed and numbering normalized successfully.");
+                            _logger.LogInformation("Document processed successfully.");
                         }
                     }
                 }
@@ -98,185 +94,75 @@ namespace Scheidingsdesk
             };
         }
 
-        private void ProcessContentControls(DocumentFormat.OpenXml.OpenXmlElement element)
+        private void ProcessDocument(Document document)
         {
-            // Process in reverse order to avoid collection modification issues
-            var sdtElements = element.Descendants<SdtElement>().ToList();
-            var paragraphsToRemove = new List<Paragraph>();
+            // Step 1: Remove content controls and delete empty paragraphs
+            var sdtElements = document.Descendants<SdtElement>().ToList();
             
-            _logger.LogInformation($"Found {sdtElements.Count} content controls to process.");
-            
-            // Process from bottom to top to avoid issues with nested content controls
+            // Process from bottom to top
             for (int i = sdtElements.Count - 1; i >= 0; i--)
             {
                 var sdt = sdtElements[i];
+                var parent = sdt.Parent;
+                if (parent == null) continue;
                 
-                // Check if the content control is empty
-                bool isEmpty = IsContentControlEmpty(sdt);
+                // Get content
+                var contentElement = sdt.Elements().FirstOrDefault(e => e.LocalName == "sdtContent");
+                if (contentElement == null) continue;
                 
-                if (isEmpty)
+                // Check if empty
+                var textContent = string.Join("", contentElement.Descendants<Text>().Select(t => t.Text ?? "")).Trim();
+                
+                if (string.IsNullOrWhiteSpace(textContent))
                 {
-                    // Find the paragraph that contains this SDT
-                    var containingParagraph = FindContainingParagraph(sdt);
-                    if (containingParagraph != null && !paragraphsToRemove.Contains(containingParagraph))
-                    {
-                        paragraphsToRemove.Add(containingParagraph);
-                        _logger.LogInformation($"Marked paragraph for removal due to empty content control.");
-                    }
+                    // If empty, remove the entire paragraph containing this SDT
+                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
+                    paragraph?.Remove();
                 }
                 else
                 {
-                    // Process non-empty content controls as before
-                    ProcessNonEmptyContentControl(sdt);
-                }
-            }
-            
-            // Remove paragraphs that contained empty content controls
-            foreach (var paragraph in paragraphsToRemove)
-            {
-                paragraph.Remove();
-            }
-            
-            _logger.LogInformation($"Removed {paragraphsToRemove.Count} paragraphs with empty content controls.");
-        }
-
-        private bool IsContentControlEmpty(SdtElement sdt)
-        {
-            // Get the content from the SDT element
-            var contentElements = sdt.Elements().Where(e => e.LocalName == "sdtContent").FirstOrDefault();
-            if (contentElements == null) return true;
-            
-            // Check if there's any meaningful text content
-            var textContent = string.Join("", contentElements.Descendants<Text>().Select(t => t.Text ?? "")).Trim();
-            
-            // Consider it empty if there's no text or only whitespace
-            return string.IsNullOrWhiteSpace(textContent);
-        }
-
-        private Paragraph FindContainingParagraph(OpenXmlElement element)
-        {
-            var current = element.Parent;
-            while (current != null)
-            {
-                if (current is Paragraph paragraph)
-                {
-                    return paragraph;
-                }
-                current = current.Parent;
-            }
-            return null;
-        }
-
-        private void ProcessNonEmptyContentControl(SdtElement sdt)
-        {
-            // Get the parent of the SDT element
-            var parent = sdt.Parent;
-            if (parent == null) return;
-            
-            // Safely extract content directly from the SDT element
-            var contentElements = sdt.Elements().Where(e => e.LocalName == "sdtContent").FirstOrDefault();
-            if (contentElements == null) return;
-            
-            // Use a more efficient approach by extracting content once and inserting it as a block
-            var contentToPreserve = contentElements.ChildElements.ToList();
-            
-            // If there are children to preserve, insert them all at once
-            if (contentToPreserve.Any())
-            {
-                // Process each Run element to ensure proper formatting and color
-                foreach (var child in contentToPreserve)
-                {
-                    // Deep clone to preserve all formatting and properties
-                    var clonedChild = child.CloneNode(true);
-                    
-                    // Fix text formatting on all Run elements inside this content
-                    foreach (var run in clonedChild.Descendants<Run>())
+                    // If not empty, just unwrap the content control
+                    foreach (var child in contentElement.ChildElements.ToList())
                     {
-                        // Ensure run properties contain proper color settings
-                        var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
-                        
-                        // Make sure there's no gray color applied (common for content controls)
-                        // Remove any existing color and explicitly set to black
-                        var colorElements = runProps.Elements<Color>().ToList();
-                        foreach (var color in colorElements)
-                        {
-                            runProps.RemoveChild(color);
-                        }
-                        
-                        // Explicitly set text color to black
-                        runProps.AppendChild(new Color() { Val = "000000" });
-                        
-                        // Remove any shading that might affect text appearance
-                        var shadingElements = runProps.Elements<Shading>().ToList();
-                        foreach (var shading in shadingElements)
-                        {
-                            runProps.RemoveChild(shading);
-                        }
+                        parent.InsertBefore(child.CloneNode(true), sdt);
                     }
-                    
-                    parent.InsertBefore(clonedChild, sdt);
+                    parent.RemoveChild(sdt);
                 }
             }
             
-            // Remove the SDT element
-            parent.RemoveChild(sdt);
+            // Step 2: Renumber remaining paragraphs
+            RenumberParagraphs(document);
         }
 
-        private void RenormalizeNumbering(Document document)
+        private void RenumberParagraphs(Document document)
         {
-            _logger.LogInformation("Starting numbering renormalization.");
-            
-            // Pattern to match numbering like "2.1", "2.2", "10.1", etc.
-            var numberingPattern = new Regex(@"^(\d+)\.(\d+)(?:\s|$)");
-            
-            // Dictionary to track the current sub-number for each main number
-            var numberingMap = new Dictionary<int, int>();
-            
-            // Get all paragraphs
             var paragraphs = document.Descendants<Paragraph>().ToList();
+            var lastMainNumber = 0;
+            var subNumber = 0;
             
             foreach (var paragraph in paragraphs)
             {
-                // Get the text content of the paragraph
-                var texts = paragraph.Descendants<Text>().ToList();
-                if (!texts.Any()) continue;
+                var firstText = paragraph.Descendants<Text>().FirstOrDefault();
+                if (firstText == null) continue;
                 
-                // Check the first text element for numbering pattern
-                var firstText = texts.First();
-                var match = numberingPattern.Match(firstText.Text);
-                
+                // Simple pattern matching for "X.Y" format
+                var match = Regex.Match(firstText.Text, @"^(\d+)\.(\d+)");
                 if (match.Success)
                 {
-                    int mainNumber = int.Parse(match.Groups[1].Value);
-                    int subNumber = int.Parse(match.Groups[2].Value);
+                    int currentMainNumber = int.Parse(match.Groups[1].Value);
                     
-                    // Initialize or increment the sub-number for this main number
-                    if (!numberingMap.ContainsKey(mainNumber))
+                    // Reset sub-number if main number changes
+                    if (currentMainNumber != lastMainNumber)
                     {
-                        numberingMap[mainNumber] = 1;
-                    }
-                    else
-                    {
-                        numberingMap[mainNumber]++;
+                        lastMainNumber = currentMainNumber;
+                        subNumber = 0;
                     }
                     
-                    // Check if renumbering is needed
-                    int expectedSubNumber = numberingMap[mainNumber];
-                    if (subNumber != expectedSubNumber)
-                    {
-                        // Update the numbering
-                        string oldNumbering = match.Value;
-                        string newNumbering = $"{mainNumber}.{expectedSubNumber} ";
-                        
-                        // Replace the old numbering with the new one
-                        firstText.Text = firstText.Text.Replace(oldNumbering, newNumbering);
-                        
-                        _logger.LogInformation($"Renumbered {oldNumbering.Trim()} to {newNumbering.Trim()}");
-                    }
+                    // Increment and update
+                    subNumber++;
+                    firstText.Text = Regex.Replace(firstText.Text, @"^\d+\.\d+", $"{currentMainNumber}.{subNumber}");
                 }
             }
-            
-            _logger.LogInformation("Numbering renormalization completed.");
         }
     }
 }
