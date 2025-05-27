@@ -82,103 +82,54 @@ namespace Scheidingsdesk
         }
 
         // Add this enhanced debug logging to your ProcessPlaceholders method
+        // Alternative: Look for ^ anywhere in paragraph text (not just content controls)
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
             var body = document.Body;
             if (body == null) return removalInfo;
 
-            var contentControls = body.Descendants<SdtElement>().ToList();
-            _logger.LogInformation($"[{correlationId}] Found {contentControls.Count} content controls");
+            var allParagraphs = body.Descendants<Paragraph>().ToList();
 
-            // STEP 1: Find articles with ^ to remove
-            foreach (var sdt in contentControls)
+            foreach (var paragraph in allParagraphs)
             {
-                var text = GetContentControlText(sdt).Trim();
-                if (text == "^")
+                var text = GetParagraphText(paragraph);
+
+                // Look for ^ anywhere in the paragraph text
+                if (text.Contains("^"))
                 {
-                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null)
+                    // Find which article this paragraph belongs to
+                    var articleNum = FindArticleForParagraph(paragraph, allParagraphs);
+                    if (articleNum > 0)
                     {
-                        var articleNum = GetArticleNumber(paragraph);
-                        if (articleNum > 0)
-                        {
-                            removalInfo.ArticlesToRemove.Add(articleNum);
-                            _logger.LogInformation($"[{correlationId}] Will remove article {articleNum}");
-                        }
+                        removalInfo.ArticlesToRemove.Add(articleNum);
+                        _logger.LogInformation($"Found ^ in article {articleNum}, will remove entire article");
                     }
                 }
-            }
 
-            // STEP 2: Find paragraphs with # to remove (skip if in removed articles)
-            foreach (var sdt in contentControls)
-            {
-                var text = GetContentControlText(sdt).Trim();
-                if (text == "#")
+                // Look for # anywhere in the paragraph text  
+                if (text.Contains("#"))
                 {
-                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null && !IsInRemovedArticle(paragraph, body, removalInfo.ArticlesToRemove))
-                    {
-                        removalInfo.ParagraphsToRemove.Add(paragraph);
-                        _logger.LogInformation($"[{correlationId}] Will remove paragraph: {GetParagraphText(paragraph)}");
-                    }
+                    removalInfo.ParagraphsToRemove.Add(paragraph);
+                    _logger.LogInformation($"Found # in paragraph, will remove this paragraph only");
                 }
             }
 
             return removalInfo;
         }
 
-        private bool IsInRemovedArticle(Paragraph paragraph, Body body, HashSet<int> articlesToRemove)
+        private int FindArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
         {
-            var allParagraphs = body.Descendants<Paragraph>().ToList();
-            var index = allParagraphs.IndexOf(paragraph);
+            var index = allParagraphs.IndexOf(targetParagraph);
 
-            // Look backwards to find which article this paragraph belongs to
+            // Search backwards to find the article this paragraph belongs to
             for (int i = index; i >= 0; i--)
             {
-                var articleNum = GetArticleNumber(allParagraphs[i]);
-                if (articleNum > 0)
+                var text = GetParagraphText(allParagraphs[i]);
+                var match = Regex.Match(text, @"^(\d+)\.");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int articleNum))
                 {
-                    return articlesToRemove.Contains(articleNum);
-                }
-            }
-            return false;
-        }
-
-        // Add this new helper method
-        private int FindArticleNumberForContentControl(SdtElement sdt, Body body)
-        {
-            // First, try the paragraph containing the content control
-            var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-            if (paragraph != null)
-            {
-                var articleNumber = GetArticleNumber(paragraph);
-                if (articleNumber > 0)
-                {
-                    return articleNumber;
-                }
-            }
-
-            // If not found, look backwards through previous paragraphs to find the article title
-            var allParagraphs = body.Descendants<Paragraph>().ToList();
-
-            if (paragraph != null)
-            {
-                var currentParagraphIndex = allParagraphs.IndexOf(paragraph);
-
-                if (currentParagraphIndex >= 0)
-                {
-                    // Search backwards from current paragraph to find the article title
-                    for (int i = currentParagraphIndex - 1; i >= 0; i--)
-                    {
-                        var checkParagraph = allParagraphs[i];
-                        var articleNumber = GetArticleNumber(checkParagraph);
-                        if (articleNumber > 0)
-                        {
-                            _logger.LogDebug($"Found article {articleNumber} for ^ marker by searching backwards");
-                            return articleNumber;
-                        }
-                    }
+                    return articleNum;
                 }
             }
 
@@ -375,12 +326,7 @@ namespace Scheidingsdesk
             }
         }
 
-        private string GetContentControlText(SdtElement sdt)
-        {
-            var texts = sdt.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts).Trim();
-        }
-
+       
         private string GetParagraphText(Paragraph paragraph)
         {
             var texts = paragraph.Descendants<Text>().Select(t => t.Text);
@@ -391,19 +337,6 @@ namespace Scheidingsdesk
         {
             var texts = run.Descendants<Text>().Select(t => t.Text);
             return string.Join("", texts);
-        }
-
-        private int GetArticleNumber(Paragraph paragraph)
-        {
-            var text = GetParagraphText(paragraph);
-            var match = MainArticlePattern.Match(text);
-
-            if (match.Success)
-            {
-                return int.Parse(match.Groups[1].Value);
-            }
-
-            return 0;
         }
     }
 }
