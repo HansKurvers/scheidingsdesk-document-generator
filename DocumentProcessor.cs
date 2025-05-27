@@ -88,61 +88,70 @@ namespace Scheidingsdesk
             var body = document.Body;
             if (body == null) return removalInfo;
 
+            // Find all content controls with placeholders
             var contentControls = body.Descendants<SdtElement>().ToList();
             _logger.LogInformation($"[{correlationId}] Found {contentControls.Count} content controls");
 
-            // STEP 1: Find articles with ^ to remove
+            // First pass: Process article removals (^) to avoid conflicts
             foreach (var sdt in contentControls)
             {
-                var text = GetContentControlText(sdt).Trim();
-                if (text == "^")
+                var content = GetContentControlText(sdt);
+                
+                if (content == REMOVE_ARTICLE_MARKER)
                 {
                     var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
                     if (paragraph != null)
                     {
-                        var articleNum = GetArticleNumber(paragraph);
-                        if (articleNum > 0)
+                        var paragraphText = GetParagraphText(paragraph);
+                        _logger.LogDebug($"[{correlationId}] Found ^ marker in paragraph: '{paragraphText}'");
+                        
+                        // First, check if this paragraph itself is an article title
+                        var articleNumber = GetArticleNumber(paragraph);
+                        
+                        if (articleNumber > 0)
                         {
-                            removalInfo.ArticlesToRemove.Add(articleNum);
-                            _logger.LogInformation($"[{correlationId}] Will remove article {articleNum}");
+                            _logger.LogDebug($"[{correlationId}] Found article number {articleNumber} in same paragraph as ^ marker");
+                        }
+                        
+                        // If not found in the current paragraph, search backwards
+                        if (articleNumber == 0)
+                        {
+                            articleNumber = FindArticleNumberForContentControl(sdt, body);
+                        }
+                        
+                        if (articleNumber > 0)
+                        {
+                            removalInfo.ArticlesToRemove.Add(articleNumber);
+                            _logger.LogInformation($"[{correlationId}] Marked article {articleNumber} for removal (^ marker)");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"[{correlationId}] Found ^ marker but could not determine article number. Paragraph text: '{paragraphText}'");
                         }
                     }
                 }
             }
 
-            // STEP 2: Find paragraphs with # to remove (skip if in removed articles)
+            // Second pass: Process paragraph removals (#)
             foreach (var sdt in contentControls)
             {
-                var text = GetContentControlText(sdt).Trim();
-                if (text == "#")
+                var content = GetContentControlText(sdt);
+                
+                if (content == REMOVE_PARAGRAPH_MARKER)
                 {
                     var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null && !IsInRemovedArticle(paragraph, body, removalInfo.ArticlesToRemove))
+                    if (paragraph != null)
                     {
                         removalInfo.ParagraphsToRemove.Add(paragraph);
-                        _logger.LogInformation($"[{correlationId}] Will remove paragraph: {GetParagraphText(paragraph)}");
+                        _logger.LogDebug($"[{correlationId}] Marked paragraph for removal: {GetParagraphText(paragraph)}");
                     }
                 }
             }
 
+            _logger.LogInformation($"[{correlationId}] Articles marked for removal: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
+            _logger.LogInformation($"[{correlationId}] Paragraphs marked for removal: {removalInfo.ParagraphsToRemove.Count}");
+
             return removalInfo;
-        }
-
-        private bool IsInRemovedArticle(Paragraph paragraph, Body body, HashSet<int> articlesToRemove)
-        {
-            var allParagraphs = body.Descendants<Paragraph>().ToList();
-            var index = allParagraphs.IndexOf(paragraph);
-
-            // Look backwards to find which article this paragraph belongs to
-            for (int i = index; i >= 0; i--)
-            {
-                var articleNum = GetArticleNumber(allParagraphs[i]);
-                if (articleNum > 0)
-                {
-                    return articlesToRemove.Contains(articleNum);
-                }
-            }
-            return false;
         }
 
         // Add this new helper method
@@ -161,11 +170,11 @@ namespace Scheidingsdesk
 
             // If not found, look backwards through previous paragraphs to find the article title
             var allParagraphs = body.Descendants<Paragraph>().ToList();
-
+            
             if (paragraph != null)
             {
                 var currentParagraphIndex = allParagraphs.IndexOf(paragraph);
-
+                
                 if (currentParagraphIndex >= 0)
                 {
                     // Search backwards from current paragraph to find the article title
