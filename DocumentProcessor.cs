@@ -19,9 +19,10 @@ namespace Scheidingsdesk
         private const string REMOVE_PARAGRAPH_MARKER = "#";
         private const string REMOVE_ARTICLE_MARKER = "^";
 
-        // Updated regex patterns to distinguish main articles from sub-articles
-        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s*(.*)$", RegexOptions.Compiled);
-        private static readonly Regex SubArticlePattern = new Regex(@"^\s+(\d+)\.\s*(.*)$", RegexOptions.Compiled);
+        // Regex patterns for article detection
+        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s+(.+)$", RegexOptions.Compiled);
+        private static readonly Regex SubArticlePattern = new Regex(@"^(\s+)(\d+)\.(\d+)\s+(.+)$", RegexOptions.Compiled);
+
         public DocumentProcessor(ILogger logger)
         {
             _logger = logger;
@@ -76,115 +77,44 @@ namespace Scheidingsdesk
             return outputStream;
         }
 
-
-
         private class RemovalInfo
         {
             public HashSet<Paragraph> ParagraphsToRemove { get; } = new HashSet<Paragraph>();
             public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
         }
 
-        // Fixed article detection that checks Word list levels
-        private int GetArticleNumber(Paragraph paragraph)
-        {
-            var text = GetParagraphText(paragraph);
-
-            // First check if this paragraph has numbering
-            var numberingProperties = paragraph.ParagraphProperties?.NumberingProperties;
-            if (numberingProperties == null)
-            {
-                return 0; // No numbering = not an article
-            }
-
-            // Get the list level (ilvl = indentation level)
-            var level = numberingProperties.NumberingLevelReference?.Val?.Value ?? 0;
-
-            _logger.LogDebug($"Paragraph '{text}' has numbering level: {level}");
-
-            // Only consider level 0 (main articles), ignore level 1+ (sub-articles)
-            if (level == 0)
-            {
-                // This is a main article, extract the number
-                var match = Regex.Match(text.Trim(), @"^(\d+)\.");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
-                {
-                    _logger.LogDebug($"Found main article {number} at list level {level}");
-                    return number;
-                }
-            }
-            else
-            {
-                _logger.LogDebug($"Skipping sub-article at level {level}: '{text}'");
-            }
-
-            return 0;
-        }
-        // Alternative: Get detailed numbering information
-        private (int articleNumber, int listLevel, bool isMainArticle) GetNumberingInfo(Paragraph paragraph)
-        {
-            var text = GetParagraphText(paragraph);
-            var numberingProperties = paragraph.ParagraphProperties?.NumberingProperties;
-
-            if (numberingProperties == null)
-            {
-                return (0, -1, false);
-            }
-
-            var level = numberingProperties.NumberingLevelReference?.Val?.Value ?? 0;
-            var isMainArticle = level == 0;
-
-            // Extract number from text
-            var match = Regex.Match(text.Trim(), @"^(\d+)\.");
-            var articleNumber = match.Success && int.TryParse(match.Groups[1].Value, out int num) ? num : 0;
-
-            return (articleNumber, level, isMainArticle);
-        }
-
-        // Updated ProcessPlaceholders that understands list levels
+        // Add this enhanced debug logging to your ProcessPlaceholders method
+        // Alternative: Look for ^ anywhere in paragraph text (not just content controls)
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
             var body = document.Body;
             if (body == null) return removalInfo;
 
-            _logger.LogInformation($"[{correlationId}] === PROCESSING WITH LIST LEVEL DETECTION ===");
-
-            // Debug: Show list structure
             var allParagraphs = body.Descendants<Paragraph>().ToList();
-            for (int i = 0; i < Math.Min(15, allParagraphs.Count); i++)
-            {
-                var para = allParagraphs[i];
-                var text = GetParagraphText(para);
-                var (articleNum, listLevel, isMain) = GetNumberingInfo(para);
 
-                if (articleNum > 0)
-                {
-                    _logger.LogInformation($"[{correlationId}] Para {i}: '{text}' → Article {articleNum}, Level {listLevel}, Main: {isMain}");
-                }
-            }
-
-            // Find ^ and # markers
             foreach (var paragraph in allParagraphs)
             {
-                var text = GetParagraphText(paragraph).Trim();
+                var text = GetParagraphText(paragraph);
 
-                if (text == "^")
+                // Look for ^ anywhere in the paragraph text
+                if (text.Contains("^"))
                 {
-                    _logger.LogInformation($"[{correlationId}] Found ^ marker");
-
-                    // Find which main article this belongs to
-                    var articleNum = FindMainArticleForParagraph(paragraph, allParagraphs);
+                    // Find which article this paragraph belongs to
+                    var articleNum = FindArticleForParagraph(paragraph, allParagraphs);
                     if (articleNum > 0)
                     {
                         removalInfo.ArticlesToRemove.Add(articleNum);
-                        _logger.LogInformation($"[{correlationId}] ^ belongs to main article {articleNum} - will remove");
+                        _logger.LogInformation($"Found ^ in article {articleNum}, will remove entire article");
                     }
                 }
 
-                if (text == "#")
+                // Look for # anywhere in the paragraph text  
+                if (text.Contains("#"))
                 {
                     _logger.LogInformation($"[{correlationId}] Found # marker - will remove this paragraph");
                     removalInfo.ParagraphsToRemove.Add(paragraph);
+                    _logger.LogInformation($"Found # in paragraph, will remove this paragraph only");
                 }
             }
 
@@ -192,20 +122,17 @@ namespace Scheidingsdesk
             return removalInfo;
         }
 
-        // Helper to find main article for any paragraph
-        private int FindMainArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
+        private int FindArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
         {
             var index = allParagraphs.IndexOf(targetParagraph);
 
-            // Search backwards to find the most recent main article (list level 0)
+            // Search backwards to find the article this paragraph belongs to
             for (int i = index; i >= 0; i--)
             {
-                var paragraph = allParagraphs[i];
-                var (articleNum, listLevel, isMain) = GetNumberingInfo(paragraph);
-
-                if (isMain && articleNum > 0)
+                var text = GetParagraphText(allParagraphs[i]);
+                var match = Regex.Match(text, @"^(\d+)\.");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int articleNum))
                 {
-                    _logger.LogDebug($"Found ^ belongs to main article {articleNum}");
                     return articleNum;
                 }
             }
@@ -407,7 +334,7 @@ namespace Scheidingsdesk
             }
         }
 
-
+       
         private string GetParagraphText(Paragraph paragraph)
         {
             var texts = paragraph.Descendants<Text>().Select(t => t.Text);
