@@ -17,10 +17,9 @@ namespace Scheidingsdesk
         private const string REMOVE_PARAGRAPH_MARKER = "#";
         private const string REMOVE_ARTICLE_MARKER = "^";
 
-        // Regex patterns for article detection
-        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s+(.+)$", RegexOptions.Compiled);
-        private static readonly Regex SubArticlePattern = new Regex(@"^(\s+)(\d+)\.(\d+)\s+(.+)$", RegexOptions.Compiled);
-
+        // Updated regex patterns to distinguish main articles from sub-articles
+        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s*(.*)$", RegexOptions.Compiled);
+        private static readonly Regex SubArticlePattern = new Regex(@"^\s+(\d+)\.\s*(.*)$", RegexOptions.Compiled);
         public DocumentProcessor(ILogger logger)
         {
             _logger = logger;
@@ -75,60 +74,117 @@ namespace Scheidingsdesk
             return outputStream;
         }
 
+
+
         private class RemovalInfo
         {
             public HashSet<Paragraph> ParagraphsToRemove { get; } = new HashSet<Paragraph>();
             public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
         }
 
-        // Add this enhanced debug logging to your ProcessPlaceholders method
-        // Alternative: Look for ^ anywhere in paragraph text (not just content controls)
+        // Fixed GetArticleNumber - only count NON-INDENTED numbered items as main articles
+        private int GetArticleNumber(Paragraph paragraph)
+        {
+            var text = GetParagraphText(paragraph);
+
+            // Check if this is a sub-article (starts with whitespace)
+            if (SubArticlePattern.IsMatch(text))
+            {
+                _logger.LogDebug($"Skipping sub-article: '{text}'");
+                return 0; // This is a sub-article, not a main article
+            }
+
+            // Check if this is a main article (starts at beginning of line)
+            var match = MainArticlePattern.Match(text);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
+            {
+                _logger.LogDebug($"Found main article {number}: '{text}'");
+                return number;
+            }
+
+            return 0;
+        }
+
+        // Alternative: Even simpler approach - just check indentation
+        private int GetArticleNumberSimple(Paragraph paragraph)
+        {
+            var text = GetParagraphText(paragraph);
+
+            // Only consider items that DON'T start with whitespace as main articles
+            if (text.StartsWith(" ") || text.StartsWith("\t"))
+            {
+                return 0; // Indented = sub-article
+            }
+
+            // Look for pattern at start of line only
+            var match = Regex.Match(text, @"^(\d+)\.");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
+            {
+                return number;
+            }
+
+            return 0;
+        }
+        // Updated ProcessPlaceholders to handle your document structure
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
             var body = document.Body;
             if (body == null) return removalInfo;
 
+            // First, let's see what we're working with
             var allParagraphs = body.Descendants<Paragraph>().ToList();
+            _logger.LogInformation($"[{correlationId}] Total paragraphs: {allParagraphs.Count}");
 
+            // Find ^ markers and determine which MAIN article they belong to
             foreach (var paragraph in allParagraphs)
             {
-                var text = GetParagraphText(paragraph);
+                var text = GetParagraphText(paragraph).Trim();
 
-                // Look for ^ anywhere in the paragraph text
-                if (text.Contains("^"))
+                if (text == "^")
                 {
-                    // Find which article this paragraph belongs to
-                    var articleNum = FindArticleForParagraph(paragraph, allParagraphs);
+                    _logger.LogInformation($"[{correlationId}] Found ^ marker in: '{text}'");
+
+                    // Find which main article this belongs to by searching backwards
+                    var articleNum = FindMainArticleForParagraph(paragraph, allParagraphs);
                     if (articleNum > 0)
                     {
                         removalInfo.ArticlesToRemove.Add(articleNum);
-                        _logger.LogInformation($"Found ^ in article {articleNum}, will remove entire article");
+                        _logger.LogInformation($"[{correlationId}] ^ marker belongs to main article {articleNum} - will remove");
                     }
                 }
 
-                // Look for # anywhere in the paragraph text  
-                if (text.Contains("#"))
+                if (text == "#")
                 {
                     removalInfo.ParagraphsToRemove.Add(paragraph);
-                    _logger.LogInformation($"Found # in paragraph, will remove this paragraph only");
+                    _logger.LogInformation($"[{correlationId}] Found # marker - will remove this paragraph only");
                 }
             }
 
             return removalInfo;
         }
 
-        private int FindArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
+        // Helper to find which MAIN article a paragraph belongs to
+        private int FindMainArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
         {
             var index = allParagraphs.IndexOf(targetParagraph);
 
-            // Search backwards to find the article this paragraph belongs to
+            // Search backwards to find the most recent MAIN article (non-indented)
             for (int i = index; i >= 0; i--)
             {
                 var text = GetParagraphText(allParagraphs[i]);
+
+                // Skip indented items (sub-articles)
+                if (text.StartsWith(" ") || text.StartsWith("\t"))
+                {
+                    continue;
+                }
+
+                // Look for main article pattern
                 var match = Regex.Match(text, @"^(\d+)\.");
                 if (match.Success && int.TryParse(match.Groups[1].Value, out int articleNum))
                 {
+                    _logger.LogDebug($"Found ^ belongs to main article {articleNum}");
                     return articleNum;
                 }
             }
@@ -326,7 +382,7 @@ namespace Scheidingsdesk
             }
         }
 
-       
+
         private string GetParagraphText(Paragraph paragraph)
         {
             var texts = paragraph.Descendants<Text>().Select(t => t.Text);
