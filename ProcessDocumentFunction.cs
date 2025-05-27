@@ -82,14 +82,36 @@ namespace Scheidingsdesk
                 
                 if (contentType.Contains("multipart/form-data"))
                 {
-                    // Parse multipart form data
-                    var formData = await req.ParseMultipartAsync();
-                    var file = formData.Files.FirstOrDefault(f => f.Name == "document" || f.Name == "file");
+                    _logger.LogInformation($"[{correlationId}] Parsing multipart form data");
                     
-                    if (file != null)
+                    try
                     {
-                        fileContent = file.Data;
-                        fileName = file.FileName ?? fileName;
+                        // Parse multipart form data
+                        var formData = await req.ParseMultipartAsync();
+                        _logger.LogInformation($"[{correlationId}] Found {formData.Files.Count} files in form data");
+                        
+                        var file = formData.Files.FirstOrDefault(f => f.Name == "document" || f.Name == "file");
+                        
+                        if (file != null)
+                        {
+                            fileContent = file.Data;
+                            fileName = file.FileName ?? fileName;
+                            _logger.LogInformation($"[{correlationId}] Found file: {fileName}, Size: {file.Data?.Length ?? 0} bytes");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"[{correlationId}] No file with name 'document' or 'file' found in form data");
+                        }
+                    }
+                    catch (Exception parseEx)
+                    {
+                        _logger.LogError($"[{correlationId}] Error parsing multipart form data: {parseEx.Message}");
+                        return await CreateErrorResponse(req, HttpStatusCode.BadRequest, new
+                        {
+                            error = "Failed to parse multipart form data. Please ensure the file is uploaded correctly.",
+                            details = parseEx.Message,
+                            correlationId = correlationId
+                        });
                     }
                 }
                 else
@@ -144,11 +166,13 @@ namespace Scheidingsdesk
 
                 // Create success response
                 var response = req.CreateResponse(HttpStatusCode.OK);
-                response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                response.Headers.Add("Content-Disposition", $"attachment; filename=\"Processed_{Path.GetFileNameWithoutExtension(fileName)}.docx\"");
-                response.Headers.Add("X-Correlation-Id", correlationId);
-                response.Headers.Add("X-Processing-Time-Ms", stopwatch.ElapsedMilliseconds.ToString());
-                response.Headers.Add("X-Document-Size", outputStream.Length.ToString());
+                
+                // Set headers using TryAdd to avoid conflicts
+                response.Headers.TryAddWithoutValidation("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+                response.Headers.TryAddWithoutValidation("Content-Disposition", $"attachment; filename=\"Processed_{Path.GetFileNameWithoutExtension(fileName)}.docx\"");
+                response.Headers.TryAddWithoutValidation("X-Correlation-Id", correlationId);
+                response.Headers.TryAddWithoutValidation("X-Processing-Time-Ms", stopwatch.ElapsedMilliseconds.ToString());
+                response.Headers.TryAddWithoutValidation("X-Document-Size", outputStream.Length.ToString());
                 
                 await response.Body.WriteAsync(outputStream.ToArray());
                 return response;
@@ -178,7 +202,7 @@ namespace Scheidingsdesk
         private static async Task<HttpResponseData> CreateErrorResponse(HttpRequestData req, HttpStatusCode statusCode, object errorContent)
         {
             var response = req.CreateResponse(statusCode);
-            response.Headers.Add("Content-Type", "application/json");
+            // Don't set Content-Type manually - WriteAsJsonAsync sets it automatically
             await response.WriteAsJsonAsync(errorContent);
             return response;
         }

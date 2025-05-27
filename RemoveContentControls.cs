@@ -63,6 +63,7 @@ namespace Scheidingsdesk
                 if (fileContent == null || fileContent.Length == 0)
                 {
                     var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+                    // Don't set Content-Type manually - WriteAsJsonAsync sets it automatically
                     await errorResponse.WriteAsJsonAsync(new { error = "Please upload a Word document." });
                     return errorResponse;
                 }
@@ -104,8 +105,9 @@ namespace Scheidingsdesk
                 
                 // Return the processed document
                 var response = req.CreateResponse(HttpStatusCode.OK);
-                response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                response.Headers.Add("Content-Disposition", $"attachment; filename=\"ProcessedDocument.docx\"");
+                // Use TryAddWithoutValidation to avoid header conflicts
+                response.Headers.TryAddWithoutValidation("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+                response.Headers.TryAddWithoutValidation("Content-Disposition", $"attachment; filename=\"ProcessedDocument.docx\"");
                 
                 await response.Body.WriteAsync(outputStream.ToArray());
                 return response;
