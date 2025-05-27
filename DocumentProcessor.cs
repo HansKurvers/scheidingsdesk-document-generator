@@ -8,8 +8,6 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Extensions.Logging;
-using DocumentFormat.OpenXml.Wordprocessing;
-
 
 namespace Scheidingsdesk
 {
@@ -84,126 +82,107 @@ namespace Scheidingsdesk
             public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
         }
 
-        // Fixed article detection that checks Word list levels
+        // Fixed GetArticleNumber - only count NON-INDENTED numbered items as main articles
         private int GetArticleNumber(Paragraph paragraph)
         {
             var text = GetParagraphText(paragraph);
 
-            // First check if this paragraph has numbering
-            var numberingProperties = paragraph.ParagraphProperties?.NumberingProperties;
-            if (numberingProperties == null)
+            // Check if this is a sub-article (starts with whitespace)
+            if (SubArticlePattern.IsMatch(text))
             {
-                return 0; // No numbering = not an article
+                _logger.LogDebug($"Skipping sub-article: '{text}'");
+                return 0; // This is a sub-article, not a main article
             }
 
-            // Get the list level (ilvl = indentation level)
-            var level = numberingProperties.NumberingLevelReference?.Val?.Value ?? 0;
-
-            _logger.LogDebug($"Paragraph '{text}' has numbering level: {level}");
-
-            // Only consider level 0 (main articles), ignore level 1+ (sub-articles)
-            if (level == 0)
+            // Check if this is a main article (starts at beginning of line)
+            var match = MainArticlePattern.Match(text);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
             {
-                // This is a main article, extract the number
-                var match = Regex.Match(text.Trim(), @"^(\d+)\.");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
-                {
-                    _logger.LogDebug($"Found main article {number} at list level {level}");
-                    return number;
-                }
-            }
-            else
-            {
-                _logger.LogDebug($"Skipping sub-article at level {level}: '{text}'");
+                _logger.LogDebug($"Found main article {number}: '{text}'");
+                return number;
             }
 
             return 0;
         }
-        // Alternative: Get detailed numbering information
-        private (int articleNumber, int listLevel, bool isMainArticle) GetNumberingInfo(Paragraph paragraph)
+
+        // Alternative: Even simpler approach - just check indentation
+        private int GetArticleNumberSimple(Paragraph paragraph)
         {
             var text = GetParagraphText(paragraph);
-            var numberingProperties = paragraph.ParagraphProperties?.NumberingProperties;
 
-            if (numberingProperties == null)
+            // Only consider items that DON'T start with whitespace as main articles
+            if (text.StartsWith(" ") || text.StartsWith("\t"))
             {
-                return (0, -1, false);
+                return 0; // Indented = sub-article
             }
 
-            var level = numberingProperties.NumberingLevelReference?.Val?.Value ?? 0;
-            var isMainArticle = level == 0;
+            // Look for pattern at start of line only
+            var match = Regex.Match(text, @"^(\d+)\.");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int number))
+            {
+                return number;
+            }
 
-            // Extract number from text
-            var match = Regex.Match(text.Trim(), @"^(\d+)\.");
-            var articleNumber = match.Success && int.TryParse(match.Groups[1].Value, out int num) ? num : 0;
-
-            return (articleNumber, level, isMainArticle);
+            return 0;
         }
-
-        // Updated ProcessPlaceholders that understands list levels
+        // Updated ProcessPlaceholders to handle your document structure
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
             var body = document.Body;
             if (body == null) return removalInfo;
 
-            _logger.LogInformation($"[{correlationId}] === PROCESSING WITH LIST LEVEL DETECTION ===");
-
-            // Debug: Show list structure
+            // First, let's see what we're working with
             var allParagraphs = body.Descendants<Paragraph>().ToList();
-            for (int i = 0; i < Math.Min(15, allParagraphs.Count); i++)
-            {
-                var para = allParagraphs[i];
-                var text = GetParagraphText(para);
-                var (articleNum, listLevel, isMain) = GetNumberingInfo(para);
+            _logger.LogInformation($"[{correlationId}] Total paragraphs: {allParagraphs.Count}");
 
-                if (articleNum > 0)
-                {
-                    _logger.LogInformation($"[{correlationId}] Para {i}: '{text}' → Article {articleNum}, Level {listLevel}, Main: {isMain}");
-                }
-            }
-
-            // Find ^ and # markers
+            // Find ^ markers and determine which MAIN article they belong to
             foreach (var paragraph in allParagraphs)
             {
                 var text = GetParagraphText(paragraph).Trim();
 
                 if (text == "^")
                 {
-                    _logger.LogInformation($"[{correlationId}] Found ^ marker");
+                    _logger.LogInformation($"[{correlationId}] Found ^ marker in: '{text}'");
 
-                    // Find which main article this belongs to
+                    // Find which main article this belongs to by searching backwards
                     var articleNum = FindMainArticleForParagraph(paragraph, allParagraphs);
                     if (articleNum > 0)
                     {
                         removalInfo.ArticlesToRemove.Add(articleNum);
-                        _logger.LogInformation($"[{correlationId}] ^ belongs to main article {articleNum} - will remove");
+                        _logger.LogInformation($"[{correlationId}] ^ marker belongs to main article {articleNum} - will remove");
                     }
                 }
 
                 if (text == "#")
                 {
-                    _logger.LogInformation($"[{correlationId}] Found # marker - will remove this paragraph");
                     removalInfo.ParagraphsToRemove.Add(paragraph);
+                    _logger.LogInformation($"[{correlationId}] Found # marker - will remove this paragraph only");
                 }
             }
 
-            _logger.LogInformation($"[{correlationId}] RESULT: Will remove articles [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
             return removalInfo;
         }
 
-        // Helper to find main article for any paragraph
+        // Helper to find which MAIN article a paragraph belongs to
         private int FindMainArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
         {
             var index = allParagraphs.IndexOf(targetParagraph);
 
-            // Search backwards to find the most recent main article (list level 0)
+            // Search backwards to find the most recent MAIN article (non-indented)
             for (int i = index; i >= 0; i--)
             {
-                var paragraph = allParagraphs[i];
-                var (articleNum, listLevel, isMain) = GetNumberingInfo(paragraph);
+                var text = GetParagraphText(allParagraphs[i]);
 
-                if (isMain && articleNum > 0)
+                // Skip indented items (sub-articles)
+                if (text.StartsWith(" ") || text.StartsWith("\t"))
+                {
+                    continue;
+                }
+
+                // Look for main article pattern
+                var match = Regex.Match(text, @"^(\d+)\.");
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int articleNum))
                 {
                     _logger.LogDebug($"Found ^ belongs to main article {articleNum}");
                     return articleNum;
@@ -213,7 +192,6 @@ namespace Scheidingsdesk
             return 0;
         }
 
-        // Fixed RemoveMarkedElements that actually uses GetArticleNumber
         private void RemoveMarkedElements(Document document, RemovalInfo removalInfo)
         {
             var body = document.Body;
@@ -223,17 +201,15 @@ namespace Scheidingsdesk
             var currentArticle = 0;
             var paragraphsToRemove = new List<Paragraph>();
 
-            _logger.LogInformation($"About to remove articles: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
-
             foreach (var paragraph in paragraphsToProcess)
             {
-                // USE GetArticleNumber instead of direct regex!
-                var articleNumber = GetArticleNumber(paragraph);
-                if (articleNumber > 0)
+                var text = GetParagraphText(paragraph);
+
+                // Check if this is a main article
+                var mainMatch = MainArticlePattern.Match(text);
+                if (mainMatch.Success)
                 {
-                    currentArticle = articleNumber;
-                    var text = GetParagraphText(paragraph);
-                    _logger.LogDebug($"Found article {currentArticle}: {text}");
+                    currentArticle = int.Parse(mainMatch.Groups[1].Value);
                 }
 
                 // Remove if:
@@ -243,8 +219,6 @@ namespace Scheidingsdesk
                     (currentArticle > 0 && removalInfo.ArticlesToRemove.Contains(currentArticle)))
                 {
                     paragraphsToRemove.Add(paragraph);
-                    var text = GetParagraphText(paragraph);
-                    _logger.LogDebug($"Removing (article {currentArticle}): {text}");
                 }
             }
 
@@ -256,6 +230,7 @@ namespace Scheidingsdesk
 
             _logger.LogInformation($"Removed {paragraphsToRemove.Count} paragraphs");
         }
+
         private void RenumberArticles(Document document, string correlationId)
         {
             var body = document.Body;
