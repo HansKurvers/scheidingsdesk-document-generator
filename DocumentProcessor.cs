@@ -16,7 +16,7 @@ namespace Scheidingsdesk
         private readonly ILogger _logger;
         private const string REMOVE_PARAGRAPH_MARKER = "#";
         private const string REMOVE_ARTICLE_MARKER = "^";
-
+        
         // Regex patterns for article detection
         private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s+(.+)$", RegexOptions.Compiled);
         private static readonly Regex SubArticlePattern = new Regex(@"^(\s+)(\d+)\.(\d+)\s+(.+)$", RegexOptions.Compiled);
@@ -29,7 +29,7 @@ namespace Scheidingsdesk
         public async Task<MemoryStream> ProcessDocumentAsync(Stream inputStream, string correlationId)
         {
             var outputStream = new MemoryStream();
-
+            
             await Task.Run(() =>
             {
                 try
@@ -81,7 +81,6 @@ namespace Scheidingsdesk
             public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
         }
 
-        // Add this enhanced debug logging to your ProcessPlaceholders method
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
@@ -95,10 +94,10 @@ namespace Scheidingsdesk
             foreach (var sdt in contentControls)
             {
                 var content = GetContentControlText(sdt);
-                _logger.LogDebug($"[{correlationId}] Processing content control with text: '{content}'");
-
+                
                 if (content == REMOVE_PARAGRAPH_MARKER)
                 {
+                    // Find the paragraph containing this content control
                     var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
                     if (paragraph != null)
                     {
@@ -108,66 +107,21 @@ namespace Scheidingsdesk
                 }
                 else if (content == REMOVE_ARTICLE_MARKER)
                 {
+                    // Find the paragraph containing this content control
                     var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
                     if (paragraph != null)
                     {
-                        var paragraphText = GetParagraphText(paragraph);
-                        _logger.LogDebug($"[{correlationId}] Found ^ marker in paragraph: '{paragraphText}'");
-
-                        var articleNumber = FindArticleNumberForContentControl(sdt, body);
+                        var articleNumber = GetArticleNumber(paragraph);
                         if (articleNumber > 0)
                         {
                             removalInfo.ArticlesToRemove.Add(articleNumber);
-                            _logger.LogInformation($"[{correlationId}] Marked article {articleNumber} for removal");
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"[{correlationId}] Found ^ marker but could not determine article number");
+                            _logger.LogDebug($"[{correlationId}] Marked article {articleNumber} for removal");
                         }
                     }
                 }
             }
-
-            _logger.LogInformation($"[{correlationId}] Articles marked for removal: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
-            _logger.LogInformation($"[{correlationId}] Paragraphs marked for removal: {removalInfo.ParagraphsToRemove.Count}");
 
             return removalInfo;
-        }
-
-        // Add this new helper method
-        private int FindArticleNumberForContentControl(SdtElement sdt, Body body)
-        {
-            // First, try the paragraph containing the content control
-            var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-            if (paragraph != null)
-            {
-                var articleNumber = GetArticleNumber(paragraph);
-                if (articleNumber > 0)
-                {
-                    return articleNumber;
-                }
-            }
-
-            // If not found, look backwards through previous paragraphs to find the article title
-            var allParagraphs = body.Descendants<Paragraph>().ToList();
-            var currentParagraphIndex = allParagraphs.IndexOf(paragraph);
-
-            if (currentParagraphIndex >= 0)
-            {
-                // Search backwards from current paragraph to find the article title
-                for (int i = currentParagraphIndex; i >= 0; i--)
-                {
-                    var checkParagraph = allParagraphs[i];
-                    var articleNumber = GetArticleNumber(checkParagraph);
-                    if (articleNumber > 0)
-                    {
-                        _logger.LogDebug($"Found article {articleNumber} for ^ marker by searching backwards");
-                        return articleNumber;
-                    }
-                }
-            }
-
-            return 0;
         }
 
         private void RemoveMarkedElements(Document document, RemovalInfo removalInfo)
@@ -182,7 +136,7 @@ namespace Scheidingsdesk
             foreach (var paragraph in paragraphsToProcess)
             {
                 var text = GetParagraphText(paragraph);
-
+                
                 // Check if this is a main article
                 var mainMatch = MainArticlePattern.Match(text);
                 if (mainMatch.Success)
@@ -223,7 +177,7 @@ namespace Scheidingsdesk
             {
                 var text = GetParagraphText(paragraph);
                 var mainMatch = MainArticlePattern.Match(text);
-
+                
                 if (mainMatch.Success)
                 {
                     var oldArticleNumber = int.Parse(mainMatch.Groups[1].Value);
@@ -243,7 +197,7 @@ namespace Scheidingsdesk
                 if (!runs.Any()) continue;
 
                 var fullText = string.Join("", runs.Select(r => GetRunText(r)));
-
+                
                 // Check for main article
                 var mainMatch = MainArticlePattern.Match(fullText);
                 if (mainMatch.Success)
@@ -262,7 +216,7 @@ namespace Scheidingsdesk
                 {
                     var mainArticle = int.Parse(subMatch.Groups[2].Value);
                     var subArticle = int.Parse(subMatch.Groups[3].Value);
-
+                    
                     if (articleMapping.TryGetValue(mainArticle, out var newMainNumber))
                     {
                         ReplaceSubArticleNumber(paragraph, mainArticle, subArticle, newMainNumber);
@@ -279,14 +233,14 @@ namespace Scheidingsdesk
                 {
                     if (isSubArticle)
                     {
-                        text.Text = Regex.Replace(text.Text,
-                            @"\b" + oldNumber + @"\.(\d+)",
+                        text.Text = Regex.Replace(text.Text, 
+                            @"\b" + oldNumber + @"\.(\d+)", 
                             newNumber + ".$1");
                     }
                     else
                     {
-                        text.Text = Regex.Replace(text.Text,
-                            @"^" + oldNumber + @"\.",
+                        text.Text = Regex.Replace(text.Text, 
+                            @"^" + oldNumber + @"\.", 
                             newNumber + ".");
                     }
                 }
@@ -299,8 +253,8 @@ namespace Scheidingsdesk
             {
                 foreach (var text in run.Descendants<Text>())
                 {
-                    text.Text = Regex.Replace(text.Text,
-                        @"\b" + oldMainNumber + @"\." + subNumber + @"\b",
+                    text.Text = Regex.Replace(text.Text, 
+                        @"\b" + oldMainNumber + @"\." + subNumber + @"\b", 
                         newMainNumber + "." + subNumber);
                 }
             }
@@ -328,22 +282,22 @@ namespace Scheidingsdesk
                 foreach (var child in contentToPreserve)
                 {
                     var clonedChild = child.CloneNode(true);
-
+                    
                     // Clean up formatting
                     foreach (var run in clonedChild.Descendants<Run>())
                     {
                         var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
-
+                        
                         // Remove any gray color
                         var colorElements = runProps.Elements<Color>().ToList();
                         foreach (var color in colorElements)
                         {
                             runProps.RemoveChild(color);
                         }
-
+                        
                         // Set text color to black
                         runProps.AppendChild(new Color() { Val = "000000" });
-
+                        
                         // Remove any shading
                         var shadingElements = runProps.Elements<Shading>().ToList();
                         foreach (var shading in shadingElements)
@@ -351,7 +305,7 @@ namespace Scheidingsdesk
                             runProps.RemoveChild(shading);
                         }
                     }
-
+                    
                     parent.InsertBefore(clonedChild, sdt);
                 }
 
@@ -382,7 +336,7 @@ namespace Scheidingsdesk
         {
             var text = GetParagraphText(paragraph);
             var match = MainArticlePattern.Match(text);
-
+            
             if (match.Success)
             {
                 return int.Parse(match.Groups[1].Value);
