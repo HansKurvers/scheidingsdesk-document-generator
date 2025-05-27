@@ -92,51 +92,11 @@ namespace Scheidingsdesk
             var contentControls = body.Descendants<SdtElement>().ToList();
             _logger.LogInformation($"[{correlationId}] Found {contentControls.Count} content controls");
 
-            // First pass: Process article removals (^) to avoid conflicts
             foreach (var sdt in contentControls)
             {
                 var content = GetContentControlText(sdt);
-                
-                if (content == REMOVE_ARTICLE_MARKER)
-                {
-                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null)
-                    {
-                        var paragraphText = GetParagraphText(paragraph);
-                        _logger.LogDebug($"[{correlationId}] Found ^ marker in paragraph: '{paragraphText}'");
-                        
-                        // First, check if this paragraph itself is an article title
-                        var articleNumber = GetArticleNumber(paragraph);
-                        
-                        if (articleNumber > 0)
-                        {
-                            _logger.LogDebug($"[{correlationId}] Found article number {articleNumber} in same paragraph as ^ marker");
-                        }
-                        
-                        // If not found in the current paragraph, search backwards
-                        if (articleNumber == 0)
-                        {
-                            articleNumber = FindArticleNumberForContentControl(sdt, body);
-                        }
-                        
-                        if (articleNumber > 0)
-                        {
-                            removalInfo.ArticlesToRemove.Add(articleNumber);
-                            _logger.LogInformation($"[{correlationId}] Marked article {articleNumber} for removal (^ marker)");
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"[{correlationId}] Found ^ marker but could not determine article number. Paragraph text: '{paragraphText}'");
-                        }
-                    }
-                }
-            }
+                _logger.LogDebug($"[{correlationId}] Processing content control with text: '{content}'");
 
-            // Second pass: Process paragraph removals (#)
-            foreach (var sdt in contentControls)
-            {
-                var content = GetContentControlText(sdt);
-                
                 if (content == REMOVE_PARAGRAPH_MARKER)
                 {
                     var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
@@ -144,6 +104,26 @@ namespace Scheidingsdesk
                     {
                         removalInfo.ParagraphsToRemove.Add(paragraph);
                         _logger.LogDebug($"[{correlationId}] Marked paragraph for removal: {GetParagraphText(paragraph)}");
+                    }
+                }
+                else if (content == REMOVE_ARTICLE_MARKER)
+                {
+                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
+                    if (paragraph != null)
+                    {
+                        var paragraphText = GetParagraphText(paragraph);
+                        _logger.LogDebug($"[{correlationId}] Found ^ marker in paragraph: '{paragraphText}'");
+
+                        var articleNumber = FindArticleNumberForContentControl(sdt, body);
+                        if (articleNumber > 0)
+                        {
+                            removalInfo.ArticlesToRemove.Add(articleNumber);
+                            _logger.LogInformation($"[{correlationId}] Marked article {articleNumber} for removal");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"[{correlationId}] Found ^ marker but could not determine article number");
+                        }
                     }
                 }
             }
@@ -170,23 +150,19 @@ namespace Scheidingsdesk
 
             // If not found, look backwards through previous paragraphs to find the article title
             var allParagraphs = body.Descendants<Paragraph>().ToList();
-            
-            if (paragraph != null)
+            var currentParagraphIndex = allParagraphs.IndexOf(paragraph);
+
+            if (currentParagraphIndex >= 0)
             {
-                var currentParagraphIndex = allParagraphs.IndexOf(paragraph);
-                
-                if (currentParagraphIndex >= 0)
+                // Search backwards from current paragraph to find the article title
+                for (int i = currentParagraphIndex; i >= 0; i--)
                 {
-                    // Search backwards from current paragraph to find the article title
-                    for (int i = currentParagraphIndex - 1; i >= 0; i--)
+                    var checkParagraph = allParagraphs[i];
+                    var articleNumber = GetArticleNumber(checkParagraph);
+                    if (articleNumber > 0)
                     {
-                        var checkParagraph = allParagraphs[i];
-                        var articleNumber = GetArticleNumber(checkParagraph);
-                        if (articleNumber > 0)
-                        {
-                            _logger.LogDebug($"Found article {articleNumber} for ^ marker by searching backwards");
-                            return articleNumber;
-                        }
+                        _logger.LogDebug($"Found article {articleNumber} for ^ marker by searching backwards");
+                        return articleNumber;
                     }
                 }
             }
