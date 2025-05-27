@@ -1,8 +1,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -10,6 +8,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using System.Linq;
+using System.Net;
 
 namespace Scheidingsdesk
 {
@@ -23,29 +22,51 @@ namespace Scheidingsdesk
         }
 
         [Function("RemoveContentControls")]
-        public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
+        public async Task<HttpResponseData> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request to remove content controls.");
 
-            // Get the uploaded file
-            var formData = await req.ReadFormAsync();
-            var file = formData.Files.GetFile("document") ?? formData.Files.GetFile("file");            
-            if (file == null)
-            {
-                return new BadRequestObjectResult("Please upload a Word document.");
-            }
-
-            // Create memory streams for input and output
-            using var inputStream = new MemoryStream();
-            await file.CopyToAsync(inputStream);
-            inputStream.Position = 0;
-            
-            using var outputStream = new MemoryStream();
-            
-            // Process the document
             try
-            {  
+            {
+                // Get content type
+                var contentType = req.Headers.GetValues("Content-Type")?.FirstOrDefault() ?? string.Empty;
+                
+                // Get the uploaded file
+                byte[] fileContent = null;
+                string fileName = "document.docx";
+                
+                if (contentType.Contains("multipart/form-data"))
+                {
+                    // Parse multipart form data
+                    var formData = await req.ParseMultipartAsync();
+                    var file = formData.Files.FirstOrDefault(f => f.Name == "document" || f.Name == "file");
+                    
+                    if (file != null)
+                    {
+                        fileContent = file.Data;
+                        fileName = file.FileName ?? fileName;
+                    }
+                }
+                else
+                {
+                    // Read directly from body
+                    using var memoryStream = new MemoryStream();
+                    await req.Body.CopyToAsync(memoryStream);
+                    fileContent = memoryStream.ToArray();
+                }
+                
+                if (fileContent == null || fileContent.Length == 0)
+                {
+                    var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+                    await errorResponse.WriteAsJsonAsync(new { error = "Please upload a Word document." });
+                    return errorResponse;
+                }
+
+                // Create memory streams for input and output
+                using var inputStream = new MemoryStream(fileContent);
+                using var outputStream = new MemoryStream();
+                
                 // Process the document directly from the input stream to avoid unnecessary copying
                 using (WordprocessingDocument doc = WordprocessingDocument.Open(inputStream, false))
                 {
@@ -76,21 +97,27 @@ namespace Scheidingsdesk
                 
                 // Reset the position for reading
                 outputStream.Position = 0;
+                
+                // Return the processed document
+                var response = req.CreateResponse(HttpStatusCode.OK);
+                response.Headers.Add("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+                response.Headers.Add("Content-Disposition", $"attachment; filename=\"ProcessedDocument.docx\"");
+                
+                await response.Body.WriteAsync(outputStream.ToArray());
+                return response;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing document: {ex.Message}");
-                return new ObjectResult($"Error processing document: {ex.Message}")
-                {
-                    StatusCode = StatusCodes.Status500InternalServerError
-                };
+                
+                var errorResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
+                await errorResponse.WriteAsJsonAsync(new 
+                { 
+                    error = "Error processing document",
+                    details = ex.Message 
+                });
+                return errorResponse;
             }
-        
-            // Return the processed document
-            return new FileContentResult(outputStream.ToArray(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            {
-                FileDownloadName = "ProcessedDocument.docx"
-            };
         }
 
         private void ProcessContentControls(DocumentFormat.OpenXml.OpenXmlElement element)
