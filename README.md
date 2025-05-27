@@ -185,6 +185,32 @@ The function automatically logs to Application Insights:
 3. Enable verbose logging in development
 4. Test with sample documents before production deployment
 
+### Common Issues
+
+#### "Unexpected error processing document" on local development
+If you encounter this error when testing locally:
+1. Ensure you're using the latest Azure Functions Core Tools (v4)
+2. Try testing with the health check endpoint first: `GET http://localhost:7071/api/health`
+3. Use Postman or cURL instead of the Functions test interface
+4. Check that your `local.settings.json` has all required settings
+5. Ensure the request includes proper Content-Type headers
+
+#### Testing with cURL (recommended for local testing)
+```bash
+# Test with form data
+curl -X POST http://localhost:7071/api/process \
+  -H "x-functions-key: test" \
+  -F "document=@test.docx" \
+  -o output.docx -v
+
+# Test with binary upload
+curl -X POST http://localhost:7071/api/process \
+  -H "x-functions-key: test" \
+  -H "Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
+  --data-binary @test.docx \
+  -o output.docx -v
+```
+
 ## Architecture
 
 ### Project Structure

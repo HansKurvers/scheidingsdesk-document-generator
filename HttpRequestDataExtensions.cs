@@ -12,13 +12,20 @@ namespace Scheidingsdesk
     {
         public static async Task<MultipartFormData> ParseMultipartAsync(this HttpRequestData request)
         {
-            var contentType = request.Headers.GetValues("Content-Type")?.FirstOrDefault() ?? string.Empty;
-            var boundary = GetBoundary(contentType);
-            
-            if (string.IsNullOrEmpty(boundary))
+            try
             {
-                return new MultipartFormData { Files = new List<MultipartFile>() };
-            }
+                string contentType = string.Empty;
+                if (request.Headers.TryGetValues("Content-Type", out var contentTypeValues))
+                {
+                    contentType = contentTypeValues.FirstOrDefault() ?? string.Empty;
+                }
+                
+                var boundary = GetBoundary(contentType);
+                
+                if (string.IsNullOrEmpty(boundary))
+                {
+                    return new MultipartFormData { Files = new List<MultipartFile>() };
+                }
 
             // Read the body as bytes first
             using var memoryStream = new MemoryStream();
@@ -72,7 +79,13 @@ namespace Scheidingsdesk
                 }
             }
             
-            return new MultipartFormData { Files = files };
+                return new MultipartFormData { Files = files };
+            }
+            catch (Exception ex)
+            {
+                // Return empty result on error
+                return new MultipartFormData { Files = new List<MultipartFile>() };
+            }
         }
         
         private static string GetBoundary(string contentType)

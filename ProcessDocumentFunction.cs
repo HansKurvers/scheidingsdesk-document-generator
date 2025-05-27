@@ -25,6 +25,13 @@ namespace Scheidingsdesk
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = "process")] HttpRequestData req)
         {
+            // Check if request is null
+            if (req == null)
+            {
+                _logger.LogError("Request is null");
+                throw new ArgumentNullException(nameof(req));
+            }
+
             var stopwatch = Stopwatch.StartNew();
             var correlationId = Guid.NewGuid().ToString();
             
@@ -32,8 +39,32 @@ namespace Scheidingsdesk
 
             try
             {
+                // Log request details safely
+                try
+                {
+                    _logger.LogInformation($"[{correlationId}] Request URL: {req.Url}");
+                    _logger.LogInformation($"[{correlationId}] Request Method: {req.Method}");
+                }
+                catch (Exception logEx)
+                {
+                    _logger.LogWarning($"[{correlationId}] Error logging request details: {logEx.Message}");
+                }
+                
                 // Validate content type
-                var contentType = req.Headers.GetValues("Content-Type")?.FirstOrDefault() ?? string.Empty;
+                string contentType = string.Empty;
+                try
+                {
+                    if (req.Headers != null && req.Headers.TryGetValues("Content-Type", out var contentTypeValues))
+                    {
+                        contentType = contentTypeValues.FirstOrDefault() ?? string.Empty;
+                    }
+                }
+                catch (Exception headerEx)
+                {
+                    _logger.LogWarning($"[{correlationId}] Error reading Content-Type header: {headerEx.Message}");
+                }
+                _logger.LogInformation($"[{correlationId}] Content-Type: {contentType}");
+                
                 if (!contentType.Contains("multipart/form-data") && 
                     !contentType.Contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
                 {
@@ -64,9 +95,19 @@ namespace Scheidingsdesk
                 else
                 {
                     // Read directly from body
-                    using var memoryStream = new MemoryStream();
-                    await req.Body.CopyToAsync(memoryStream);
-                    fileContent = memoryStream.ToArray();
+                    try
+                    {
+                        if (req.Body != null)
+                        {
+                            using var memoryStream = new MemoryStream();
+                            await req.Body.CopyToAsync(memoryStream);
+                            fileContent = memoryStream.ToArray();
+                        }
+                    }
+                    catch (Exception bodyEx)
+                    {
+                        _logger.LogWarning($"[{correlationId}] Error reading request body: {bodyEx.Message}");
+                    }
                 }
                 
                 if (fileContent == null || fileContent.Length == 0)
@@ -123,7 +164,8 @@ namespace Scheidingsdesk
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"[{correlationId}] Unexpected error processing document");
+                _logger.LogError(ex, $"[{correlationId}] Unexpected error processing document: {ex.Message}");
+                _logger.LogError($"[{correlationId}] Stack trace: {ex.StackTrace}");
                 return await CreateErrorResponse(req, HttpStatusCode.InternalServerError, new
                 {
                     error = "An unexpected error occurred while processing the document.",
@@ -133,7 +175,7 @@ namespace Scheidingsdesk
             }
         }
 
-        private async Task<HttpResponseData> CreateErrorResponse(HttpRequestData req, HttpStatusCode statusCode, object errorContent)
+        private static async Task<HttpResponseData> CreateErrorResponse(HttpRequestData req, HttpStatusCode statusCode, object errorContent)
         {
             var response = req.CreateResponse(statusCode);
             response.Headers.Add("Content-Type", "application/json");

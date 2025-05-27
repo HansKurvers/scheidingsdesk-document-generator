@@ -30,7 +30,11 @@ namespace Scheidingsdesk
             try
             {
                 // Get content type
-                var contentType = req.Headers.GetValues("Content-Type")?.FirstOrDefault() ?? string.Empty;
+                string contentType = string.Empty;
+                if (req.Headers.TryGetValues("Content-Type", out var contentTypeValues))
+                {
+                    contentType = contentTypeValues.FirstOrDefault() ?? string.Empty;
+                }
                 
                 // Get the uploaded file
                 byte[] fileContent = null;
