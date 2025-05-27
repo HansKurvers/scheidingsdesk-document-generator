@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Extensions.Logging;
-using DocumentFormat.OpenXml.Wordprocessing;
 
 
 namespace Scheidingsdesk
@@ -19,10 +12,9 @@ namespace Scheidingsdesk
         private const string REMOVE_PARAGRAPH_MARKER = "#";
         private const string REMOVE_ARTICLE_MARKER = "^";
 
-        // Regex patterns for article detection
-        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s+(.+)$", RegexOptions.Compiled);
-        private static readonly Regex SubArticlePattern = new Regex(@"^(\s+)(\d+)\.(\d+)\s+(.+)$", RegexOptions.Compiled);
-
+        // Updated regex patterns to distinguish main articles from sub-articles
+        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s*(.*)$", RegexOptions.Compiled);
+        private static readonly Regex SubArticlePattern = new Regex(@"^\s+(\d+)\.\s*(.*)$", RegexOptions.Compiled);
         public DocumentProcessor(ILogger logger)
         {
             _logger = logger;
@@ -55,9 +47,6 @@ namespace Scheidingsdesk
                         // Step 2: Remove marked elements
                         RemoveMarkedElements(doc.MainDocumentPart.Document, removalInfo);
 
-                        // Step 3: Renumber articles
-                        RenumberArticles(doc.MainDocumentPart.Document, correlationId);
-
                         // Step 4: Remove all content controls
                         RemoveContentControls(doc.MainDocumentPart.Document, correlationId);
 
@@ -77,209 +66,203 @@ namespace Scheidingsdesk
             return outputStream;
         }
 
+
+
         private class RemovalInfo
         {
             public HashSet<Paragraph> ParagraphsToRemove { get; } = new HashSet<Paragraph>();
             public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
         }
 
-        // Add this enhanced debug logging to your ProcessPlaceholders method
-        // Alternative: Look for ^ anywhere in paragraph text (not just content controls)
+        // Ultra-basic debug version - let's see what's actually in the document
         private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
         {
             var removalInfo = new RemovalInfo();
             var body = document.Body;
-            if (body == null) return removalInfo;
+            if (body == null)
+            {
+                _logger.LogError($"[{correlationId}] Document body is null!");
+                return removalInfo;
+            }
 
+            _logger.LogInformation($"[{correlationId}] === ULTRA-BASIC DEBUG START ===");
+
+            // Step 1: Just list ALL paragraphs and their text
             var allParagraphs = body.Descendants<Paragraph>().ToList();
+            _logger.LogInformation($"[{correlationId}] Total paragraphs found: {allParagraphs.Count}");
+
+            for (int i = 0; i < Math.Min(20, allParagraphs.Count); i++)
+            {
+                var para = allParagraphs[i];
+                var text = GetParagraphText(para);
+                _logger.LogInformation($"[{correlationId}] Para {i}: '{text}'");
+
+                // Check if this paragraph contains ^ or #
+                if (text.Contains("^"))
+                {
+                    _logger.LogInformation($"[{correlationId}] *** FOUND ^ in paragraph {i}: '{text}'");
+                }
+                if (text.Contains("#"))
+                {
+                    _logger.LogInformation($"[{correlationId}] *** FOUND # in paragraph {i}: '{text}'");
+                }
+            }
+
+            // Step 2: Look for content controls
+            var contentControls = body.Descendants<SdtElement>().ToList();
+            _logger.LogInformation($"[{correlationId}] Total content controls found: {contentControls.Count}");
+
+            for (int i = 0; i < contentControls.Count; i++)
+            {
+                var sdt = contentControls[i];
+                var text = GetContentControlText(sdt);
+                _logger.LogInformation($"[{correlationId}] ContentControl {i}: '{text}'");
+            }
+
+            // Step 3: VERY SIMPLE approach - just find ^ and # anywhere
+            bool foundCaret = false;
+            bool foundHash = false;
 
             foreach (var paragraph in allParagraphs)
             {
-                var text = GetParagraphText(paragraph);
+                var text = GetParagraphText(paragraph).Trim();
 
-                // Look for ^ anywhere in the paragraph text
-                if (text.Contains("^"))
+                // Just look for exact matches
+                if (text == "^")
                 {
-                    // Find which article this paragraph belongs to
-                    var articleNum = FindArticleForParagraph(paragraph, allParagraphs);
-                    if (articleNum > 0)
-                    {
-                        removalInfo.ArticlesToRemove.Add(articleNum);
-                        _logger.LogInformation($"Found ^ in article {articleNum}, will remove entire article");
-                    }
+                    _logger.LogInformation($"[{correlationId}] FOUND EXACT ^ MATCH: '{text}'");
+                    foundCaret = true;
+
+                    // Very simple: assume this is article 1 for now
+                    removalInfo.ArticlesToRemove.Add(1);
                 }
 
-                // Look for # anywhere in the paragraph text  
-                if (text.Contains("#"))
+                if (text == "#")
                 {
-                    _logger.LogInformation($"[{correlationId}] Found # marker - will remove this paragraph");
+                    _logger.LogInformation($"[{correlationId}] FOUND EXACT # MATCH: '{text}'");
+                    foundHash = true;
+
+                    // Just mark this paragraph for removal
                     removalInfo.ParagraphsToRemove.Add(paragraph);
-                    _logger.LogInformation($"Found # in paragraph, will remove this paragraph only");
                 }
             }
 
-            _logger.LogInformation($"[{correlationId}] RESULT: Will remove articles [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
+            _logger.LogInformation($"[{correlationId}] SUMMARY:");
+            _logger.LogInformation($"[{correlationId}]   Found ^ anywhere: {foundCaret}");
+            _logger.LogInformation($"[{correlationId}]   Found # anywhere: {foundHash}");
+            _logger.LogInformation($"[{correlationId}]   Articles to remove: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
+            _logger.LogInformation($"[{correlationId}]   Paragraphs to remove: {removalInfo.ParagraphsToRemove.Count}");
+
             return removalInfo;
         }
 
-        private int FindArticleForParagraph(Paragraph targetParagraph, List<Paragraph> allParagraphs)
-        {
-            var index = allParagraphs.IndexOf(targetParagraph);
-
-            // Search backwards to find the article this paragraph belongs to
-            for (int i = index; i >= 0; i--)
-            {
-                var text = GetParagraphText(allParagraphs[i]);
-                var match = Regex.Match(text, @"^(\d+)\.");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int articleNum))
-                {
-                    return articleNum;
-                }
-            }
-
-            return 0;
-        }
-
-        // Fixed RemoveMarkedElements that actually uses GetArticleNumber
+        // Ultra-simple removal that just removes what we found
         private void RemoveMarkedElements(Document document, RemovalInfo removalInfo)
         {
             var body = document.Body;
             if (body == null) return;
 
-            var paragraphsToProcess = body.Descendants<Paragraph>().ToList();
-            var currentArticle = 0;
+            _logger.LogInformation($"Starting removal...");
+            _logger.LogInformation($"Articles to remove: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
+            _logger.LogInformation($"Individual paragraphs to remove: {removalInfo.ParagraphsToRemove.Count}");
+
+            var allParagraphs = body.Descendants<Paragraph>().ToList();
             var paragraphsToRemove = new List<Paragraph>();
 
-            _logger.LogInformation($"About to remove articles: [{string.Join(", ", removalInfo.ArticlesToRemove)}]");
-
-            foreach (var paragraph in paragraphsToProcess)
+            // Step 1: Remove individual paragraphs marked with #
+            foreach (var paragraph in removalInfo.ParagraphsToRemove)
             {
-                // USE GetArticleNumber instead of direct regex!
-                var articleNumber = GetArticleNumber(paragraph);
-                if (articleNumber > 0)
-                {
-                    currentArticle = articleNumber;
-                    var text = GetParagraphText(paragraph);
-                    _logger.LogDebug($"Found article {currentArticle}: {text}");
-                }
+                paragraphsToRemove.Add(paragraph);
+                var text = GetParagraphText(paragraph);
+                _logger.LogInformation($"Will remove # paragraph: '{text}'");
+            }
 
-                // Remove if:
-                // 1. It's explicitly marked for removal
-                // 2. It belongs to an article marked for removal
-                if (removalInfo.ParagraphsToRemove.Contains(paragraph) ||
-                    (currentArticle > 0 && removalInfo.ArticlesToRemove.Contains(currentArticle)))
+            // Step 2: If article 1 is marked for removal, remove everything that looks like it belongs to article 1
+            if (removalInfo.ArticlesToRemove.Contains(1))
+            {
+                _logger.LogInformation($"Article 1 is marked for removal, looking for article 1 content...");
+
+                bool inArticle1 = false;
+
+                foreach (var paragraph in allParagraphs)
                 {
-                    paragraphsToRemove.Add(paragraph);
                     var text = GetParagraphText(paragraph);
-                    _logger.LogDebug($"Removing (article {currentArticle}): {text}");
+
+                    // Very simple detection: if paragraph starts with "1." it's article 1
+                    if (text.Trim().StartsWith("1."))
+                    {
+                        inArticle1 = true;
+                        _logger.LogInformation($"Found start of article 1: '{text}'");
+                    }
+
+                    // If paragraph starts with "2." we're out of article 1
+                    if (text.Trim().StartsWith("2."))
+                    {
+                        inArticle1 = false;
+                        _logger.LogInformation($"Found start of article 2, leaving article 1: '{text}'");
+                    }
+
+                    // If we're in article 1, remove this paragraph
+                    if (inArticle1)
+                    {
+                        paragraphsToRemove.Add(paragraph);
+                        _logger.LogInformation($"Removing (article 1): '{text}'");
+                    }
                 }
             }
 
-            // Remove paragraphs
+            // Actually remove the paragraphs
+            _logger.LogInformation($"About to remove {paragraphsToRemove.Count} paragraphs total");
+
             foreach (var paragraph in paragraphsToRemove)
             {
-                paragraph.Remove();
+                try
+                {
+                    paragraph.Remove();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error removing paragraph: {ex.Message}");
+                }
             }
 
-            _logger.LogInformation($"Removed {paragraphsToRemove.Count} paragraphs");
+            _logger.LogInformation($"Removal completed");
         }
-        private void RenumberArticles(Document document, string correlationId)
+
+        // Simple text extraction
+        private string GetParagraphText(Paragraph paragraph)
         {
-            var body = document.Body;
-            if (body == null) return;
-
-            var paragraphs = body.Descendants<Paragraph>().ToList();
-            var articleMapping = new Dictionary<int, int>(); // old number -> new number
-            var currentNewArticle = 1;
-
-            // First pass: build mapping of old to new article numbers
-            foreach (var paragraph in paragraphs)
+            try
             {
-                var text = GetParagraphText(paragraph);
-                var mainMatch = MainArticlePattern.Match(text);
-
-                if (mainMatch.Success)
-                {
-                    var oldArticleNumber = int.Parse(mainMatch.Groups[1].Value);
-                    if (!articleMapping.ContainsKey(oldArticleNumber))
-                    {
-                        articleMapping[oldArticleNumber] = currentNewArticle++;
-                    }
-                }
+                var texts = paragraph.Descendants<Text>().Select(t => t.Text);
+                return string.Join("", texts).Trim();
             }
-
-            _logger.LogInformation($"[{correlationId}] Article renumbering mapping: {string.Join(", ", articleMapping.Select(kvp => $"{kvp.Key}->{kvp.Value}"))}");
-
-            // Second pass: apply renumbering
-            foreach (var paragraph in paragraphs)
+            catch (Exception ex)
             {
-                var runs = paragraph.Descendants<Run>().ToList();
-                if (!runs.Any()) continue;
-
-                var fullText = string.Join("", runs.Select(r => GetRunText(r)));
-
-                // Check for main article
-                var mainMatch = MainArticlePattern.Match(fullText);
-                if (mainMatch.Success)
-                {
-                    var oldNumber = int.Parse(mainMatch.Groups[1].Value);
-                    if (articleMapping.TryGetValue(oldNumber, out var newNumber))
-                    {
-                        ReplaceArticleNumber(paragraph, oldNumber, newNumber, false);
-                    }
-                    continue;
-                }
-
-                // Check for sub-article
-                var subMatch = SubArticlePattern.Match(fullText);
-                if (subMatch.Success)
-                {
-                    var mainArticle = int.Parse(subMatch.Groups[2].Value);
-                    var subArticle = int.Parse(subMatch.Groups[3].Value);
-
-                    if (articleMapping.TryGetValue(mainArticle, out var newMainNumber))
-                    {
-                        ReplaceSubArticleNumber(paragraph, mainArticle, subArticle, newMainNumber);
-                    }
-                }
+                _logger.LogError($"Error getting paragraph text: {ex.Message}");
+                return "";
             }
         }
 
-        private void ReplaceArticleNumber(Paragraph paragraph, int oldNumber, int newNumber, bool isSubArticle)
+        // Simple content control text extraction  
+        private string GetContentControlText(SdtElement sdt)
         {
-            foreach (var run in paragraph.Descendants<Run>())
+            try
             {
-                foreach (var text in run.Descendants<Text>())
-                {
-                    if (isSubArticle)
-                    {
-                        text.Text = Regex.Replace(text.Text,
-                            @"\b" + oldNumber + @"\.(\d+)",
-                            newNumber + ".$1");
-                    }
-                    else
-                    {
-                        text.Text = Regex.Replace(text.Text,
-                            @"^" + oldNumber + @"\.",
-                            newNumber + ".");
-                    }
-                }
+                var texts = sdt.Descendants<Text>().Select(t => t.Text);
+                var result = string.Join("", texts).Trim();
+
+                // Remove formatting artifacts
+                result = result.Replace("**", "").Replace("*", "");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error getting content control text: {ex.Message}");
+                return "";
             }
         }
-
-        private void ReplaceSubArticleNumber(Paragraph paragraph, int oldMainNumber, int subNumber, int newMainNumber)
-        {
-            foreach (var run in paragraph.Descendants<Run>())
-            {
-                foreach (var text in run.Descendants<Text>())
-                {
-                    text.Text = Regex.Replace(text.Text,
-                        @"\b" + oldMainNumber + @"\." + subNumber + @"\b",
-                        newMainNumber + "." + subNumber);
-                }
-            }
-        }
-
         private void RemoveContentControls(Document document, string correlationId)
         {
             var sdtElements = document.Descendants<SdtElement>().ToList();
@@ -332,19 +315,6 @@ namespace Scheidingsdesk
                 // Remove the content control
                 parent.RemoveChild(sdt);
             }
-        }
-
-       
-        private string GetParagraphText(Paragraph paragraph)
-        {
-            var texts = paragraph.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts).Trim();
-        }
-
-        private string GetRunText(Run run)
-        {
-            var texts = run.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts);
         }
     }
 }
