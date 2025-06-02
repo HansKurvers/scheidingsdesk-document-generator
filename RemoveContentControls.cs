@@ -68,35 +68,26 @@ namespace Scheidingsdesk
                     return errorResponse;
                 }
 
-                // Create memory streams for input and output
-                using var inputStream = new MemoryStream(fileContent);
+                // Create output stream and copy original document
                 using var outputStream = new MemoryStream();
+                outputStream.Write(fileContent, 0, fileContent.Length);
+                outputStream.Position = 0;
                 
-                // Process the document directly from the input stream to avoid unnecessary copying
-                using (WordprocessingDocument doc = WordprocessingDocument.Open(inputStream, false))
+                _logger.LogInformation($"Processing document with {fileContent.Length} bytes");
+                
+                // Process the document in-place
+                using (WordprocessingDocument outputDoc = WordprocessingDocument.Open(outputStream, true))
                 {
                     _logger.LogInformation("Document opened successfully.");
                     
-                    // Create a memory copy with the document to process
-                    using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(outputStream, doc.DocumentType))
+                    var mainPart = outputDoc.MainDocumentPart;
+                    if (mainPart != null)
                     {
-                        // Import all parts from the original document
-                        foreach (var part in doc.Parts)
-                        {
-                            outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
-                        }
+                        // Simply process all content controls
+                        ProcessContentControls(mainPart.Document);
                         
-                        // Get the main document part
-                        var mainPart = outputDoc.MainDocumentPart;
-                        if (mainPart != null)
-                        {
-                            // Find and process all structured document tags (content controls)
-                            ProcessContentControls(mainPart.Document);
-                            
-                            // Save the changes
-                            mainPart.Document.Save();
-                            _logger.LogInformation("Content controls processed successfully.");
-                        }
+                        mainPart.Document.Save();
+                        _logger.LogInformation("Content controls processed successfully.");
                     }
                 }
                 

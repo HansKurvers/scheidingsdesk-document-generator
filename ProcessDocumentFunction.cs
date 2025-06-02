@@ -35,7 +35,7 @@ namespace Scheidingsdesk
             var stopwatch = Stopwatch.StartNew();
             var correlationId = Guid.NewGuid().ToString();
             
-            _logger.LogInformation($"[{correlationId}] Processing document request started");
+            _logger.LogInformation($"[{correlationId}] Processing document request started - VERSION 2.0 - FIXED");
 
             try
             {
