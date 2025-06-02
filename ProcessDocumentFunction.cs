@@ -158,8 +158,12 @@ namespace Scheidingsdesk
 
                 // Process the document
                 using var inputStream = new MemoryStream(fileContent);
+                _logger.LogInformation($"[{correlationId}] Created input stream with {inputStream.Length} bytes");
+                
                 var outputStream = await _documentProcessor.ProcessDocumentAsync(inputStream, correlationId);
                 outputStream.Position = 0;
+                
+                _logger.LogInformation($"[{correlationId}] Received output stream with {outputStream.Length} bytes");
 
                 stopwatch.Stop();
                 _logger.LogInformation($"[{correlationId}] Document processed successfully in {stopwatch.ElapsedMilliseconds}ms");
@@ -174,7 +178,9 @@ namespace Scheidingsdesk
                 response.Headers.TryAddWithoutValidation("X-Processing-Time-Ms", stopwatch.ElapsedMilliseconds.ToString());
                 response.Headers.TryAddWithoutValidation("X-Document-Size", outputStream.Length.ToString());
                 
-                await response.Body.WriteAsync(outputStream.ToArray());
+                var outputBytes = outputStream.ToArray();
+                _logger.LogInformation($"[{correlationId}] Writing {outputBytes.Length} bytes to response");
+                await response.Body.WriteAsync(outputBytes);
                 return response;
             }
             catch (InvalidOperationException ex)

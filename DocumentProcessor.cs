@@ -22,9 +22,7 @@ namespace Scheidingsdesk
 
         public async Task<MemoryStream> ProcessDocumentAsync(Stream inputStream, string correlationId)
         {
-            var outputStream = new MemoryStream();
-            
-            await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 try
                 {
@@ -34,19 +32,24 @@ namespace Scheidingsdesk
                     inputStream.CopyTo(memoryStream);
                     var fileContent = memoryStream.ToArray();
                     
+                    _logger.LogInformation($"[{correlationId}] Read {fileContent.Length} bytes from input stream");
+                    
                     if (fileContent.Length == 0)
                     {
                         throw new InvalidOperationException("Input stream is empty or could not be read.");
                     }
 
-                    // First copy the original document to the output stream
+                    // Create output stream with the original document content
+                    var outputStream = new MemoryStream();
                     outputStream.Write(fileContent, 0, fileContent.Length);
                     outputStream.Position = 0;
+                    
+                    _logger.LogInformation($"[{correlationId}] Copied {outputStream.Length} bytes to output stream");
                     
                     // Now open and modify the output stream
                     using (WordprocessingDocument outputDoc = WordprocessingDocument.Open(outputStream, true))
                     {
-                        _logger.LogInformation($"[{correlationId}] Document opened successfully.");
+                        _logger.LogInformation($"[{correlationId}] Document opened successfully for editing.");
                         
                         var mainPart = outputDoc.MainDocumentPart;
                         if (mainPart != null)
@@ -60,17 +63,23 @@ namespace Scheidingsdesk
                             mainPart.Document.Save();
                             _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
                         }
+                        else
+                        {
+                            _logger.LogWarning($"[{correlationId}] MainDocumentPart is null!");
+                        }
                     }
+                    
+                    _logger.LogInformation($"[{correlationId}] Final output stream size: {outputStream.Length} bytes");
+                    outputStream.Position = 0;
+                    return outputStream;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"[{correlationId}] Error during document processing");
+                    _logger.LogError(ex, $"[{correlationId}] Error during document processing: {ex.Message}");
+                    _logger.LogError($"[{correlationId}] Stack trace: {ex.StackTrace}");
                     throw;
                 }
             });
-
-            outputStream.Position = 0;
-            return outputStream;
         }
 
         private void RemoveProblematicContentControls(Document document, string correlationId)
