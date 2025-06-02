@@ -39,32 +39,26 @@ namespace Scheidingsdesk
                         throw new InvalidOperationException("Input stream is empty or could not be read.");
                     }
 
-                    using var inputMemoryStream = new MemoryStream(fileContent);
+                    // First copy the original document to the output stream
+                    outputStream.Write(fileContent, 0, fileContent.Length);
+                    outputStream.Position = 0;
                     
-                    using (WordprocessingDocument doc = WordprocessingDocument.Open(inputMemoryStream, false))
+                    // Now open and modify the output stream
+                    using (WordprocessingDocument outputDoc = WordprocessingDocument.Open(outputStream, true))
                     {
                         _logger.LogInformation($"[{correlationId}] Document opened successfully.");
                         
-                        using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(outputStream, doc.DocumentType))
+                        var mainPart = outputDoc.MainDocumentPart;
+                        if (mainPart != null)
                         {
-                            // Import all parts from the original document
-                            foreach (var part in doc.Parts)
-                            {
-                                outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
-                            }
+                            // Enhanced processing: Clear problematic content controls first
+                            RemoveProblematicContentControls(mainPart.Document, correlationId);
                             
-                            var mainPart = outputDoc.MainDocumentPart;
-                            if (mainPart != null)
-                            {
-                                // Enhanced processing: Clear problematic content controls first
-                                RemoveProblematicContentControls(mainPart.Document, correlationId);
-                                
-                                // Then process all remaining content controls
-                                ProcessContentControls(mainPart.Document, correlationId);
-                                
-                                mainPart.Document.Save();
-                                _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
-                            }
+                            // Then process all remaining content controls
+                            ProcessContentControls(mainPart.Document, correlationId);
+                            
+                            mainPart.Document.Save();
+                            _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
                         }
                     }
                 }
