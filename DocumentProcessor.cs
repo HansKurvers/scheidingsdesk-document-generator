@@ -14,12 +14,6 @@ namespace Scheidingsdesk
     public class DocumentProcessor
     {
         private readonly ILogger _logger;
-        private const string REMOVE_PARAGRAPH_MARKER = "#";
-        private const string REMOVE_ARTICLE_MARKER = "^";
-        
-        // Regex patterns for article detection
-        private static readonly Regex MainArticlePattern = new Regex(@"^(\d+)\.\s+(.+)$", RegexOptions.Compiled);
-        private static readonly Regex SubArticlePattern = new Regex(@"^(\s+)(\d+)\.(\d+)\s+(.+)$", RegexOptions.Compiled);
 
         public DocumentProcessor(ILogger logger)
         {
@@ -34,34 +28,44 @@ namespace Scheidingsdesk
             {
                 try
                 {
-                    // Copy input to output stream for processing
-                    inputStream.CopyTo(outputStream);
-                    outputStream.Position = 0;
-
-                    using (var doc = WordprocessingDocument.Open(outputStream, true))
+                    // Read input stream to byte array
+                    inputStream.Position = 0;
+                    using var memoryStream = new MemoryStream();
+                    inputStream.CopyTo(memoryStream);
+                    var fileContent = memoryStream.ToArray();
+                    
+                    if (fileContent.Length == 0)
                     {
-                        if (doc.MainDocumentPart == null)
+                        throw new InvalidOperationException("Input stream is empty or could not be read.");
+                    }
+
+                    using var inputMemoryStream = new MemoryStream(fileContent);
+                    
+                    using (WordprocessingDocument doc = WordprocessingDocument.Open(inputMemoryStream, false))
+                    {
+                        _logger.LogInformation($"[{correlationId}] Document opened successfully.");
+                        
+                        using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(outputStream, doc.DocumentType))
                         {
-                            throw new InvalidOperationException("Document does not contain a main document part.");
+                            // Import all parts from the original document
+                            foreach (var part in doc.Parts)
+                            {
+                                outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
+                            }
+                            
+                            var mainPart = outputDoc.MainDocumentPart;
+                            if (mainPart != null)
+                            {
+                                // Enhanced processing: Clear problematic content controls first
+                                RemoveProblematicContentControls(mainPart.Document, correlationId);
+                                
+                                // Then process all remaining content controls
+                                ProcessContentControls(mainPart.Document, correlationId);
+                                
+                                mainPart.Document.Save();
+                                _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
+                            }
                         }
-
-                        _logger.LogInformation($"[{correlationId}] Starting document processing");
-
-                        // Step 1: Process placeholders and mark elements for removal
-                        var removalInfo = ProcessPlaceholders(doc.MainDocumentPart.Document, correlationId);
-
-                        // Step 2: Remove marked elements
-                        RemoveMarkedElements(doc.MainDocumentPart.Document, removalInfo);
-
-                        // Step 3: Renumber articles
-                        RenumberArticles(doc.MainDocumentPart.Document, correlationId);
-
-                        // Step 4: Remove all content controls
-                        RemoveContentControls(doc.MainDocumentPart.Document, correlationId);
-
-                        // Save changes
-                        doc.MainDocumentPart.Document.Save();
-                        _logger.LogInformation($"[{correlationId}] Document processing completed");
                     }
                 }
                 catch (Exception ex)
@@ -75,274 +79,111 @@ namespace Scheidingsdesk
             return outputStream;
         }
 
-        private class RemovalInfo
+        private void RemoveProblematicContentControls(Document document, string correlationId)
         {
-            public HashSet<Paragraph> ParagraphsToRemove { get; } = new HashSet<Paragraph>();
-            public HashSet<int> ArticlesToRemove { get; } = new HashSet<int>();
-        }
-
-        private RemovalInfo ProcessPlaceholders(Document document, string correlationId)
-        {
-            var removalInfo = new RemovalInfo();
-            var body = document.Body;
-            if (body == null) return removalInfo;
-
-            // Find all content controls with placeholders
-            var contentControls = body.Descendants<SdtElement>().ToList();
-            _logger.LogInformation($"[{correlationId}] Found {contentControls.Count} content controls");
-
-            foreach (var sdt in contentControls)
+            _logger.LogInformation($"[{correlationId}] Scanning for empty or placeholder content controls to remove...");
+            
+            var sdtElements = document.Descendants<SdtElement>().ToList();
+            
+            _logger.LogInformation($"[{correlationId}] Found {sdtElements.Count} content controls to analyze.");
+            
+            foreach (var sdt in sdtElements)
             {
-                var content = GetContentControlText(sdt);
+                var contentText = GetSdtContentText(sdt);
                 
-                if (content == REMOVE_PARAGRAPH_MARKER)
+                // Check if content control contains "#" or is empty/whitespace
+                if (string.IsNullOrWhiteSpace(contentText) || contentText.Contains('#'))
                 {
-                    // Find the paragraph containing this content control
-                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null)
-                    {
-                        removalInfo.ParagraphsToRemove.Add(paragraph);
-                        _logger.LogDebug($"[{correlationId}] Marked paragraph for removal: {GetParagraphText(paragraph)}");
-                    }
-                }
-                else if (content == REMOVE_ARTICLE_MARKER)
-                {
-                    // Find the paragraph containing this content control
-                    var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
-                    if (paragraph != null)
-                    {
-                        var articleNumber = GetArticleNumber(paragraph);
-                        if (articleNumber > 0)
-                        {
-                            removalInfo.ArticlesToRemove.Add(articleNumber);
-                            _logger.LogDebug($"[{correlationId}] Marked article {articleNumber} for removal");
-                        }
-                    }
-                }
-            }
-
-            return removalInfo;
-        }
-
-        private void RemoveMarkedElements(Document document, RemovalInfo removalInfo)
-        {
-            var body = document.Body;
-            if (body == null) return;
-
-            var paragraphsToProcess = body.Descendants<Paragraph>().ToList();
-            var currentArticle = 0;
-            var paragraphsToRemove = new List<Paragraph>();
-
-            foreach (var paragraph in paragraphsToProcess)
-            {
-                var text = GetParagraphText(paragraph);
-                
-                // Check if this is a main article
-                var mainMatch = MainArticlePattern.Match(text);
-                if (mainMatch.Success)
-                {
-                    currentArticle = int.Parse(mainMatch.Groups[1].Value);
-                }
-
-                // Remove if:
-                // 1. It's explicitly marked for removal
-                // 2. It belongs to an article marked for removal
-                if (removalInfo.ParagraphsToRemove.Contains(paragraph) ||
-                    (currentArticle > 0 && removalInfo.ArticlesToRemove.Contains(currentArticle)))
-                {
-                    paragraphsToRemove.Add(paragraph);
-                }
-            }
-
-            // Remove paragraphs
-            foreach (var paragraph in paragraphsToRemove)
-            {
-                paragraph.Remove();
-            }
-
-            _logger.LogInformation($"Removed {paragraphsToRemove.Count} paragraphs");
-        }
-
-        private void RenumberArticles(Document document, string correlationId)
-        {
-            var body = document.Body;
-            if (body == null) return;
-
-            var paragraphs = body.Descendants<Paragraph>().ToList();
-            var articleMapping = new Dictionary<int, int>(); // old number -> new number
-            var currentNewArticle = 1;
-
-            // First pass: build mapping of old to new article numbers
-            foreach (var paragraph in paragraphs)
-            {
-                var text = GetParagraphText(paragraph);
-                var mainMatch = MainArticlePattern.Match(text);
-                
-                if (mainMatch.Success)
-                {
-                    var oldArticleNumber = int.Parse(mainMatch.Groups[1].Value);
-                    if (!articleMapping.ContainsKey(oldArticleNumber))
-                    {
-                        articleMapping[oldArticleNumber] = currentNewArticle++;
-                    }
-                }
-            }
-
-            _logger.LogInformation($"[{correlationId}] Article renumbering mapping: {string.Join(", ", articleMapping.Select(kvp => $"{kvp.Key}->{kvp.Value}"))}");
-
-            // Second pass: apply renumbering
-            foreach (var paragraph in paragraphs)
-            {
-                var runs = paragraph.Descendants<Run>().ToList();
-                if (!runs.Any()) continue;
-
-                var fullText = string.Join("", runs.Select(r => GetRunText(r)));
-                
-                // Check for main article
-                var mainMatch = MainArticlePattern.Match(fullText);
-                if (mainMatch.Success)
-                {
-                    var oldNumber = int.Parse(mainMatch.Groups[1].Value);
-                    if (articleMapping.TryGetValue(oldNumber, out var newNumber))
-                    {
-                        ReplaceArticleNumber(paragraph, oldNumber, newNumber, false);
-                    }
-                    continue;
-                }
-
-                // Check for sub-article
-                var subMatch = SubArticlePattern.Match(fullText);
-                if (subMatch.Success)
-                {
-                    var mainArticle = int.Parse(subMatch.Groups[2].Value);
-                    var subArticle = int.Parse(subMatch.Groups[3].Value);
+                    _logger.LogDebug($"[{correlationId}] Found problematic content control: '{contentText}'");
                     
-                    if (articleMapping.TryGetValue(mainArticle, out var newMainNumber))
-                    {
-                        ReplaceSubArticleNumber(paragraph, mainArticle, subArticle, newMainNumber);
-                    }
+                    // Clear the content control content safely
+                    ReplaceContentControlWithEmpty(sdt, correlationId);
                 }
             }
+            
+            _logger.LogInformation($"[{correlationId}] Processed problematic content controls by clearing their content.");
         }
-
-        private void ReplaceArticleNumber(Paragraph paragraph, int oldNumber, int newNumber, bool isSubArticle)
+        
+        private void ReplaceContentControlWithEmpty(SdtElement sdt, string correlationId)
         {
-            foreach (var run in paragraph.Descendants<Run>())
+            try
             {
-                foreach (var text in run.Descendants<Text>())
+                // Find the content element within the SDT
+                var contentElement = sdt.Elements().FirstOrDefault(e => e.LocalName == "sdtContent");
+                if (contentElement != null)
                 {
-                    if (isSubArticle)
-                    {
-                        text.Text = Regex.Replace(text.Text, 
-                            @"\b" + oldNumber + @"\.(\d+)", 
-                            newNumber + ".$1");
-                    }
-                    else
-                    {
-                        text.Text = Regex.Replace(text.Text, 
-                            @"^" + oldNumber + @"\.", 
-                            newNumber + ".");
-                    }
+                    // Clear all content from the SDT but keep the structure
+                    contentElement.RemoveAllChildren();
+                    _logger.LogDebug($"[{correlationId}] Cleared content control content");
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"[{correlationId}] Failed to clear content control: {ex.Message}");
+            }
         }
-
-        private void ReplaceSubArticleNumber(Paragraph paragraph, int oldMainNumber, int subNumber, int newMainNumber)
+        
+        private string GetSdtContentText(SdtElement sdt)
         {
-            foreach (var run in paragraph.Descendants<Run>())
-            {
-                foreach (var text in run.Descendants<Text>())
-                {
-                    text.Text = Regex.Replace(text.Text, 
-                        @"\b" + oldMainNumber + @"\." + subNumber + @"\b", 
-                        newMainNumber + "." + subNumber);
-                }
-            }
+            var contentElements = sdt.Elements().FirstOrDefault(e => e.LocalName == "sdtContent");
+            if (contentElements == null) return "";
+            
+            return contentElements.Descendants<Text>().Aggregate("", (current, text) => current + text.Text);
         }
 
-        private void RemoveContentControls(Document document, string correlationId)
+        private void ProcessContentControls(Document document, string correlationId)
         {
             var sdtElements = document.Descendants<SdtElement>().ToList();
-            _logger.LogInformation($"[{correlationId}] Removing {sdtElements.Count} content controls");
-
+            _logger.LogInformation($"[{correlationId}] Found {sdtElements.Count} content controls to process.");
+            
             // Process from bottom to top to avoid issues with nested content controls
             for (int i = sdtElements.Count - 1; i >= 0; i--)
             {
                 var sdt = sdtElements[i];
                 var parent = sdt.Parent;
                 if (parent == null) continue;
-
-                // Extract content from the content control
-                var contentElements = sdt.Elements().Where(e => e.LocalName == "sdtContent").FirstOrDefault();
+                
+                var contentElements = sdt.Elements().FirstOrDefault(e => e.LocalName == "sdtContent");
                 if (contentElements == null) continue;
-
+                
                 var contentToPreserve = contentElements.ChildElements.ToList();
-
-                // Insert preserved content before the content control
-                foreach (var child in contentToPreserve)
+                
+                if (contentToPreserve.Count > 0)
                 {
-                    var clonedChild = child.CloneNode(true);
-                    
-                    // Clean up formatting
-                    foreach (var run in clonedChild.Descendants<Run>())
+                    foreach (var child in contentToPreserve)
                     {
-                        var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
+                        var clonedChild = child.CloneNode(true);
                         
-                        // Remove any gray color
-                        var colorElements = runProps.Elements<Color>().ToList();
-                        foreach (var color in colorElements)
+                        // Fix text formatting on all Run elements inside this content
+                        foreach (var run in clonedChild.Descendants<Run>())
                         {
-                            runProps.RemoveChild(color);
+                            var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
+                            
+                            // Remove any existing color and explicitly set to black
+                            var colorElements = runProps.Elements<Color>().ToList();
+                            foreach (var color in colorElements)
+                            {
+                                runProps.RemoveChild(color);
+                            }
+                            
+                            // Explicitly set text color to black
+                            runProps.AppendChild(new Color() { Val = "000000" });
+                            
+                            // Remove any shading that might affect text appearance
+                            var shadingElements = runProps.Elements<Shading>().ToList();
+                            foreach (var shading in shadingElements)
+                            {
+                                runProps.RemoveChild(shading);
+                            }
                         }
                         
-                        // Set text color to black
-                        runProps.AppendChild(new Color() { Val = "000000" });
-                        
-                        // Remove any shading
-                        var shadingElements = runProps.Elements<Shading>().ToList();
-                        foreach (var shading in shadingElements)
-                        {
-                            runProps.RemoveChild(shading);
-                        }
+                        parent.InsertBefore(clonedChild, sdt);
                     }
-                    
-                    parent.InsertBefore(clonedChild, sdt);
                 }
-
+                
                 // Remove the content control
                 parent.RemoveChild(sdt);
             }
-        }
-
-        private string GetContentControlText(SdtElement sdt)
-        {
-            var texts = sdt.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts).Trim();
-        }
-
-        private string GetParagraphText(Paragraph paragraph)
-        {
-            var texts = paragraph.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts).Trim();
-        }
-
-        private string GetRunText(Run run)
-        {
-            var texts = run.Descendants<Text>().Select(t => t.Text);
-            return string.Join("", texts);
-        }
-
-        private int GetArticleNumber(Paragraph paragraph)
-        {
-            var text = GetParagraphText(paragraph);
-            var match = MainArticlePattern.Match(text);
-            
-            if (match.Success)
-            {
-                return int.Parse(match.Groups[1].Value);
-            }
-
-            return 0;
         }
     }
 }
