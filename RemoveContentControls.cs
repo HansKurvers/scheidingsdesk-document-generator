@@ -1,13 +1,8 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -59,28 +54,43 @@ namespace Scheidingsdesk
                     return new BadRequestObjectResult(new { error = "Please upload a Word document." });
                 }
 
-                // Create output stream and copy original document
-                using var outputStream = new MemoryStream();
-                outputStream.Write(fileContent, 0, fileContent.Length);
-                outputStream.Position = 0;
-                
                 _logger.LogInformation($"Processing document with {fileContent.Length} bytes");
                 
-                // Process the document in-place
-                using (WordprocessingDocument outputDoc = WordprocessingDocument.Open(outputStream, true))
+                // Create streams for processing
+                using var sourceStream = new MemoryStream(fileContent);
+                var outputStream = new MemoryStream();
+                
+                // Open source document as READ-ONLY
+                using (WordprocessingDocument sourceDoc = WordprocessingDocument.Open(sourceStream, false))
                 {
-                    _logger.LogInformation("Document opened successfully.");
+                    _logger.LogInformation("Source document opened successfully.");
                     
-                    var mainPart = outputDoc.MainDocumentPart;
-                    if (mainPart != null)
+                    // Create a NEW document in the output stream
+                    using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(outputStream, sourceDoc.DocumentType))
                     {
-                        ProcessContentControls(mainPart.Document);
-                        mainPart.Document.Save();
-                        _logger.LogInformation("Content controls processed successfully.");
+                        _logger.LogInformation("Creating new document for output.");
+                        
+                        // Copy all parts from source to output
+                        foreach (var part in sourceDoc.Parts)
+                        {
+                            outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
+                        }
+                        
+                        var mainPart = outputDoc.MainDocumentPart;
+                        if (mainPart != null)
+                        {
+                            ProcessContentControls(mainPart.Document);
+                            mainPart.Document.Save();
+                            _logger.LogInformation("Content controls processed successfully.");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("MainDocumentPart is null!");
+                        }
                     }
                 }
                 
-                // Reset position for reading
+                _logger.LogInformation($"Final output stream size: {outputStream.Length} bytes");
                 outputStream.Position = 0;
                 
                 // Return the processed document
