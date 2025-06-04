@@ -10,7 +10,7 @@ var host = new HostBuilder()
         // Configure Application Insights
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
-        
+
         // Configure logging
         services.AddLogging(logging =>
         {
@@ -18,6 +18,7 @@ var host = new HostBuilder()
             logging.SetMinimumLevel(LogLevel.Information);
         });
     })
+    
     .Build();
 
 host.Run();
