@@ -7,6 +7,8 @@ using Microsoft.Azure.Functions.Worker.Http;
 using System.Diagnostics;
 using System.Net;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 
 namespace Scheidingsdesk
 {
@@ -35,7 +37,7 @@ namespace Scheidingsdesk
             var stopwatch = Stopwatch.StartNew();
             var correlationId = Guid.NewGuid().ToString();
             
-            _logger.LogInformation($"[{correlationId}] Processing document request started - VERSION 2.0 - FIXED");
+            _logger.LogInformation($"[{correlationId}] Processing document request started - VERSION 3.0 - HEADER FIX");
 
             try
             {
@@ -44,6 +46,12 @@ namespace Scheidingsdesk
                 {
                     _logger.LogInformation($"[{correlationId}] Request URL: {req.Url}");
                     _logger.LogInformation($"[{correlationId}] Request Method: {req.Method}");
+                    
+                    // Log all headers for debugging
+                    foreach (var header in req.Headers)
+                    {
+                        _logger.LogDebug($"[{correlationId}] Header: {header.Key} = {string.Join(", ", header.Value)}");
+                    }
                 }
                 catch (Exception logEx)
                 {
@@ -65,17 +73,6 @@ namespace Scheidingsdesk
                 }
                 _logger.LogInformation($"[{correlationId}] Content-Type: {contentType}");
                 
-                if (!contentType.Contains("multipart/form-data") && 
-                    !contentType.Contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
-                {
-                    _logger.LogWarning($"[{correlationId}] Invalid content type: {contentType}");
-                    return await CreateErrorResponse(req, HttpStatusCode.BadRequest, new
-                    {
-                        error = "Invalid content type. Expected Word document.",
-                        correlationId = correlationId
-                    });
-                }
-
                 // Get the uploaded file
                 byte[] fileContent = null;
                 string fileName = "document.docx";
@@ -86,9 +83,31 @@ namespace Scheidingsdesk
                     
                     try
                     {
+                        // First try to read the entire body to see what we're getting
+                        using var bodyStream = new MemoryStream();
+                        await req.Body.CopyToAsync(bodyStream);
+                        var bodyBytes = bodyStream.ToArray();
+                        _logger.LogInformation($"[{correlationId}] Request body size: {bodyBytes.Length} bytes");
+                        
+                        // Log first 500 chars of body for debugging (if text)
+                        if (bodyBytes.Length > 0)
+                        {
+                            var bodyPreview = Encoding.UTF8.GetString(bodyBytes.Take(Math.Min(500, bodyBytes.Length)).ToArray());
+                            _logger.LogDebug($"[{correlationId}] Body preview: {bodyPreview}");
+                        }
+                        
+                        // Reset stream for parsing
+                        req.Body = new MemoryStream(bodyBytes);
+                        
                         // Parse multipart form data
                         var formData = await req.ParseMultipartAsync();
                         _logger.LogInformation($"[{correlationId}] Found {formData.Files.Count} files in form data");
+                        
+                        // Log all file names found
+                        foreach (var f in formData.Files)
+                        {
+                            _logger.LogInformation($"[{correlationId}] Found file field: '{f.Name}', filename: '{f.FileName}', size: {f.Data?.Length ?? 0}");
+                        }
                         
                         var file = formData.Files.FirstOrDefault(f => f.Name == "document" || f.Name == "file");
                         
@@ -96,7 +115,7 @@ namespace Scheidingsdesk
                         {
                             fileContent = file.Data;
                             fileName = file.FileName ?? fileName;
-                            _logger.LogInformation($"[{correlationId}] Found file: {fileName}, Size: {file.Data?.Length ?? 0} bytes");
+                            _logger.LogInformation($"[{correlationId}] Using file: {fileName}, Size: {file.Data?.Length ?? 0} bytes");
                         }
                         else
                         {
@@ -106,6 +125,7 @@ namespace Scheidingsdesk
                     catch (Exception parseEx)
                     {
                         _logger.LogError($"[{correlationId}] Error parsing multipart form data: {parseEx.Message}");
+                        _logger.LogError($"[{correlationId}] Parse exception stack: {parseEx.StackTrace}");
                         return await CreateErrorResponse(req, HttpStatusCode.BadRequest, new
                         {
                             error = "Failed to parse multipart form data. Please ensure the file is uploaded correctly.",
@@ -114,16 +134,18 @@ namespace Scheidingsdesk
                         });
                     }
                 }
-                else
+                else if (contentType.Contains("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
                 {
-                    // Read directly from body
+                    // Read directly from body for binary upload
                     try
                     {
+                        _logger.LogInformation($"[{correlationId}] Reading binary document from request body");
                         if (req.Body != null)
                         {
                             using var memoryStream = new MemoryStream();
                             await req.Body.CopyToAsync(memoryStream);
                             fileContent = memoryStream.ToArray();
+                            _logger.LogInformation($"[{correlationId}] Read {fileContent.Length} bytes from body");
                         }
                     }
                     catch (Exception bodyEx)
@@ -131,13 +153,22 @@ namespace Scheidingsdesk
                         _logger.LogWarning($"[{correlationId}] Error reading request body: {bodyEx.Message}");
                     }
                 }
+                else
+                {
+                    _logger.LogWarning($"[{correlationId}] Invalid content type: {contentType}");
+                    return await CreateErrorResponse(req, HttpStatusCode.BadRequest, new
+                    {
+                        error = "Invalid content type. Expected multipart/form-data or application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        correlationId = correlationId
+                    });
+                }
                 
                 if (fileContent == null || fileContent.Length == 0)
                 {
-                    _logger.LogWarning($"[{correlationId}] No file uploaded");
+                    _logger.LogWarning($"[{correlationId}] No file content found");
                     return await CreateErrorResponse(req, HttpStatusCode.BadRequest, new
                     {
-                        error = "Please upload a Word document.",
+                        error = "Please upload a Word document. No file content was received.",
                         correlationId = correlationId
                     });
                 }
@@ -170,6 +201,9 @@ namespace Scheidingsdesk
 
                 // Create success response
                 var response = req.CreateResponse(HttpStatusCode.OK);
+                
+                // Clear any existing headers to avoid conflicts
+                response.Headers.Clear();
                 
                 // Set headers using TryAdd to avoid conflicts
                 response.Headers.TryAddWithoutValidation("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -207,10 +241,31 @@ namespace Scheidingsdesk
 
         private static async Task<HttpResponseData> CreateErrorResponse(HttpRequestData req, HttpStatusCode statusCode, object errorContent)
         {
-            var response = req.CreateResponse(statusCode);
-            // Don't set Content-Type manually - WriteAsJsonAsync sets it automatically
-            await response.WriteAsJsonAsync(errorContent);
-            return response;
+            try
+            {
+                var response = req.CreateResponse(statusCode);
+                
+                // Clear any existing headers to avoid conflicts
+                response.Headers.Clear();
+                
+                // Manually write JSON response to avoid header conflicts
+                var json = JsonSerializer.Serialize(errorContent);
+                var bytes = Encoding.UTF8.GetBytes(json);
+                
+                response.Headers.TryAddWithoutValidation("Content-Type", "application/json; charset=utf-8");
+                response.Headers.TryAddWithoutValidation("Content-Length", bytes.Length.ToString());
+                
+                await response.Body.WriteAsync(bytes);
+                return response;
+            }
+            catch (Exception ex)
+            {
+                // If even the error response fails, create a minimal response
+                var fallbackResponse = req.CreateResponse(statusCode);
+                fallbackResponse.Headers.Clear();
+                await fallbackResponse.WriteStringAsync($"{{\"error\":\"Failed to create error response: {ex.Message}\"}}", Encoding.UTF8);
+                return fallbackResponse;
+            }
         }
     }
 }

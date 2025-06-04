@@ -27,46 +27,59 @@ namespace Scheidingsdesk
                     return new MultipartFormData { Files = new List<MultipartFile>() };
                 }
 
-            // Read the body as bytes first
-            using var memoryStream = new MemoryStream();
-            await request.Body.CopyToAsync(memoryStream);
-            var bodyBytes = memoryStream.ToArray();
-            
-            // Try to parse as text
-            var content = Encoding.UTF8.GetString(bodyBytes);
-            
-            var files = new List<MultipartFile>();
-            var parts = content.Split(new[] { "--" + boundary }, StringSplitOptions.RemoveEmptyEntries);
-            
-            foreach (var part in parts)
-            {
-                if (part.Trim() == "--" || string.IsNullOrWhiteSpace(part))
-                    continue;
-                    
-                var lines = part.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-                var contentDisposition = lines.FirstOrDefault(l => l.StartsWith("Content-Disposition:", StringComparison.OrdinalIgnoreCase));
+                // Read the body as bytes
+                using var memoryStream = new MemoryStream();
+                await request.Body.CopyToAsync(memoryStream);
+                var bodyBytes = memoryStream.ToArray();
                 
-                if (contentDisposition != null && contentDisposition.Contains("filename="))
+                if (bodyBytes.Length == 0)
                 {
-                    var name = GetValue(contentDisposition, "name");
-                    var filename = GetValue(contentDisposition, "filename");
+                    return new MultipartFormData { Files = new List<MultipartFile>() };
+                }
+                
+                var files = new List<MultipartFile>();
+                
+                // Parse using byte operations for better reliability
+                var boundaryBytes = Encoding.UTF8.GetBytes("--" + boundary);
+                var positions = FindBoundaryPositions(bodyBytes, boundaryBytes);
+                
+                for (int i = 0; i < positions.Count - 1; i++)
+                {
+                    var startPos = positions[i] + boundaryBytes.Length;
+                    var endPos = positions[i + 1];
                     
-                    // Find the content start position in the original bytes
-                    var headerEnd = content.IndexOf("\r\n\r\n", content.IndexOf(contentDisposition));
-                    if (headerEnd == -1)
-                        headerEnd = content.IndexOf("\n\n", content.IndexOf(contentDisposition));
-                        
-                    if (headerEnd > 0)
+                    if (startPos >= endPos) continue;
+                    
+                    // Skip CRLF after boundary
+                    if (startPos + 2 < bodyBytes.Length && bodyBytes[startPos] == 13 && bodyBytes[startPos + 1] == 10)
                     {
-                        // Calculate byte position for binary data extraction
-                        var headerBytes = Encoding.UTF8.GetByteCount(content.Substring(0, headerEnd + 4));
-                        var nextBoundaryIndex = content.IndexOf("--" + boundary, headerEnd + 4);
+                        startPos += 2;
+                    }
+                    
+                    // Find headers end (double CRLF)
+                    var headerEndPos = FindDoubleNewline(bodyBytes, startPos, endPos);
+                    if (headerEndPos == -1) continue;
+                    
+                    // Parse headers
+                    var headerBytes = new byte[headerEndPos - startPos];
+                    Array.Copy(bodyBytes, startPos, headerBytes, 0, headerBytes.Length);
+                    var headers = Encoding.UTF8.GetString(headerBytes);
+                    
+                    // Check if this part contains a file
+                    if (headers.Contains("Content-Disposition") && headers.Contains("filename="))
+                    {
+                        var name = ExtractValue(headers, "name=\"", "\"");
+                        var filename = ExtractValue(headers, "filename=\"", "\"");
                         
-                        if (nextBoundaryIndex > 0)
+                        // Content starts after double CRLF
+                        var contentStart = headerEndPos + 4; // Skip \r\n\r\n
+                        var contentEnd = endPos - 2; // Skip \r\n before next boundary
+                        
+                        if (contentStart < contentEnd && contentEnd <= bodyBytes.Length)
                         {
-                            var contentLength = Encoding.UTF8.GetByteCount(content.Substring(0, nextBoundaryIndex)) - headerBytes - 2; // -2 for \r\n
+                            var contentLength = contentEnd - contentStart;
                             var fileData = new byte[contentLength];
-                            Array.Copy(bodyBytes, headerBytes, fileData, 0, contentLength);
+                            Array.Copy(bodyBytes, contentStart, fileData, 0, contentLength);
                             
                             files.Add(new MultipartFile
                             {
@@ -77,8 +90,7 @@ namespace Scheidingsdesk
                         }
                     }
                 }
-            }
-            
+                
                 return new MultipartFormData { Files = files };
             }
             catch (Exception ex)
@@ -86,6 +98,61 @@ namespace Scheidingsdesk
                 // Return empty result on error
                 return new MultipartFormData { Files = new List<MultipartFile>() };
             }
+        }
+        
+        private static List<int> FindBoundaryPositions(byte[] data, byte[] boundary)
+        {
+            var positions = new List<int>();
+            for (int i = 0; i <= data.Length - boundary.Length; i++)
+            {
+                bool match = true;
+                for (int j = 0; j < boundary.Length; j++)
+                {
+                    if (data[i + j] != boundary[j])
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match)
+                {
+                    positions.Add(i);
+                }
+            }
+            return positions;
+        }
+        
+        private static int FindDoubleNewline(byte[] data, int start, int end)
+        {
+            // Look for \r\n\r\n
+            for (int i = start; i < end - 3; i++)
+            {
+                if (data[i] == 13 && data[i + 1] == 10 && data[i + 2] == 13 && data[i + 3] == 10)
+                {
+                    return i;
+                }
+            }
+            // Also check for \n\n
+            for (int i = start; i < end - 1; i++)
+            {
+                if (data[i] == 10 && data[i + 1] == 10)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+        
+        private static string ExtractValue(string text, string startMarker, string endMarker)
+        {
+            var startIndex = text.IndexOf(startMarker);
+            if (startIndex == -1) return null;
+            
+            startIndex += startMarker.Length;
+            var endIndex = text.IndexOf(endMarker, startIndex);
+            if (endIndex == -1) return null;
+            
+            return text.Substring(startIndex, endIndex - startIndex);
         }
         
         private static string GetBoundary(string contentType)
@@ -97,20 +164,6 @@ namespace Scheidingsdesk
             {
                 var boundary = boundaryElement.Split('=')[1].Trim();
                 return boundary.Trim('"');
-            }
-            
-            return null;
-        }
-        
-        private static string GetValue(string contentDisposition, string key)
-        {
-            var parts = contentDisposition.Split(';');
-            var part = parts.FirstOrDefault(p => p.Trim().StartsWith(key + "="));
-            
-            if (part != null)
-            {
-                var value = part.Split('=')[1].Trim();
-                return value.Trim('"');
             }
             
             return null;
