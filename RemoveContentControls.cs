@@ -8,7 +8,8 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml;
 using System.Linq;
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Scheidingsdesk
 {
@@ -22,50 +23,40 @@ namespace Scheidingsdesk
         }
 
         [Function("RemoveContentControls")]
-        public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
+        public async Task<IActionResult> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request to remove content controls.");
 
             try
             {
-                // Get content type
-                string contentType = string.Empty;
-                if (req.Headers.TryGetValues("Content-Type", out var contentTypeValues))
-                {
-                    contentType = contentTypeValues.FirstOrDefault() ?? string.Empty;
-                }
-                
-                // Get the uploaded file
                 byte[] fileContent = null;
                 string fileName = "document.docx";
-                
-                if (contentType.Contains("multipart/form-data"))
+
+                // Check if it's multipart form data
+                if (req.HasFormContentType)
                 {
-                    // Parse multipart form data
-                    var formData = await req.ParseMultipartAsync();
-                    var file = formData.Files.FirstOrDefault(f => f.Name == "document" || f.Name == "file");
+                    var file = req.Form.Files.GetFile("document") ?? req.Form.Files.GetFile("file") ?? req.Form.Files.FirstOrDefault();
                     
-                    if (file != null)
+                    if (file != null && file.Length > 0)
                     {
-                        fileContent = file.Data;
-                        fileName = file.FileName ?? fileName;
+                        fileName = file.FileName;
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        fileContent = ms.ToArray();
                     }
                 }
                 else
                 {
-                    // Read directly from body
-                    using var memoryStream = new MemoryStream();
-                    await req.Body.CopyToAsync(memoryStream);
-                    fileContent = memoryStream.ToArray();
+                    // Binary upload
+                    using var ms = new MemoryStream();
+                    await req.Body.CopyToAsync(ms);
+                    fileContent = ms.ToArray();
                 }
                 
                 if (fileContent == null || fileContent.Length == 0)
                 {
-                    var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
-                    // Don't set Content-Type manually - WriteAsJsonAsync sets it automatically
-                    await errorResponse.WriteAsJsonAsync(new { error = "Please upload a Word document." });
-                    return errorResponse;
+                    return new BadRequestObjectResult(new { error = "Please upload a Word document." });
                 }
 
                 // Create output stream and copy original document
@@ -83,44 +74,37 @@ namespace Scheidingsdesk
                     var mainPart = outputDoc.MainDocumentPart;
                     if (mainPart != null)
                     {
-                        // Simply process all content controls
                         ProcessContentControls(mainPart.Document);
-                        
                         mainPart.Document.Save();
                         _logger.LogInformation("Content controls processed successfully.");
                     }
                 }
                 
-                // Reset the position for reading
+                // Reset position for reading
                 outputStream.Position = 0;
                 
                 // Return the processed document
-                var response = req.CreateResponse(HttpStatusCode.OK);
-                // Use TryAddWithoutValidation to avoid header conflicts
-                response.Headers.TryAddWithoutValidation("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-                response.Headers.TryAddWithoutValidation("Content-Disposition", $"attachment; filename=\"ProcessedDocument.docx\"");
-                
-                await response.Body.WriteAsync(outputStream.ToArray());
-                return response;
+                return new FileStreamResult(outputStream, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                {
+                    FileDownloadName = "ProcessedDocument.docx"
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing document: {ex.Message}");
-                
-                var errorResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
-                await errorResponse.WriteAsJsonAsync(new 
+                return new ObjectResult(new 
                 { 
                     error = "Error processing document",
                     details = ex.Message 
-                });
-                return errorResponse;
+                })
+                {
+                    StatusCode = 500
+                };
             }
         }
 
         private void ProcessContentControls(DocumentFormat.OpenXml.OpenXmlElement element)
         {
-            // Process in reverse order to avoid collection modification issues
-            // Create a list for efficient enumeration
             var sdtElements = element.Descendants<SdtElement>().ToList();
             
             _logger.LogInformation($"Found {sdtElements.Count} content controls to process.");
@@ -129,46 +113,34 @@ namespace Scheidingsdesk
             for (int i = sdtElements.Count - 1; i >= 0; i--)
             {
                 var sdt = sdtElements[i];
-                
-                // Get the parent of the SDT element
                 var parent = sdt.Parent;
                 if (parent == null) continue;
                 
-                // Safely extract content directly from the SDT element
-                // SdtContent is part of SdtElement's structure - we know it exists inside
                 var contentElements = sdt.Elements().Where(e => e.LocalName == "sdtContent").FirstOrDefault();
                 if (contentElements == null) continue;
                 
-                // Use a more efficient approach by extracting content once and inserting it as a block
                 var contentToPreserve = contentElements.ChildElements.ToList();
                 
-                // If there are children to preserve, insert them all at once
                 if (contentToPreserve.Any())
                 {
-                    // Process each Run element to ensure proper formatting and color
                     foreach (var child in contentToPreserve)
                     {
-                        // Deep clone to preserve all formatting and properties
                         var clonedChild = child.CloneNode(true);
                         
-                        // Fix text formatting on all Run elements inside this content
+                        // Fix text formatting on all Run elements
                         foreach (var run in clonedChild.Descendants<Run>())
                         {
-                            // Ensure run properties contain proper color settings
                             var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
                             
-                            // Make sure there's no gray color applied (common for content controls)
-                            // Remove any existing color and explicitly set to black
+                            // Remove existing colors and set to black
                             var colorElements = runProps.Elements<Color>().ToList();
                             foreach (var color in colorElements)
                             {
                                 runProps.RemoveChild(color);
                             }
-                            
-                            // Explicitly set text color to black
                             runProps.AppendChild(new Color() { Val = "000000" });
                             
-                            // Remove any shading that might affect text appearance
+                            // Remove any shading
                             var shadingElements = runProps.Elements<Shading>().ToList();
                             foreach (var shading in shadingElements)
                             {
@@ -180,7 +152,6 @@ namespace Scheidingsdesk
                     }
                 }
                 
-                // Remove the SDT element
                 parent.RemoveChild(sdt);
             }
         }

@@ -1,9 +1,9 @@
 using System;
-using System.Net;
-using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Scheidingsdesk
 {
@@ -17,18 +17,16 @@ namespace Scheidingsdesk
         }
 
         [Function("HealthCheck")]
-        public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequestData req)
+        public IActionResult Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequest req)
         {
             _logger.LogInformation("Health check requested");
 
-            var response = req.CreateResponse(HttpStatusCode.OK);
-            
-            await response.WriteAsJsonAsync(new
+            return new OkObjectResult(new
             {
                 status = "Healthy",
                 service = "Scheidingsdesk Document Generator",
-                version = "1.0.0",
+                version = "2.0.0",
                 timestamp = DateTime.UtcNow,
                 endpoints = new[]
                 {
@@ -36,8 +34,6 @@ namespace Scheidingsdesk
                     new { name = "RemoveContentControls", path = "/api/RemoveContentControls", method = "POST" }
                 }
             });
-
-            return response;
         }
     }
 }
