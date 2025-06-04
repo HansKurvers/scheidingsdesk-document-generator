@@ -106,14 +106,46 @@ namespace Scheidingsdesk
                 {
                     _logger.LogDebug($"[{correlationId}] Found problematic content control: '{contentText}'");
                     
-                    // Clear the content control content safely
-                    ReplaceContentControlWithEmpty(sdt, correlationId);
+                    // If content contains "#", remove the entire paragraph
+                    if (contentText.Contains('#'))
+                    {
+                        RemoveEntireParagraph(sdt, correlationId);
+                    }
+                    else
+                    {
+                        // For empty/whitespace content, just clear the content control
+                        ReplaceContentControlWithEmpty(sdt, correlationId);
+                    }
                 }
             }
             
             _logger.LogInformation($"[{correlationId}] Processed problematic content controls by clearing their content.");
         }
         
+        private void RemoveEntireParagraph(SdtElement sdt, string correlationId)
+        {
+            try
+            {
+                // Find the paragraph that contains this content control
+                var paragraph = sdt.Ancestors<Paragraph>().FirstOrDefault();
+                if (paragraph != null)
+                {
+                    _logger.LogDebug($"[{correlationId}] Removing entire paragraph containing '#' content control");
+                    paragraph.Remove();
+                }
+                else
+                {
+                    // If not in a paragraph, just remove the content control itself
+                    _logger.LogDebug($"[{correlationId}] Content control not in paragraph, removing content control only");
+                    sdt.Remove();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"[{correlationId}] Failed to remove paragraph: {ex.Message}");
+            }
+        }
+
         private void ReplaceContentControlWithEmpty(SdtElement sdt, string correlationId)
         {
             try
