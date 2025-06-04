@@ -39,33 +39,40 @@ namespace Scheidingsdesk
                         throw new InvalidOperationException("Input stream is empty or could not be read.");
                     }
 
-                    // Create output stream with the original document content
+                    // Create streams for processing
+                    using var sourceStream = new MemoryStream(fileContent);
                     var outputStream = new MemoryStream();
-                    outputStream.Write(fileContent, 0, fileContent.Length);
-                    outputStream.Position = 0;
                     
-                    _logger.LogInformation($"[{correlationId}] Copied {outputStream.Length} bytes to output stream");
-                    
-                    // Now open and modify the output stream
-                    using (WordprocessingDocument outputDoc = WordprocessingDocument.Open(outputStream, true))
+                    // Open source document as READ-ONLY
+                    using (WordprocessingDocument sourceDoc = WordprocessingDocument.Open(sourceStream, false))
                     {
-                        _logger.LogInformation($"[{correlationId}] Document opened successfully for editing.");
+                        _logger.LogInformation($"[{correlationId}] Source document opened successfully.");
                         
-                        var mainPart = outputDoc.MainDocumentPart;
-                        if (mainPart != null)
+                        // Create a NEW document in the output stream
+                        using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(outputStream, sourceDoc.DocumentType))
                         {
-                            // Enhanced processing: Clear problematic content controls first
-                            RemoveProblematicContentControls(mainPart.Document, correlationId);
+                            _logger.LogInformation($"[{correlationId}] Creating new document for output.");
                             
-                            // Then process all remaining content controls
-                            ProcessContentControls(mainPart.Document, correlationId);
+                            // Copy all parts from source to output
+                            foreach (var part in sourceDoc.Parts)
+                            {
+                                outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
+                            }
                             
-                            mainPart.Document.Save();
-                            _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"[{correlationId}] MainDocumentPart is null!");
+                            var mainPart = outputDoc.MainDocumentPart;
+                            if (mainPart != null)
+                            {
+                                // Process the document
+                                RemoveProblematicContentControls(mainPart.Document, correlationId);
+                                ProcessContentControls(mainPart.Document, correlationId);
+                                
+                                mainPart.Document.Save();
+                                _logger.LogInformation($"[{correlationId}] Content controls processed successfully.");
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"[{correlationId}] MainDocumentPart is null!");
+                            }
                         }
                     }
                     
