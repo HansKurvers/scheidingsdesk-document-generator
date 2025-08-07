@@ -80,16 +80,38 @@ namespace Scheidingsdesk
 
                 _logger.LogInformation($"[{correlationId}] Processing ouderschapsplan for DossierId: {requestData.DossierId}");
 
-                // Load template file
-                string templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Ouderschapsplan", "Ouderschapsplan NIEUW.docx");
-                
-                if (!File.Exists(templatePath))
+                // Load template file - try multiple locations
+                string templateFileName = "Ouderschapsplan NIEUW.docx";
+                string[] possiblePaths = new[]
                 {
-                    _logger.LogError($"[{correlationId}] Template file not found at path: {templatePath}");
+                    Path.Combine(Directory.GetCurrentDirectory(), "Ouderschapsplan", templateFileName),
+                    Path.Combine(Directory.GetCurrentDirectory(), templateFileName),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ouderschapsplan", templateFileName),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, templateFileName),
+                    Path.Combine("/home/site/wwwroot", "Ouderschapsplan", templateFileName),
+                    Path.Combine("/home/site/wwwroot", templateFileName)
+                };
+
+                string? templatePath = null;
+                foreach (var path in possiblePaths)
+                {
+                    _logger.LogInformation($"[{correlationId}] Checking for template at: {path}");
+                    if (File.Exists(path))
+                    {
+                        templatePath = path;
+                        break;
+                    }
+                }
+                
+                if (templatePath == null)
+                {
+                    _logger.LogError($"[{correlationId}] Template file not found in any of the expected locations. Current directory: {Directory.GetCurrentDirectory()}, Base directory: {AppDomain.CurrentDomain.BaseDirectory}");
                     return new ObjectResult(new
                     {
                         error = "Template file not found. Please ensure the template exists.",
-                        correlationId = correlationId
+                        correlationId = correlationId,
+                        currentDirectory = Directory.GetCurrentDirectory(),
+                        baseDirectory = AppDomain.CurrentDomain.BaseDirectory
                     })
                     {
                         StatusCode = 500
