@@ -399,6 +399,9 @@ namespace Scheidingsdesk
         {
             _logger.LogInformation($"[{correlationId}] Starting content control replacement");
             
+            // Also process all text in the document, not just content controls
+            ProcessAllTextInDocument(document, data, grammarRules, correlationId);
+            
             var sdtElements = document.Descendants<SdtElement>().ToList();
             _logger.LogInformation($"[{correlationId}] Found {sdtElements.Count} content controls to process");
             
@@ -406,12 +409,22 @@ namespace Scheidingsdesk
             {
                 try
                 {
+                    // Try to get the tag/alias of the content control
+                    var sdtProperties = sdt.Descendants<SdtProperties>().FirstOrDefault();
+                    var tag = sdtProperties?.Descendants<Tag>()?.FirstOrDefault()?.Val?.Value;
+                    var alias = sdtProperties?.Descendants<SdtAlias>()?.FirstOrDefault()?.Val?.Value;
+                    
+                    _logger.LogInformation($"[{correlationId}] Content control - Tag: '{tag}', Alias: '{alias}'");
+                    
                     var contentText = GetSdtContentText(sdt);
                     
                     if (string.IsNullOrWhiteSpace(contentText))
+                    {
+                        _logger.LogInformation($"[{correlationId}] Empty content control with tag: '{tag}'");
                         continue;
+                    }
                     
-                    _logger.LogDebug($"[{correlationId}] Processing content control: '{contentText}'");
+                    _logger.LogInformation($"[{correlationId}] Processing content control text: '{contentText.Substring(0, Math.Min(contentText.Length, 100))}'");
                     
                     // Apply grammar rules first
                     var processedText = ApplyGrammarRules(contentText, grammarRules);
@@ -426,7 +439,11 @@ namespace Scheidingsdesk
                     if (processedText != contentText)
                     {
                         SetSdtContentText(sdt, processedText);
-                        _logger.LogDebug($"[{correlationId}] Updated content control: '{contentText}' -> '{processedText}'");
+                        _logger.LogInformation($"[{correlationId}] Updated content control: '{contentText.Substring(0, Math.Min(contentText.Length, 50))}' -> '{processedText.Substring(0, Math.Min(processedText.Length, 50))}'");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[{correlationId}] No changes made to content control with text: '{contentText.Substring(0, Math.Min(contentText.Length, 50))}'");
                     }
                 }
                 catch (Exception ex)
@@ -436,6 +453,45 @@ namespace Scheidingsdesk
             }
             
             _logger.LogInformation($"[{correlationId}] Content control replacement completed");
+        }
+        
+        /// <summary>
+        /// Process all text elements in the document, not just content controls
+        /// </summary>
+        private void ProcessAllTextInDocument(Document document, DossierData data, Dictionary<string, string> grammarRules, string correlationId)
+        {
+            _logger.LogInformation($"[{correlationId}] Processing all text elements in document");
+            
+            // Get all text elements in the document
+            var textElements = document.Descendants<Text>().ToList();
+            _logger.LogInformation($"[{correlationId}] Found {textElements.Count} text elements");
+            
+            foreach (var textElement in textElements)
+            {
+                try
+                {
+                    var originalText = textElement.Text;
+                    if (string.IsNullOrWhiteSpace(originalText))
+                        continue;
+                    
+                    // Apply grammar rules
+                    var processedText = ApplyGrammarRules(originalText, grammarRules);
+                    
+                    // Apply data replacements
+                    processedText = ApplyDataReplacements(processedText, data, correlationId);
+                    
+                    // Update the text if it changed
+                    if (processedText != originalText)
+                    {
+                        textElement.Text = processedText;
+                        _logger.LogDebug($"[{correlationId}] Updated text: '{originalText.Substring(0, Math.Min(originalText.Length, 50))}' -> '{processedText.Substring(0, Math.Min(processedText.Length, 50))}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"[{correlationId}] Error processing text element: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
@@ -462,6 +518,14 @@ namespace Scheidingsdesk
         /// <returns>Text with data replacements applied</returns>
         private string ApplyDataReplacements(string text, DossierData data, string correlationId)
         {
+            var originalText = text;
+            
+            // Log sample of text to understand format
+            if (text.Length > 0)
+            {
+                _logger.LogDebug($"[{correlationId}] Sample text for replacement: '{text.Substring(0, Math.Min(text.Length, 200))}'");
+            }
+            
             // Use reflection to replace all placeholders with proper string conversions
             var replacements = new Dictionary<string, string>();
             
@@ -469,35 +533,85 @@ namespace Scheidingsdesk
             if (data.Partij1 != null)
             {
                 AddObjectReplacements(replacements, "Partij1", data.Partij1);
+                // Also add simplified versions
+                replacements["Partij1Naam"] = ConvertToString(data.Partij1.VolledigeNaam);
+                replacements["Partij1Adres"] = ConvertToString(data.Partij1.Adres);
+                replacements["Partij1Postcode"] = ConvertToString(data.Partij1.Postcode);
+                replacements["Partij1Plaats"] = ConvertToString(data.Partij1.Plaats);
             }
             
             if (data.Partij2 != null)
             {
                 AddObjectReplacements(replacements, "Partij2", data.Partij2);
+                // Also add simplified versions
+                replacements["Partij2Naam"] = ConvertToString(data.Partij2.VolledigeNaam);
+                replacements["Partij2Adres"] = ConvertToString(data.Partij2.Adres);
+                replacements["Partij2Postcode"] = ConvertToString(data.Partij2.Postcode);
+                replacements["Partij2Plaats"] = ConvertToString(data.Partij2.Plaats);
             }
             
-            // Replace dossier information
-            replacements[$"{{{{Dossier.DossierNummer}}}}"] = ConvertToString(data.DossierNummer);
-            replacements[$"{{{{Dossier.AangemaaktOp}}}}"] = ConvertToString(data.AangemaaktOp);
-            replacements[$"{{{{Dossier.GewijzigdOp}}}}"] = ConvertToString(data.GewijzigdOp);
-            replacements[$"{{{{Dossier.Status}}}}"] = ConvertToString(data.Status);
-            replacements[$"{{{{Dossier.GebruikerId}}}}"] = ConvertToString(data.GebruikerId);
-            replacements[$"{{{{Dossier.Id}}}}"] = ConvertToString(data.Id);
+            // Replace dossier information with multiple formats
+            AddDossierReplacements(replacements, data);
             
             // Replace child information
             for (int i = 0; i < data.Kinderen.Count; i++)
             {
                 var child = data.Kinderen[i];
                 AddObjectReplacements(replacements, $"Kind{i + 1}", child);
+                // Also add simplified versions
+                replacements[$"Kind{i + 1}Naam"] = ConvertToString(child.VolledigeNaam);
+                replacements[$"Kind{i + 1}Geboortedatum"] = ConvertToString(child.GeboorteDatum);
             }
             
-            // Apply all replacements
+            // Apply all replacements with different bracket formats
             foreach (var replacement in replacements)
             {
-                text = text.Replace(replacement.Key, replacement.Value);
+                // Try multiple placeholder formats
+                var formats = new[] {
+                    $"{{{{{replacement.Key}}}}}",     // {{Key}}
+                    $"{{{replacement.Key}}}",         // {Key}
+                    $"[{replacement.Key}]",           // [Key]
+                    $"<<{replacement.Key}>>",         // <<Key>>
+                    replacement.Key                    // Just the key without brackets
+                };
+                
+                foreach (var format in formats)
+                {
+                    if (text.Contains(format))
+                    {
+                        text = text.Replace(format, replacement.Value);
+                        _logger.LogDebug($"[{correlationId}] Replaced '{format}' with '{replacement.Value}'");
+                    }
+                }
+            }
+            
+            if (text != originalText)
+            {
+                _logger.LogInformation($"[{correlationId}] Text was modified during replacement");
             }
             
             return text;
+        }
+        
+        /// <summary>
+        /// Add dossier replacements with multiple key formats
+        /// </summary>
+        private void AddDossierReplacements(Dictionary<string, string> replacements, DossierData data)
+        {
+            // Add with dot notation
+            replacements["Dossier.DossierNummer"] = ConvertToString(data.DossierNummer);
+            replacements["Dossier.AangemaaktOp"] = ConvertToString(data.AangemaaktOp);
+            replacements["Dossier.GewijzigdOp"] = ConvertToString(data.GewijzigdOp);
+            replacements["Dossier.Status"] = ConvertToString(data.Status);
+            replacements["Dossier.GebruikerId"] = ConvertToString(data.GebruikerId);
+            replacements["Dossier.Id"] = ConvertToString(data.Id);
+            
+            // Add without dot notation
+            replacements["DossierNummer"] = ConvertToString(data.DossierNummer);
+            replacements["DossierAangemaaktOp"] = ConvertToString(data.AangemaaktOp);
+            replacements["DossierGewijzigdOp"] = ConvertToString(data.GewijzigdOp);
+            replacements["DossierStatus"] = ConvertToString(data.Status);
+            replacements["DossierId"] = ConvertToString(data.Id);
         }
         
         /// <summary>
@@ -513,8 +627,13 @@ namespace Scheidingsdesk
                 try
                 {
                     var value = prop.GetValue(obj);
-                    var key = $"{{{{{prefix}.{prop.Name}}}}}";
-                    replacements[key] = ConvertToString(value);
+                    // Add with dot notation
+                    var keyWithDot = $"{prefix}.{prop.Name}";
+                    replacements[keyWithDot] = ConvertToString(value);
+                    
+                    // Also add without dot notation for flexibility
+                    var keyWithoutDot = $"{prefix}{prop.Name}";
+                    replacements[keyWithoutDot] = ConvertToString(value);
                 }
                 catch (Exception ex)
                 {
