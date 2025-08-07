@@ -541,12 +541,18 @@ namespace Scheidingsdesk
             }
             else if (text.Contains("[[TABEL_ZORG]]"))
             {
-                var newTable = GenerateZorgTable(_currentDossierData.Zorg, correlationId);
-                if (newTable != null)
+                // Generate multiple tables for zorg (one per category)
+                var tables = GenerateZorgTables(_currentDossierData.Zorg, correlationId);
+                
+                // Insert all tables in reverse order so they appear in correct sequence
+                foreach (var table in tables.Reverse<OpenXmlElement>())
                 {
-                    paragraph.Parent?.InsertAfter(newTable, paragraph);
-                    paragraph.Remove();
+                    paragraph.Parent?.InsertAfter(table, paragraph);
                 }
+                
+                // Remove the placeholder paragraph
+                paragraph.Remove();
+                _logger.LogInformation($"[{correlationId}] Replaced zorg placeholder with {tables.Count} elements");
             }
             else if (text.Contains("[[TABEL_VAKANTIES]]"))
             {
@@ -726,6 +732,22 @@ namespace Scheidingsdesk
         }
         
         /// <summary>
+        /// Create a styled heading paragraph
+        /// </summary>
+        private Paragraph CreateStyledHeading(string text)
+        {
+            var heading = new Paragraph();
+            var headingRun = new Run();
+            var headingRunProps = new RunProperties();
+            headingRunProps.Append(new Bold());
+            headingRunProps.Append(new FontSize() { Val = "24" }); // 12pt
+            headingRun.Append(headingRunProps);
+            headingRun.Append(new Text(text));
+            heading.Append(headingRun);
+            return heading;
+        }
+        
+        /// <summary>
         /// Helper method to add a styled cell to a table row
         /// </summary>
         private void AddStyledTableCell(TableRow row, string text, bool isBold = false, string? bgColor = null, string? textColor = null)
@@ -771,43 +793,84 @@ namespace Scheidingsdesk
         }
         
         /// <summary>
-        /// Generate table for zorg (care) arrangements
+        /// Generate multiple tables for zorg (care) arrangements - one per category
         /// </summary>
-        private Table GenerateZorgTable(List<ZorgData> zorgData, string correlationId)
+        private List<OpenXmlElement> GenerateZorgTables(List<ZorgData> zorgData, string correlationId)
+        {
+            var elements = new List<OpenXmlElement>();
+            
+            // Group by category
+            var groupedByCategory = zorgData.GroupBy(z => z.ZorgCategorieNaam)
+                                            .OrderBy(g => g.Key);
+            
+            foreach (var categoryGroup in groupedByCategory)
+            {
+                var categoryName = categoryGroup.Key ?? "Overige afspraken";
+                
+                // Add a heading paragraph for this category
+                var heading = CreateStyledHeading(categoryName);
+                elements.Add(heading);
+                
+                // Create the table for this category
+                var table = CreateZorgCategoryTable(categoryGroup.ToList(), correlationId);
+                elements.Add(table);
+                
+                // Add spacing paragraph after table
+                elements.Add(new Paragraph());
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated {groupedByCategory.Count()} zorg tables");
+            return elements;
+        }
+        
+        /// <summary>
+        /// Create a single zorg table for a specific category
+        /// </summary>
+        private Table CreateZorgCategoryTable(List<ZorgData> categoryData, string correlationId)
         {
             var table = new Table();
             
-            // Add table properties for borders
+            // Add table properties for a clean, modern look
             var tblProp = new TableProperties();
+            
+            // Set table width to 100%
+            var tblWidth = new TableWidth() { Width = "5000", Type = TableWidthUnitValues.Pct };
+            tblProp.Append(tblWidth);
+            
+            // Add modern borders
             var tblBorders = new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+                new TopBorder { Val = BorderValues.Single, Size = 6, Color = "4472C4" },
+                new BottomBorder { Val = BorderValues.Single, Size = 6, Color = "4472C4" },
+                new LeftBorder { Val = BorderValues.Single, Size = 6, Color = "4472C4" },
+                new RightBorder { Val = BorderValues.Single, Size = 6, Color = "4472C4" },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" }
             );
             tblProp.Append(tblBorders);
+            
             table.Append(tblProp);
+            
+            // Define grid columns
+            var tblGrid = new TableGrid();
+            tblGrid.Append(new GridColumn() { Width = "2500" }); // Situatie
+            tblGrid.Append(new GridColumn() { Width = "3500" }); // Afspraak
+            table.Append(tblGrid);
             
             // Add header row
             var headerRow = new TableRow();
-            AddTableCell(headerRow, "Categorie", true);
-            AddTableCell(headerRow, "Situatie", true);
-            AddTableCell(headerRow, "Afspraak", true);
+            AddStyledTableCell(headerRow, "Situatie", true, "4472C4", "FFFFFF");
+            AddStyledTableCell(headerRow, "Afspraak", true, "4472C4", "FFFFFF");
             table.Append(headerRow);
             
             // Add data rows
-            foreach (var zorg in zorgData.OrderBy(z => z.ZorgCategorieNaam))
+            foreach (var zorg in categoryData)
             {
                 var row = new TableRow();
-                AddTableCell(row, zorg.ZorgCategorieNaam ?? "");
-                AddTableCell(row, zorg.EffectieveSituatie);
-                AddTableCell(row, zorg.Overeenkomst ?? "");
+                AddStyledTableCell(row, zorg.EffectieveSituatie, false, null, null);
+                AddStyledTableCell(row, zorg.Overeenkomst ?? "", false, null, null);
                 table.Append(row);
             }
             
-            _logger.LogInformation($"[{correlationId}] Generated zorg table with {zorgData.Count} rows");
             return table;
         }
         
@@ -818,44 +881,61 @@ namespace Scheidingsdesk
         {
             var table = new Table();
             
-            // Add table properties
+            // Add table properties for a clean, modern look
             var tblProp = new TableProperties();
+            
+            // Set table width to 100%
+            var tblWidth = new TableWidth() { Width = "5000", Type = TableWidthUnitValues.Pct };
+            tblProp.Append(tblWidth);
+            
+            // Add modern borders with green theme for holidays
             var tblBorders = new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+                new TopBorder { Val = BorderValues.Single, Size = 6, Color = "70AD47" },
+                new BottomBorder { Val = BorderValues.Single, Size = 6, Color = "70AD47" },
+                new LeftBorder { Val = BorderValues.Single, Size = 6, Color = "70AD47" },
+                new RightBorder { Val = BorderValues.Single, Size = 6, Color = "70AD47" },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" }
             );
             tblProp.Append(tblBorders);
+            
             table.Append(tblProp);
+            
+            // Define grid columns
+            var tblGrid = new TableGrid();
+            tblGrid.Append(new GridColumn() { Width = "2500" }); // Vakantie
+            tblGrid.Append(new GridColumn() { Width = "1750" }); // Even jaren
+            tblGrid.Append(new GridColumn() { Width = "1750" }); // Oneven jaren
+            table.Append(tblGrid);
             
             // Add header row
             var headerRow = new TableRow();
-            AddTableCell(headerRow, "Vakantie", true);
-            AddTableCell(headerRow, "Even jaren", true);
-            AddTableCell(headerRow, "Oneven jaren", true);
+            AddStyledTableCell(headerRow, "Schoolvakantie", true, "70AD47", "FFFFFF");
+            AddStyledTableCell(headerRow, "Even jaren", true, "70AD47", "FFFFFF");
+            AddStyledTableCell(headerRow, "Oneven jaren", true, "70AD47", "FFFFFF");
             table.Append(headerRow);
             
             // Add standard Dutch school holidays
             var vakanties = new[]
             {
-                new { Naam = "Voorjaarsvakantie", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "Meivakantie", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "Zomervakantie (1e helft)", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "Zomervakantie (2e helft)", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "Herfstvakantie", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "Kerstvakantie", Even = "Partij 2", Oneven = "Partij 1" }
+                new { Naam = "Voorjaarsvakantie", Even = "Ouder 1", Oneven = "Ouder 2" },
+                new { Naam = "Meivakantie", Even = "Ouder 2", Oneven = "Ouder 1" },
+                new { Naam = "Zomervakantie - Week 1-3", Even = "Ouder 1", Oneven = "Ouder 2" },
+                new { Naam = "Zomervakantie - Week 4-6", Even = "Ouder 2", Oneven = "Ouder 1" },
+                new { Naam = "Herfstvakantie", Even = "Ouder 1", Oneven = "Ouder 2" },
+                new { Naam = "Kerstvakantie", Even = "Ouder 2", Oneven = "Ouder 1" }
             };
             
+            bool alternateRow = false;
             foreach (var vakantie in vakanties)
             {
                 var row = new TableRow();
-                AddTableCell(row, vakantie.Naam);
-                AddTableCell(row, vakantie.Even);
-                AddTableCell(row, vakantie.Oneven);
+                var bgColor = alternateRow ? "F2F2F2" : null;
+                AddStyledTableCell(row, vakantie.Naam, true, bgColor, null);
+                AddStyledTableCell(row, vakantie.Even, false, bgColor, null);
+                AddStyledTableCell(row, vakantie.Oneven, false, bgColor, null);
                 table.Append(row);
+                alternateRow = !alternateRow;
             }
             
             _logger.LogInformation($"[{correlationId}] Generated vakanties table");
@@ -869,49 +949,68 @@ namespace Scheidingsdesk
         {
             var table = new Table();
             
-            // Add table properties
+            // Add table properties for a clean, modern look
             var tblProp = new TableProperties();
+            
+            // Set table width to 100%
+            var tblWidth = new TableWidth() { Width = "5000", Type = TableWidthUnitValues.Pct };
+            tblProp.Append(tblWidth);
+            
+            // Add modern borders with orange theme for special days
             var tblBorders = new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+                new TopBorder { Val = BorderValues.Single, Size = 6, Color = "ED7D31" },
+                new BottomBorder { Val = BorderValues.Single, Size = 6, Color = "ED7D31" },
+                new LeftBorder { Val = BorderValues.Single, Size = 6, Color = "ED7D31" },
+                new RightBorder { Val = BorderValues.Single, Size = 6, Color = "ED7D31" },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" }
             );
             tblProp.Append(tblBorders);
+            
             table.Append(tblProp);
+            
+            // Define grid columns
+            var tblGrid = new TableGrid();
+            tblGrid.Append(new GridColumn() { Width = "2500" }); // Feestdag
+            tblGrid.Append(new GridColumn() { Width = "1750" }); // Even jaren
+            tblGrid.Append(new GridColumn() { Width = "1750" }); // Oneven jaren
+            table.Append(tblGrid);
             
             // Add header row
             var headerRow = new TableRow();
-            AddTableCell(headerRow, "Feestdag", true);
-            AddTableCell(headerRow, "Even jaren", true);
-            AddTableCell(headerRow, "Oneven jaren", true);
+            AddStyledTableCell(headerRow, "Feestdag", true, "ED7D31", "FFFFFF");
+            AddStyledTableCell(headerRow, "Even jaren", true, "ED7D31", "FFFFFF");
+            AddStyledTableCell(headerRow, "Oneven jaren", true, "ED7D31", "FFFFFF");
             table.Append(headerRow);
             
-            // Add standard holidays
+            // Add standard holidays grouped by type
             var feestdagen = new[]
             {
-                new { Naam = "Goede Vrijdag", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "1e Paasdag", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "2e Paasdag", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "Koningsdag", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "Hemelvaartsdag", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "1e Pinksterdag", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "2e Pinksterdag", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "1e Kerstdag", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "2e Kerstdag", Even = "Partij 1", Oneven = "Partij 2" },
-                new { Naam = "Oudjaarsdag", Even = "Partij 2", Oneven = "Partij 1" },
-                new { Naam = "Nieuwjaarsdag", Even = "Partij 1", Oneven = "Partij 2" }
+                new { Naam = "Nieuwjaarsdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Nieuwjaar" },
+                new { Naam = "Goede Vrijdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Pasen" },
+                new { Naam = "1e Paasdag", Even = "Ouder 2", Oneven = "Ouder 1", Groep = "Pasen" },
+                new { Naam = "2e Paasdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Pasen" },
+                new { Naam = "Koningsdag", Even = "Ouder 2", Oneven = "Ouder 1", Groep = "Nationale" },
+                new { Naam = "Bevrijdingsdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Nationale" },
+                new { Naam = "Hemelvaartsdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Pinksteren" },
+                new { Naam = "1e Pinksterdag", Even = "Ouder 2", Oneven = "Ouder 1", Groep = "Pinksteren" },
+                new { Naam = "2e Pinksterdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "Pinksteren" },
+                new { Naam = "Sinterklaas", Even = "Ouder 2", Oneven = "Ouder 1", Groep = "December" },
+                new { Naam = "1e Kerstdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "December" },
+                new { Naam = "2e Kerstdag", Even = "Ouder 2", Oneven = "Ouder 1", Groep = "December" },
+                new { Naam = "Oudjaarsdag", Even = "Ouder 1", Oneven = "Ouder 2", Groep = "December" }
             };
             
+            bool alternateRow = false;
             foreach (var feestdag in feestdagen)
             {
                 var row = new TableRow();
-                AddTableCell(row, feestdag.Naam);
-                AddTableCell(row, feestdag.Even);
-                AddTableCell(row, feestdag.Oneven);
+                var bgColor = alternateRow ? "FFF2E8" : null;
+                AddStyledTableCell(row, feestdag.Naam, true, bgColor, null);
+                AddStyledTableCell(row, feestdag.Even, false, bgColor, null);
+                AddStyledTableCell(row, feestdag.Oneven, false, bgColor, null);
                 table.Append(row);
+                alternateRow = !alternateRow;
             }
             
             _logger.LogInformation($"[{correlationId}] Generated feestdagen table");
