@@ -653,12 +653,14 @@ namespace Scheidingsdesk
             
             table.Append(tblProp);
             
-            // Define grid columns (Day | Morning | Afternoon | Evening)
+            // Define grid columns (Day | Morning | Afternoon | Evening | Night | Wisseltijd)
             var tblGrid = new TableGrid();
-            tblGrid.Append(new GridColumn() { Width = "1500" }); // Day
-            tblGrid.Append(new GridColumn() { Width = "1500" }); // Ochtend
-            tblGrid.Append(new GridColumn() { Width = "1500" }); // Middag
-            tblGrid.Append(new GridColumn() { Width = "1500" }); // Avond
+            tblGrid.Append(new GridColumn() { Width = "1200" }); // Day
+            tblGrid.Append(new GridColumn() { Width = "1000" }); // Ochtend
+            tblGrid.Append(new GridColumn() { Width = "1000" }); // Middag
+            tblGrid.Append(new GridColumn() { Width = "1000" }); // Avond
+            tblGrid.Append(new GridColumn() { Width = "1000" }); // Nacht
+            tblGrid.Append(new GridColumn() { Width = "800" });  // Wisseltijd
             table.Append(tblGrid);
             
             // Add header row
@@ -667,6 +669,8 @@ namespace Scheidingsdesk
             AddStyledTableCell(headerRow, "Ochtend", true, "2E74B5", "FFFFFF");
             AddStyledTableCell(headerRow, "Middag", true, "2E74B5", "FFFFFF");
             AddStyledTableCell(headerRow, "Avond", true, "2E74B5", "FFFFFF");
+            AddStyledTableCell(headerRow, "Nacht", true, "2E74B5", "FFFFFF");
+            AddStyledTableCell(headerRow, "Wissel", true, "2E74B5", "FFFFFF");
             table.Append(headerRow);
             
             // Days of the week
@@ -681,8 +685,9 @@ namespace Scheidingsdesk
                 // Day name cell (bold)
                 AddStyledTableCell(row, dagNaam, true, "F2F2F2", "000000");
                 
-                // Morning, Afternoon, Evening cells
-                for (int dagdeelId = 1; dagdeelId <= 3; dagdeelId++)
+                // Morning (1), Afternoon (2), Evening (3), Night (4) cells
+                string? dayWisseltijd = null;
+                for (int dagdeelId = 1; dagdeelId <= 4; dagdeelId++)
                 {
                     var omgang = weekData.FirstOrDefault(o => o.DagId == dagId && o.DagdeelId == dagdeelId);
                     if (omgang != null)
@@ -691,6 +696,12 @@ namespace Scheidingsdesk
                         var persoon = partijen.FirstOrDefault(p => p.Id == omgang.VerzorgerId);
                         var naam = persoon?.Roepnaam ?? persoon?.Voornamen ?? "";
                         AddStyledTableCell(row, naam, false, null, null);
+                        
+                        // Capture wisseltijd if present
+                        if (!string.IsNullOrEmpty(omgang.WisselTijd) && string.IsNullOrEmpty(dayWisseltijd))
+                        {
+                            dayWisseltijd = omgang.WisselTijd;
+                        }
                     }
                     else
                     {
@@ -698,34 +709,10 @@ namespace Scheidingsdesk
                     }
                 }
                 
+                // Add wisseltijd column for this day
+                AddStyledTableCell(row, dayWisseltijd ?? "", false, null, null);
+                
                 table.Append(row);
-            }
-            
-            // Add wisseltijd row if any wisseltijd data exists
-            var wisseltijden = weekData.Where(o => !string.IsNullOrEmpty(o.WisselTijd))
-                                       .Select(o => o.WisselTijd)
-                                       .Distinct()
-                                       .ToList();
-            
-            if (wisseltijden.Any())
-            {
-                var wisseltijdRow = new TableRow();
-                AddStyledTableCell(wisseltijdRow, "Wisseltijd", true, "F2F2F2", "000000");
-                
-                // Merge the remaining cells and add wisseltijd info
-                var mergedCell = new TableCell();
-                var cellProps = new TableCellProperties();
-                cellProps.Append(new GridSpan() { Val = 3 });
-                mergedCell.Append(cellProps);
-                
-                var paragraph = new Paragraph();
-                var run = new Run();
-                run.Append(new Text(string.Join(", ", wisseltijden)));
-                paragraph.Append(run);
-                mergedCell.Append(paragraph);
-                
-                wisseltijdRow.Append(mergedCell);
-                table.Append(wisseltijdRow);
             }
             
             return table;
