@@ -523,79 +523,251 @@ namespace Scheidingsdesk
                 return;
             }
             
-            Table? newTable = null;
-            
             // Determine which table to generate based on placeholder
             if (text.Contains("[[TABEL_OMGANG]]"))
             {
-                newTable = GenerateOmgangTable(_currentDossierData.Omgang, correlationId);
+                // Generate multiple tables for omgang (one per week arrangement)
+                var tables = GenerateOmgangTables(_currentDossierData.Omgang, _currentDossierData.Partijen, correlationId);
+                
+                // Insert all tables in reverse order so they appear in correct sequence
+                foreach (var table in tables.Reverse<OpenXmlElement>())
+                {
+                    paragraph.Parent?.InsertAfter(table, paragraph);
+                }
+                
+                // Remove the placeholder paragraph
+                paragraph.Remove();
+                _logger.LogInformation($"[{correlationId}] Replaced omgang placeholder with {tables.Count} tables");
             }
             else if (text.Contains("[[TABEL_ZORG]]"))
             {
-                newTable = GenerateZorgTable(_currentDossierData.Zorg, correlationId);
+                var newTable = GenerateZorgTable(_currentDossierData.Zorg, correlationId);
+                if (newTable != null)
+                {
+                    paragraph.Parent?.InsertAfter(newTable, paragraph);
+                    paragraph.Remove();
+                }
             }
             else if (text.Contains("[[TABEL_VAKANTIES]]"))
             {
-                newTable = GenerateVakantiesTable(correlationId);
+                var newTable = GenerateVakantiesTable(correlationId);
+                if (newTable != null)
+                {
+                    paragraph.Parent?.InsertAfter(newTable, paragraph);
+                    paragraph.Remove();
+                }
             }
             else if (text.Contains("[[TABEL_FEESTDAGEN]]"))
             {
-                newTable = GenerateFeestdagenTable(correlationId);
-            }
-            
-            if (newTable != null)
-            {
-                // Insert the table after the paragraph
-                paragraph.Parent?.InsertAfter(newTable, paragraph);
-                // Remove the placeholder paragraph
-                paragraph.Remove();
-                _logger.LogInformation($"[{correlationId}] Replaced table placeholder with generated table");
+                var newTable = GenerateFeestdagenTable(correlationId);
+                if (newTable != null)
+                {
+                    paragraph.Parent?.InsertAfter(newTable, paragraph);
+                    paragraph.Remove();
+                }
             }
         }
         
         /// <summary>
-        /// Generate table for omgang (visitation) arrangements
+        /// Generate multiple tables for omgang (visitation) arrangements - one per week arrangement
         /// </summary>
-        private Table GenerateOmgangTable(List<OmgangData> omgangData, string correlationId)
+        private List<OpenXmlElement> GenerateOmgangTables(List<OmgangData> omgangData, List<PersonData> partijen, string correlationId)
+        {
+            var elements = new List<OpenXmlElement>();
+            
+            // Group by week arrangement
+            var groupedByWeek = omgangData.GroupBy(o => o.WeekRegelingId)
+                                          .OrderBy(g => g.Key);
+            
+            foreach (var weekGroup in groupedByWeek)
+            {
+                // Get the week arrangement name
+                var weekRegeling = weekGroup.First().EffectieveRegeling;
+                
+                // Add a heading paragraph for this week arrangement
+                var heading = new Paragraph();
+                var headingRun = new Run();
+                var headingRunProps = new RunProperties();
+                headingRunProps.Append(new Bold());
+                headingRunProps.Append(new FontSize() { Val = "24" }); // 12pt
+                headingRun.Append(headingRunProps);
+                headingRun.Append(new Text(weekRegeling));
+                heading.Append(headingRun);
+                elements.Add(heading);
+                
+                // Create the table
+                var table = CreateOmgangWeekTable(weekGroup.ToList(), partijen, correlationId);
+                elements.Add(table);
+                
+                // Add spacing paragraph after table
+                elements.Add(new Paragraph());
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated {groupedByWeek.Count()} omgang tables");
+            return elements;
+        }
+        
+        /// <summary>
+        /// Create a single omgang table for a specific week arrangement
+        /// </summary>
+        private Table CreateOmgangWeekTable(List<OmgangData> weekData, List<PersonData> partijen, string correlationId)
         {
             var table = new Table();
             
-            // Add table properties for borders
+            // Add table properties for a clean, modern look
             var tblProp = new TableProperties();
+            
+            // Set table width to 100%
+            var tblWidth = new TableWidth() { Width = "5000", Type = TableWidthUnitValues.Pct };
+            tblProp.Append(tblWidth);
+            
+            // Add modern borders
             var tblBorders = new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+                new TopBorder { Val = BorderValues.Single, Size = 6, Color = "2E74B5" },
+                new BottomBorder { Val = BorderValues.Single, Size = 6, Color = "2E74B5" },
+                new LeftBorder { Val = BorderValues.Single, Size = 6, Color = "2E74B5" },
+                new RightBorder { Val = BorderValues.Single, Size = 6, Color = "2E74B5" },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4, Color = "D0D0D0" }
             );
             tblProp.Append(tblBorders);
+            
+            // Add table look for better styling
+            var tblLook = new TableLook() 
+            { 
+                Val = "04A0",
+                FirstRow = true,
+                LastRow = false,
+                FirstColumn = true,
+                LastColumn = false,
+                NoHorizontalBand = false,
+                NoVerticalBand = true
+            };
+            tblProp.Append(tblLook);
+            
             table.Append(tblProp);
+            
+            // Define grid columns (Day | Morning | Afternoon | Evening)
+            var tblGrid = new TableGrid();
+            tblGrid.Append(new GridColumn() { Width = "1500" }); // Day
+            tblGrid.Append(new GridColumn() { Width = "1500" }); // Ochtend
+            tblGrid.Append(new GridColumn() { Width = "1500" }); // Middag
+            tblGrid.Append(new GridColumn() { Width = "1500" }); // Avond
+            table.Append(tblGrid);
             
             // Add header row
             var headerRow = new TableRow();
-            AddTableCell(headerRow, "Dag", true);
-            AddTableCell(headerRow, "Dagdeel", true);
-            AddTableCell(headerRow, "Bij ouder", true);
-            AddTableCell(headerRow, "Wisseltijd", true);
-            AddTableCell(headerRow, "Regeling", true);
+            AddStyledTableCell(headerRow, "Dag", true, "2E74B5", "FFFFFF");
+            AddStyledTableCell(headerRow, "Ochtend", true, "2E74B5", "FFFFFF");
+            AddStyledTableCell(headerRow, "Middag", true, "2E74B5", "FFFFFF");
+            AddStyledTableCell(headerRow, "Avond", true, "2E74B5", "FFFFFF");
             table.Append(headerRow);
             
-            // Add data rows
-            foreach (var omgang in omgangData.OrderBy(o => o.DagId).ThenBy(o => o.DagdeelId))
+            // Days of the week
+            string[] dagen = { "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag" };
+            
+            // Process each day
+            for (int dagId = 1; dagId <= 7; dagId++)
             {
+                var dagNaam = dagId <= dagen.Length ? dagen[dagId - 1] : $"Dag {dagId}";
                 var row = new TableRow();
-                AddTableCell(row, omgang.DagNaam ?? "");
-                AddTableCell(row, omgang.DagdeelNaam ?? "");
-                AddTableCell(row, omgang.VerzorgerNaam ?? "");
-                AddTableCell(row, omgang.WisselTijd ?? "");
-                AddTableCell(row, omgang.EffectieveRegeling);
+                
+                // Day name cell (bold)
+                AddStyledTableCell(row, dagNaam, true, "F2F2F2", "000000");
+                
+                // Morning, Afternoon, Evening cells
+                for (int dagdeelId = 1; dagdeelId <= 3; dagdeelId++)
+                {
+                    var omgang = weekData.FirstOrDefault(o => o.DagId == dagId && o.DagdeelId == dagdeelId);
+                    if (omgang != null)
+                    {
+                        // Get the person's roepnaam or voornamen (not full name with lastname)
+                        var persoon = partijen.FirstOrDefault(p => p.Id == omgang.VerzorgerId);
+                        var naam = persoon?.Roepnaam ?? persoon?.Voornamen ?? "";
+                        AddStyledTableCell(row, naam, false, null, null);
+                    }
+                    else
+                    {
+                        AddStyledTableCell(row, "", false, null, null);
+                    }
+                }
+                
                 table.Append(row);
             }
             
-            _logger.LogInformation($"[{correlationId}] Generated omgang table with {omgangData.Count} rows");
+            // Add wisseltijd row if any wisseltijd data exists
+            var wisseltijden = weekData.Where(o => !string.IsNullOrEmpty(o.WisselTijd))
+                                       .Select(o => o.WisselTijd)
+                                       .Distinct()
+                                       .ToList();
+            
+            if (wisseltijden.Any())
+            {
+                var wisseltijdRow = new TableRow();
+                AddStyledTableCell(wisseltijdRow, "Wisseltijd", true, "F2F2F2", "000000");
+                
+                // Merge the remaining cells and add wisseltijd info
+                var mergedCell = new TableCell();
+                var cellProps = new TableCellProperties();
+                cellProps.Append(new GridSpan() { Val = 3 });
+                mergedCell.Append(cellProps);
+                
+                var paragraph = new Paragraph();
+                var run = new Run();
+                run.Append(new Text(string.Join(", ", wisseltijden)));
+                paragraph.Append(run);
+                mergedCell.Append(paragraph);
+                
+                wisseltijdRow.Append(mergedCell);
+                table.Append(wisseltijdRow);
+            }
+            
             return table;
+        }
+        
+        /// <summary>
+        /// Helper method to add a styled cell to a table row
+        /// </summary>
+        private void AddStyledTableCell(TableRow row, string text, bool isBold = false, string? bgColor = null, string? textColor = null)
+        {
+            var cell = new TableCell();
+            
+            // Add cell properties if background color specified
+            if (!string.IsNullOrEmpty(bgColor))
+            {
+                var cellProps = new TableCellProperties();
+                var shading = new Shading() { Val = ShadingPatternValues.Clear, Fill = bgColor };
+                cellProps.Append(shading);
+                cell.Append(cellProps);
+            }
+            
+            var paragraph = new Paragraph();
+            var paragraphProps = new ParagraphProperties();
+            paragraphProps.Append(new Justification() { Val = JustificationValues.Center });
+            paragraph.Append(paragraphProps);
+            
+            var run = new Run();
+            var runProps = new RunProperties();
+            
+            if (isBold)
+            {
+                runProps.Append(new Bold());
+            }
+            
+            if (!string.IsNullOrEmpty(textColor))
+            {
+                runProps.Append(new Color() { Val = textColor });
+            }
+            
+            if (runProps.HasChildren)
+            {
+                run.Append(runProps);
+            }
+            
+            run.Append(new Text(text));
+            paragraph.Append(run);
+            cell.Append(paragraph);
+            row.Append(cell);
         }
         
         /// <summary>
