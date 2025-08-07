@@ -24,6 +24,7 @@ namespace Scheidingsdesk
     {
         private readonly ILogger<OuderschapsplanFunction> _logger;
         private readonly DatabaseService _databaseService;
+        private DossierData? _currentDossierData;
 
         public OuderschapsplanFunction(ILogger<OuderschapsplanFunction> logger, DatabaseService databaseService)
         {
@@ -265,48 +266,43 @@ namespace Scheidingsdesk
             {
                 // Read template file
                 byte[] templateBytes = await File.ReadAllBytesAsync(templatePath);
-                var templateStream = new MemoryStream(templateBytes);
-                
-                // Create a copy for processing
                 var documentStream = new MemoryStream();
+                await documentStream.WriteAsync(templateBytes, 0, templateBytes.Length);
+                documentStream.Position = 0;
                 
                 // Create grammar rules based on number of children
                 var grammarRules = CreateGrammarRules(data.Kinderen.Count, data.Kinderen, correlationId);
                 
-                // Process the document
-                using (WordprocessingDocument sourceDoc = WordprocessingDocument.Open(templateStream, false))
+                // Build all replacements
+                var replacements = BuildAllReplacements(data, grammarRules, correlationId);
+                
+                // Store data for table generation
+                _currentDossierData = data;
+                
+                // Process the document with simple find and replace
+                using (WordprocessingDocument doc = WordprocessingDocument.Open(documentStream, true))
                 {
-                    _logger.LogInformation($"[{correlationId}] Source document opened successfully.");
+                    _logger.LogInformation($"[{correlationId}] Document opened successfully for processing.");
                     
-                    // Create a NEW document in the output stream
-                    using (WordprocessingDocument outputDoc = WordprocessingDocument.Create(documentStream, sourceDoc.DocumentType))
+                    var mainPart = doc.MainDocumentPart;
+                    if (mainPart == null)
                     {
-                        _logger.LogInformation($"[{correlationId}] Creating new document for output.");
-                        
-                        // Copy all parts from source to output
-                        foreach (var part in sourceDoc.Parts)
-                        {
-                            outputDoc.AddPart(part.OpenXmlPart, part.RelationshipId);
-                        }
-                        
-                        var mainPart = outputDoc.MainDocumentPart;
-                        if (mainPart != null)
-                        {
-                            // Process content controls with data replacement
-                            ReplaceContentControlsWithData(mainPart.Document, data, grammarRules, correlationId);
-                            
-                            // Remove content controls after populating them
-                            RemoveContentControls(mainPart.Document, correlationId);
-                            
-                            mainPart.Document.Save();
-                            _logger.LogInformation($"[{correlationId}] Document generation completed successfully.");
-                        }
-                        else
-                        {
-                            _logger.LogError($"[{correlationId}] MainDocumentPart is null!");
-                            return null;
-                        }
+                        _logger.LogError($"[{correlationId}] MainDocumentPart is null!");
+                        return null;
                     }
+                    
+                    // Get the document body as text
+                    var body = mainPart.Document.Body;
+                    
+                    // Simple approach: Process all text elements directly
+                    ProcessDocumentWithSimpleReplace(body, replacements, correlationId);
+                    
+                    // Also process headers and footers
+                    ProcessHeadersAndFooters(mainPart, replacements, correlationId);
+                    
+                    // Save changes
+                    mainPart.Document.Save();
+                    _logger.LogInformation($"[{correlationId}] Document generation completed successfully.");
                 }
                 
                 documentStream.Position = 0;
@@ -317,6 +313,459 @@ namespace Scheidingsdesk
                 _logger.LogError(ex, $"[{correlationId}] Error during document generation");
                 throw;
             }
+        }
+        
+        /// <summary>
+        /// Build all replacements into a single dictionary
+        /// </summary>
+        private Dictionary<string, string> BuildAllReplacements(DossierData data, Dictionary<string, string> grammarRules, string correlationId)
+        {
+            var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            
+            // Add grammar rules
+            foreach (var rule in grammarRules)
+            {
+                replacements[rule.Key] = rule.Value;
+            }
+            
+            // Add party data
+            if (data.Partij1 != null)
+            {
+                AddPersonReplacements(replacements, "Partij1", data.Partij1);
+            }
+            
+            if (data.Partij2 != null)
+            {
+                AddPersonReplacements(replacements, "Partij2", data.Partij2);
+            }
+            
+            // Add dossier data
+            replacements["DossierNummer"] = data.DossierNummer ?? "";
+            replacements["DossierDatum"] = data.AangemaaktOp.ToString("dd-MM-yyyy");
+            replacements["HuidigeDatum"] = DateTime.Now.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("nl-NL"));
+            
+            // Add children data
+            if (data.Kinderen.Any())
+            {
+                replacements["AantalKinderen"] = data.Kinderen.Count.ToString();
+                
+                for (int i = 0; i < data.Kinderen.Count; i++)
+                {
+                    var child = data.Kinderen[i];
+                    var prefix = $"Kind{i + 1}";
+                    
+                    replacements[$"{prefix}Naam"] = child.VolledigeNaam ?? "";
+                    replacements[$"{prefix}Voornaam"] = child.Voornamen ?? "";
+                    replacements[$"{prefix}Achternaam"] = child.Achternaam ?? "";
+                    replacements[$"{prefix}Geboortedatum"] = child.GeboorteDatum?.ToString("dd-MM-yyyy") ?? "";
+                    replacements[$"{prefix}Leeftijd"] = child.Leeftijd?.ToString() ?? "";
+                    replacements[$"{prefix}Geslacht"] = child.Geslacht ?? "";
+                }
+                
+                // Create a formatted list of all children names
+                var kinderenNamen = string.Join(", ", data.Kinderen.Select(k => k.Voornamen ?? k.VolledigeNaam));
+                replacements["KinderenNamen"] = kinderenNamen;
+                replacements["KinderenVolledigeNamen"] = string.Join(", ", data.Kinderen.Select(k => k.VolledigeNaam));
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Built {replacements.Count} replacements");
+            return replacements;
+        }
+        
+        /// <summary>
+        /// Add person-related replacements
+        /// </summary>
+        private void AddPersonReplacements(Dictionary<string, string> replacements, string prefix, PersonData person)
+        {
+            replacements[$"{prefix}Naam"] = person.VolledigeNaam ?? "";
+            replacements[$"{prefix}Voornaam"] = person.Voornamen ?? "";
+            replacements[$"{prefix}Achternaam"] = person.Achternaam ?? "";
+            replacements[$"{prefix}Tussenvoegsel"] = person.Tussenvoegsel ?? "";
+            replacements[$"{prefix}Adres"] = person.Adres ?? "";
+            replacements[$"{prefix}Postcode"] = person.Postcode ?? "";
+            replacements[$"{prefix}Plaats"] = person.Plaats ?? "";
+            replacements[$"{prefix}Telefoon"] = person.Telefoon ?? "";
+            replacements[$"{prefix}Email"] = person.Email ?? "";
+            replacements[$"{prefix}Geboortedatum"] = person.GeboorteDatum?.ToString("dd-MM-yyyy") ?? "";
+            
+            // Combined address
+            var volledigAdres = $"{person.Adres}, {person.Postcode} {person.Plaats}".Trim(' ', ',');
+            replacements[$"{prefix}VolledigAdres"] = volledigAdres;
+        }
+        
+        /// <summary>
+        /// Process document with simple find and replace
+        /// </summary>
+        private void ProcessDocumentWithSimpleReplace(Body body, Dictionary<string, string> replacements, string correlationId)
+        {
+            // Get all paragraphs and process them
+            var paragraphs = body.Descendants<Paragraph>().ToList();
+            _logger.LogInformation($"[{correlationId}] Processing {paragraphs.Count} paragraphs");
+            
+            // Process paragraphs and check for table placeholders
+            for (int i = paragraphs.Count - 1; i >= 0; i--)
+            {
+                var paragraph = paragraphs[i];
+                
+                // Check if this paragraph contains a table placeholder
+                var text = string.Join("", paragraph.Descendants<Text>().Select(t => t.Text));
+                
+                if (text.Contains("[[TABEL_"))
+                {
+                    // Handle table placeholders
+                    ProcessTablePlaceholder(paragraph, text, correlationId);
+                }
+                else
+                {
+                    // Regular text replacement
+                    ProcessParagraph(paragraph, replacements, correlationId);
+                }
+            }
+            
+            // Also process any existing tables
+            var tables = body.Descendants<Table>().ToList();
+            _logger.LogInformation($"[{correlationId}] Processing {tables.Count} tables");
+            
+            foreach (var table in tables)
+            {
+                foreach (var row in table.Descendants<TableRow>())
+                {
+                    foreach (var cell in row.Descendants<TableCell>())
+                    {
+                        foreach (var para in cell.Descendants<Paragraph>())
+                        {
+                            ProcessParagraph(para, replacements, correlationId);
+                        }
+                    }
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Process a single paragraph
+        /// </summary>
+        private void ProcessParagraph(Paragraph paragraph, Dictionary<string, string> replacements, string correlationId)
+        {
+            // Get all text in the paragraph
+            var texts = paragraph.Descendants<Text>().ToList();
+            if (!texts.Any()) return;
+            
+            // Combine all text to handle placeholders that might be split
+            var fullText = string.Join("", texts.Select(t => t.Text));
+            
+            // Check if this paragraph contains any placeholders
+            bool hasPlaceholders = replacements.Keys.Any(key => 
+                fullText.Contains($"[[{key}]]") || 
+                fullText.Contains($"{{{key}}}") ||
+                fullText.Contains($"<<{key}>>") ||
+                fullText.Contains($"[{key}]"));
+            
+            if (!hasPlaceholders) return;
+            
+            // Apply replacements
+            var newText = fullText;
+            foreach (var replacement in replacements)
+            {
+                // Try different placeholder formats
+                newText = newText.Replace($"[[{replacement.Key}]]", replacement.Value);
+                newText = newText.Replace($"{{{replacement.Key}}}", replacement.Value);
+                newText = newText.Replace($"<<{replacement.Key}>>", replacement.Value);
+                newText = newText.Replace($"[{replacement.Key}]", replacement.Value);
+            }
+            
+            if (newText != fullText)
+            {
+                // Clear existing text elements
+                texts.Skip(1).ToList().ForEach(t => t.Remove());
+                
+                // Update the first text element with the new text
+                if (texts.Any())
+                {
+                    texts[0].Text = newText;
+                }
+                
+                _logger.LogDebug($"[{correlationId}] Replaced text in paragraph");
+            }
+        }
+        
+        /// <summary>
+        /// Process headers and footers
+        /// </summary>
+        private void ProcessHeadersAndFooters(MainDocumentPart mainPart, Dictionary<string, string> replacements, string correlationId)
+        {
+            // Process headers
+            foreach (var headerPart in mainPart.HeaderParts)
+            {
+                foreach (var paragraph in headerPart.Header.Descendants<Paragraph>())
+                {
+                    ProcessParagraph(paragraph, replacements, correlationId);
+                }
+            }
+            
+            // Process footers
+            foreach (var footerPart in mainPart.FooterParts)
+            {
+                foreach (var paragraph in footerPart.Footer.Descendants<Paragraph>())
+                {
+                    ProcessParagraph(paragraph, replacements, correlationId);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Process table placeholders and replace with generated tables
+        /// </summary>
+        private void ProcessTablePlaceholder(Paragraph paragraph, string text, string correlationId)
+        {
+            if (_currentDossierData == null)
+            {
+                _logger.LogWarning($"[{correlationId}] No dossier data available for table generation");
+                return;
+            }
+            
+            Table? newTable = null;
+            
+            // Determine which table to generate based on placeholder
+            if (text.Contains("[[TABEL_OMGANG]]"))
+            {
+                newTable = GenerateOmgangTable(_currentDossierData.Omgang, correlationId);
+            }
+            else if (text.Contains("[[TABEL_ZORG]]"))
+            {
+                newTable = GenerateZorgTable(_currentDossierData.Zorg, correlationId);
+            }
+            else if (text.Contains("[[TABEL_VAKANTIES]]"))
+            {
+                newTable = GenerateVakantiesTable(correlationId);
+            }
+            else if (text.Contains("[[TABEL_FEESTDAGEN]]"))
+            {
+                newTable = GenerateFeestdagenTable(correlationId);
+            }
+            
+            if (newTable != null)
+            {
+                // Insert the table after the paragraph
+                paragraph.Parent?.InsertAfter(newTable, paragraph);
+                // Remove the placeholder paragraph
+                paragraph.Remove();
+                _logger.LogInformation($"[{correlationId}] Replaced table placeholder with generated table");
+            }
+        }
+        
+        /// <summary>
+        /// Generate table for omgang (visitation) arrangements
+        /// </summary>
+        private Table GenerateOmgangTable(List<OmgangData> omgangData, string correlationId)
+        {
+            var table = new Table();
+            
+            // Add table properties for borders
+            var tblProp = new TableProperties();
+            var tblBorders = new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4 },
+                new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                new RightBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+            );
+            tblProp.Append(tblBorders);
+            table.Append(tblProp);
+            
+            // Add header row
+            var headerRow = new TableRow();
+            AddTableCell(headerRow, "Dag", true);
+            AddTableCell(headerRow, "Dagdeel", true);
+            AddTableCell(headerRow, "Bij ouder", true);
+            AddTableCell(headerRow, "Wisseltijd", true);
+            AddTableCell(headerRow, "Regeling", true);
+            table.Append(headerRow);
+            
+            // Add data rows
+            foreach (var omgang in omgangData.OrderBy(o => o.DagId).ThenBy(o => o.DagdeelId))
+            {
+                var row = new TableRow();
+                AddTableCell(row, omgang.DagNaam ?? "");
+                AddTableCell(row, omgang.DagdeelNaam ?? "");
+                AddTableCell(row, omgang.VerzorgerNaam ?? "");
+                AddTableCell(row, omgang.WisselTijd ?? "");
+                AddTableCell(row, omgang.EffectieveRegeling);
+                table.Append(row);
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated omgang table with {omgangData.Count} rows");
+            return table;
+        }
+        
+        /// <summary>
+        /// Generate table for zorg (care) arrangements
+        /// </summary>
+        private Table GenerateZorgTable(List<ZorgData> zorgData, string correlationId)
+        {
+            var table = new Table();
+            
+            // Add table properties for borders
+            var tblProp = new TableProperties();
+            var tblBorders = new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4 },
+                new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                new RightBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+            );
+            tblProp.Append(tblBorders);
+            table.Append(tblProp);
+            
+            // Add header row
+            var headerRow = new TableRow();
+            AddTableCell(headerRow, "Categorie", true);
+            AddTableCell(headerRow, "Situatie", true);
+            AddTableCell(headerRow, "Afspraak", true);
+            table.Append(headerRow);
+            
+            // Add data rows
+            foreach (var zorg in zorgData.OrderBy(z => z.ZorgCategorieNaam))
+            {
+                var row = new TableRow();
+                AddTableCell(row, zorg.ZorgCategorieNaam ?? "");
+                AddTableCell(row, zorg.EffectieveSituatie);
+                AddTableCell(row, zorg.Overeenkomst ?? "");
+                table.Append(row);
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated zorg table with {zorgData.Count} rows");
+            return table;
+        }
+        
+        /// <summary>
+        /// Generate table for vakanties (holidays)
+        /// </summary>
+        private Table GenerateVakantiesTable(string correlationId)
+        {
+            var table = new Table();
+            
+            // Add table properties
+            var tblProp = new TableProperties();
+            var tblBorders = new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4 },
+                new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                new RightBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+            );
+            tblProp.Append(tblBorders);
+            table.Append(tblProp);
+            
+            // Add header row
+            var headerRow = new TableRow();
+            AddTableCell(headerRow, "Vakantie", true);
+            AddTableCell(headerRow, "Even jaren", true);
+            AddTableCell(headerRow, "Oneven jaren", true);
+            table.Append(headerRow);
+            
+            // Add standard Dutch school holidays
+            var vakanties = new[]
+            {
+                new { Naam = "Voorjaarsvakantie", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "Meivakantie", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "Zomervakantie (1e helft)", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "Zomervakantie (2e helft)", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "Herfstvakantie", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "Kerstvakantie", Even = "Partij 2", Oneven = "Partij 1" }
+            };
+            
+            foreach (var vakantie in vakanties)
+            {
+                var row = new TableRow();
+                AddTableCell(row, vakantie.Naam);
+                AddTableCell(row, vakantie.Even);
+                AddTableCell(row, vakantie.Oneven);
+                table.Append(row);
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated vakanties table");
+            return table;
+        }
+        
+        /// <summary>
+        /// Generate table for feestdagen (holidays)
+        /// </summary>
+        private Table GenerateFeestdagenTable(string correlationId)
+        {
+            var table = new Table();
+            
+            // Add table properties
+            var tblProp = new TableProperties();
+            var tblBorders = new TableBorders(
+                new TopBorder { Val = BorderValues.Single, Size = 4 },
+                new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                new RightBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }
+            );
+            tblProp.Append(tblBorders);
+            table.Append(tblProp);
+            
+            // Add header row
+            var headerRow = new TableRow();
+            AddTableCell(headerRow, "Feestdag", true);
+            AddTableCell(headerRow, "Even jaren", true);
+            AddTableCell(headerRow, "Oneven jaren", true);
+            table.Append(headerRow);
+            
+            // Add standard holidays
+            var feestdagen = new[]
+            {
+                new { Naam = "Goede Vrijdag", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "1e Paasdag", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "2e Paasdag", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "Koningsdag", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "Hemelvaartsdag", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "1e Pinksterdag", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "2e Pinksterdag", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "1e Kerstdag", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "2e Kerstdag", Even = "Partij 1", Oneven = "Partij 2" },
+                new { Naam = "Oudjaarsdag", Even = "Partij 2", Oneven = "Partij 1" },
+                new { Naam = "Nieuwjaarsdag", Even = "Partij 1", Oneven = "Partij 2" }
+            };
+            
+            foreach (var feestdag in feestdagen)
+            {
+                var row = new TableRow();
+                AddTableCell(row, feestdag.Naam);
+                AddTableCell(row, feestdag.Even);
+                AddTableCell(row, feestdag.Oneven);
+                table.Append(row);
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated feestdagen table");
+            return table;
+        }
+        
+        /// <summary>
+        /// Helper method to add a cell to a table row
+        /// </summary>
+        private void AddTableCell(TableRow row, string text, bool isHeader = false)
+        {
+            var cell = new TableCell();
+            var paragraph = new Paragraph();
+            var run = new Run();
+            
+            if (isHeader)
+            {
+                var runProps = new RunProperties();
+                runProps.Append(new Bold());
+                run.Append(runProps);
+            }
+            
+            run.Append(new Text(text));
+            paragraph.Append(run);
+            cell.Append(paragraph);
+            row.Append(cell);
         }
 
         /// <summary>
