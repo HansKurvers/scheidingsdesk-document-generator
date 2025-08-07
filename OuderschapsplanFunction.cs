@@ -532,7 +532,7 @@ namespace Scheidingsdesk
             var contentElements = sdt.Elements().FirstOrDefault(e => e.LocalName == "sdtContent");
             if (contentElements == null) return string.Empty;
             
-            return contentElements.Descendants<Text>().Aggregate(string.Empty, (current, text) => current + text.Text);
+            return contentElements.Descendants<Text>().Aggregate(string.Empty, (current, text) => current + (text.Text ?? string.Empty));
         }
 
         /// <summary>
@@ -547,6 +547,9 @@ namespace Scheidingsdesk
             
             // Clear existing content
             contentElement.RemoveAllChildren();
+            
+            // Ensure newText is never null
+            newText = newText ?? string.Empty;
             
             // Add new paragraph with the text
             var paragraph = new Paragraph();
