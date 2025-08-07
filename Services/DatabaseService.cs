@@ -37,26 +37,184 @@ namespace scheidingsdesk_document_generator.Services
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                // Get basic dossier information
-                var dossier = await GetDossierAsync(connection, dossierId);
-                if (dossier == null)
+                // Create a single command with multiple result sets
+                const string query = @"
+                    -- Result set 1: Dossier information
+                    SELECT id, dossier_nummer, aangemaakt_op, gewijzigd_op, status, gebruiker_id
+                    FROM dbo.dossiers 
+                    WHERE id = @DossierId;
+
+                    -- Result set 2: Parties (rol_id 1 and 2)
+                    SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
+                           p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
+                           p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
+                           p.telefoon, p.email, p.beroep, dp.rol_id, r.naam as rol_naam
+                    FROM dbo.personen p
+                    INNER JOIN dbo.dossiers_partijen dp ON p.id = dp.persoon_id
+                    INNER JOIN dbo.rollen r ON dp.rol_id = r.id
+                    WHERE dp.dossier_id = @DossierId AND dp.rol_id IN (1, 2)
+                    ORDER BY dp.rol_id;
+
+                    -- Result set 3: Children
+                    SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
+                           p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
+                           p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
+                           p.telefoon, p.email, p.beroep
+                    FROM dbo.personen p
+                    INNER JOIN dbo.dossiers_kinderen dk ON p.id = dk.kind_id
+                    WHERE dk.dossier_id = @DossierId
+                    ORDER BY p.geboorte_datum DESC;
+
+                    -- Result set 4: Parent-child relations
+                    SELECT 
+                        ok.ouder_id, 
+                        p.voornamen + ISNULL(' ' + p.tussenvoegsel, '') + ' ' + p.achternaam AS ouder_naam,
+                        ok.relatie_type_id,
+                        rt.naam AS relatie_type,
+                        ok.kind_id
+                    FROM dbo.kinderen_ouders ok
+                    INNER JOIN dbo.personen p ON ok.ouder_id = p.id
+                    INNER JOIN dbo.relatie_types rt ON ok.relatie_type_id = rt.id
+                    WHERE ok.kind_id IN (
+                        SELECT kind_id FROM dbo.dossiers_kinderen WHERE dossier_id = @DossierId
+                    );
+
+                    -- Result set 5: Visitation arrangements
+                    SELECT o.id, o.dag_id, d.naam AS dag_naam, o.dagdeel_id, dd.naam AS dagdeel_naam,
+                           o.verzorger_id, p.voornamen + ISNULL(' ' + p.tussenvoegsel, '') + ' ' + p.achternaam AS verzorger_naam,
+                           o.wissel_tijd, o.week_regeling_id, wr.omschrijving AS week_regeling_omschrijving,
+                           o.week_regeling_anders, o.dossier_id, o.aangemaakt_op, o.gewijzigd_op
+                    FROM dbo.omgang o
+                    INNER JOIN dbo.dagen d ON o.dag_id = d.id
+                    INNER JOIN dbo.dagdelen dd ON o.dagdeel_id = dd.id
+                    INNER JOIN dbo.personen p ON o.verzorger_id = p.id
+                    INNER JOIN dbo.week_regelingen wr ON o.week_regeling_id = wr.id
+                    WHERE o.dossier_id = @DossierId
+                    ORDER BY d.id, dd.id;
+
+                    -- Result set 6: Care arrangements
+                    SELECT z.id, z.zorg_categorie_id, zc.naam AS zorg_categorie_naam,
+                           z.zorg_situatie_id, zs.naam AS zorg_situatie_naam,
+                           z.overeenkomst, z.situatie_anders, z.dossier_id,
+                           z.aangemaakt_op, z.aangemaakt_door, z.gewijzigd_op, z.gewijzigd_door
+                    FROM dbo.zorg z
+                    INNER JOIN dbo.zorg_categorieen zc ON z.zorg_categorie_id = zc.id
+                    INNER JOIN dbo.zorg_situaties zs ON z.zorg_situatie_id = zs.id
+                    WHERE z.dossier_id = @DossierId
+                    ORDER BY zc.naam, zs.naam;";
+
+                using var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@DossierId", dossierId);
+
+                using var reader = await command.ExecuteReaderAsync();
+                
+                // Result set 1: Dossier
+                if (!await reader.ReadAsync())
                 {
                     _logger.LogWarning("Dossier with ID {DossierId} not found", dossierId);
                     return null;
                 }
 
-                // Get all related data in parallel
-                var partiesTask = GetPartiesAsync(connection, dossierId);
-                var childrenTask = GetChildrenAsync(connection, dossierId);
-                var visitationTask = GetVisitationArrangementsAsync(connection, dossierId);
-                var careTask = GetCareArrangementsAsync(connection, dossierId);
+                var dossier = new DossierData
+                {
+                    Id = (int)reader["id"],
+                    DossierNummer = ConvertToString(reader["dossier_nummer"]),
+                    AangemaaktOp = (DateTime)reader["aangemaakt_op"],
+                    GewijzigdOp = (DateTime)reader["gewijzigd_op"],
+                    Status = ConvertToString(reader["status"]),
+                    GebruikerId = (int)reader["gebruiker_id"]
+                };
 
-                await Task.WhenAll(partiesTask, childrenTask, visitationTask, careTask);
+                // Result set 2: Parties
+                await reader.NextResultAsync();
+                var parties = new List<PersonData>();
+                while (await reader.ReadAsync())
+                {
+                    parties.Add(MapPersonData(reader));
+                }
+                dossier.Partijen = parties;
 
-                dossier.Partijen = partiesTask.Result;
-                dossier.Kinderen = childrenTask.Result;
-                dossier.Omgang = visitationTask.Result;
-                dossier.Zorg = careTask.Result;
+                // Result set 3: Children
+                await reader.NextResultAsync();
+                var children = new List<ChildData>();
+                while (await reader.ReadAsync())
+                {
+                    children.Add(MapChildData(reader));
+                }
+                dossier.Kinderen = children;
+
+                // Result set 4: Parent-child relations
+                await reader.NextResultAsync();
+                var childRelations = new Dictionary<int, List<ParentChildRelation>>();
+                while (await reader.ReadAsync())
+                {
+                    var kindId = (int)reader["kind_id"];
+                    if (!childRelations.ContainsKey(kindId))
+                        childRelations[kindId] = new List<ParentChildRelation>();
+                    
+                    childRelations[kindId].Add(new ParentChildRelation
+                    {
+                        OuderId = (int)reader["ouder_id"],
+                        OuderNaam = ConvertToString(reader["ouder_naam"]),
+                        RelatieTypeId = (int)reader["relatie_type_id"],
+                        RelatieType = reader["relatie_type"] == DBNull.Value ? null : ConvertToString(reader["relatie_type"])
+                    });
+                }
+
+                // Assign relations to children
+                foreach (var child in children)
+                {
+                    if (childRelations.ContainsKey(child.Id))
+                        child.ParentRelations = childRelations[child.Id];
+                }
+
+                // Result set 5: Visitation arrangements
+                await reader.NextResultAsync();
+                var visitationArrangements = new List<OmgangData>();
+                while (await reader.ReadAsync())
+                {
+                    visitationArrangements.Add(new OmgangData
+                    {
+                        Id = (int)reader["id"],
+                        DagId = (int)reader["dag_id"],
+                        DagNaam = ConvertToString(reader["dag_naam"]),
+                        DagdeelId = (int)reader["dagdeel_id"],
+                        DagdeelNaam = ConvertToString(reader["dagdeel_naam"]),
+                        VerzorgerId = (int)reader["verzorger_id"],
+                        VerzorgerNaam = ConvertToString(reader["verzorger_naam"]),
+                        WisselTijd = reader["wissel_tijd"] == DBNull.Value ? null : ConvertToString(reader["wissel_tijd"]),
+                        WeekRegelingId = (int)reader["week_regeling_id"],
+                        WeekRegelingOmschrijving = ConvertToString(reader["week_regeling_omschrijving"]),
+                        WeekRegelingAnders = reader["week_regeling_anders"] == DBNull.Value ? null : ConvertToString(reader["week_regeling_anders"]),
+                        DossierId = (int)reader["dossier_id"],
+                        AangemaaktOp = (DateTime)reader["aangemaakt_op"],
+                        GewijzigdOp = (DateTime)reader["gewijzigd_op"]
+                    });
+                }
+                dossier.Omgang = visitationArrangements;
+
+                // Result set 6: Care arrangements
+                await reader.NextResultAsync();
+                var careArrangements = new List<ZorgData>();
+                while (await reader.ReadAsync())
+                {
+                    careArrangements.Add(new ZorgData
+                    {
+                        Id = (int)reader["id"],
+                        ZorgCategorieId = (int)reader["zorg_categorie_id"],
+                        ZorgCategorieNaam = ConvertToString(reader["zorg_categorie_naam"]),
+                        ZorgSituatieId = (int)reader["zorg_situatie_id"],
+                        ZorgSituatieNaam = ConvertToString(reader["zorg_situatie_naam"]),
+                        Overeenkomst = ConvertToString(reader["overeenkomst"]),
+                        SituatieAnders = reader["situatie_anders"] == DBNull.Value ? null : ConvertToString(reader["situatie_anders"]),
+                        DossierId = (int)reader["dossier_id"],
+                        AangemaaktOp = (DateTime)reader["aangemaakt_op"],
+                        AangemaaktDoor = (int)reader["aangemaakt_door"],
+                        GewijzigdOp = (DateTime)reader["gewijzigd_op"],
+                        GewijzigdDoor = reader["gewijzigd_door"] == DBNull.Value ? null : (int?)reader["gewijzigd_door"]
+                    });
+                }
+                dossier.Zorg = careArrangements;
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;
@@ -73,206 +231,6 @@ namespace scheidingsdesk_document_generator.Services
             }
         }
 
-        private async Task<DossierData?> GetDossierAsync(SqlConnection connection, int dossierId)
-        {
-            const string query = @"
-                SELECT id, dossier_nummer, aangemaakt_op, gewijzigd_op, status, gebruiker_id
-                FROM dbo.dossiers 
-                WHERE id = @DossierId";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@DossierId", dossierId);
-
-            using var reader = await command.ExecuteReaderAsync();
-            if (!await reader.ReadAsync())
-                return null;
-
-            return new DossierData
-            {
-                Id = (int)reader["id"],
-                DossierNummer = ConvertToString(reader["dossier_nummer"]),
-                AangemaaktOp = (DateTime)reader["aangemaakt_op"],
-                GewijzigdOp = (DateTime)reader["gewijzigd_op"],
-                Status = ConvertToString(reader["status"]),
-                GebruikerId = (int)reader["gebruiker_id"]
-            };
-        }
-
-        private async Task<List<PersonData>> GetPartiesAsync(SqlConnection connection, int dossierId)
-        {
-            const string query = @"
-                SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
-                       p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
-                       p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
-                       p.telefoon, p.email, p.beroep, dp.rol_id, r.naam as rol_naam
-                FROM dbo.personen p
-                INNER JOIN dbo.dossiers_partijen dp ON p.id = dp.persoon_id
-                INNER JOIN dbo.rollen r ON dp.rol_id = r.id
-                WHERE dp.dossier_id = @DossierId AND dp.rol_id IN (1, 2)
-                ORDER BY dp.rol_id";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@DossierId", dossierId);
-
-            var parties = new List<PersonData>();
-            using var reader = await command.ExecuteReaderAsync();
-            
-            while (await reader.ReadAsync())
-            {
-                parties.Add(MapPersonData(reader));
-            }
-
-            return parties;
-        }
-
-        private async Task<List<ChildData>> GetChildrenAsync(SqlConnection connection, int dossierId)
-        {
-            const string query = @"
-                SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
-                       p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
-                       p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
-                       p.telefoon, p.email, p.beroep
-                FROM dbo.personen p
-                INNER JOIN dbo.dossiers_kinderen dk ON p.id = dk.kind_id
-                WHERE dk.dossier_id = @DossierId
-                ORDER BY p.geboorte_datum DESC";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@DossierId", dossierId);
-
-            var children = new List<ChildData>();
-            using var reader = await command.ExecuteReaderAsync();
-            
-            while (await reader.ReadAsync())
-            {
-                var child = MapChildData(reader);
-                children.Add(child);
-            }
-
-            // Get parent relationships for each child
-            foreach (var child in children)
-            {
-                child.ParentRelations = await GetParentChildRelationsAsync(connection, child.Id);
-            }
-
-            return children;
-        }
-
-        private async Task<List<ParentChildRelation>> GetParentChildRelationsAsync(SqlConnection connection, int childId)
-        {
-            const string query = @"
-                SELECT ko.ouder_id, p.voornamen + ' ' + ISNULL(p.tussenvoegsel + ' ', '') + p.achternaam as ouder_naam,
-                       ko.relatie_type_id, rt.naam as relatie_type
-                FROM dbo.kinderen_ouders ko
-                INNER JOIN dbo.personen p ON ko.ouder_id = p.id
-                INNER JOIN dbo.relatie_types rt ON ko.relatie_type_id = rt.id
-                WHERE ko.kind_id = @ChildId";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@ChildId", childId);
-
-            var relations = new List<ParentChildRelation>();
-            using var reader = await command.ExecuteReaderAsync();
-            
-            while (await reader.ReadAsync())
-            {
-                relations.Add(new ParentChildRelation
-                {
-                    OuderId = (int)reader["ouder_id"],
-                    OuderNaam = ConvertToString(reader["ouder_naam"]),
-                    RelatieTypeId = (int)reader["relatie_type_id"],
-                    RelatieType = reader["relatie_type"] == DBNull.Value ? null : ConvertToString(reader["relatie_type"])
-                });
-            }
-
-            return relations;
-        }
-
-        private async Task<List<OmgangData>> GetVisitationArrangementsAsync(SqlConnection connection, int dossierId)
-        {
-            const string query = @"
-                SELECT o.id, o.dag_id, d.naam AS dag_naam, o.dagdeel_id, dd.naam AS dagdeel_naam,
-                       o.verzorger_id, p.voornamen + ' ' + ISNULL(p.tussenvoegsel + ' ', '') + p.achternaam AS verzorger_naam,
-                       o.wissel_tijd, o.week_regeling_id, wr.omschrijving AS week_regeling_omschrijving,
-                       o.week_regeling_anders, o.dossier_id, o.aangemaakt_op, o.gewijzigd_op
-                FROM dbo.omgang o
-                INNER JOIN dbo.dagen d ON o.dag_id = d.id
-                INNER JOIN dbo.dagdelen dd ON o.dagdeel_id = dd.id
-                INNER JOIN dbo.personen p ON o.verzorger_id = p.id
-                INNER JOIN dbo.week_regelingen wr ON o.week_regeling_id = wr.id
-                WHERE o.dossier_id = @DossierId
-                ORDER BY d.id, dd.id";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@DossierId", dossierId);
-
-            var arrangements = new List<OmgangData>();
-            using var reader = await command.ExecuteReaderAsync();
-            
-            while (await reader.ReadAsync())
-            {
-                arrangements.Add(new OmgangData
-                {
-                    Id = (int)reader["id"],
-                    DagId = (int)reader["dag_id"],
-                    DagNaam = ConvertToString(reader["dag_naam"]),
-                    DagdeelId = (int)reader["dagdeel_id"],
-                    DagdeelNaam = ConvertToString(reader["dagdeel_naam"]),
-                    VerzorgerId = (int)reader["verzorger_id"],
-                    VerzorgerNaam = ConvertToString(reader["verzorger_naam"]),
-                    WisselTijd = reader["wissel_tijd"] == DBNull.Value ? null : ConvertToString(reader["wissel_tijd"]),
-                    WeekRegelingId = (int)reader["week_regeling_id"],
-                    WeekRegelingOmschrijving = ConvertToString(reader["week_regeling_omschrijving"]),
-                    WeekRegelingAnders = reader["week_regeling_anders"] == DBNull.Value ? null : ConvertToString(reader["week_regeling_anders"]),
-                    DossierId = (int)reader["dossier_id"],
-                    AangemaaktOp = (DateTime)reader["aangemaakt_op"],
-                    GewijzigdOp = (DateTime)reader["gewijzigd_op"]
-                });
-            }
-
-            return arrangements;
-        }
-
-        private async Task<List<ZorgData>> GetCareArrangementsAsync(SqlConnection connection, int dossierId)
-        {
-            const string query = @"
-                SELECT z.id, z.zorg_categorie_id, zc.naam AS zorg_categorie_naam,
-                       z.zorg_situatie_id, zs.naam AS zorg_situatie_naam,
-                       z.overeenkomst, z.situatie_anders, z.dossier_id,
-                       z.aangemaakt_op, z.aangemaakt_door, z.gewijzigd_op, z.gewijzigd_door
-                FROM dbo.zorg z
-                INNER JOIN dbo.zorg_categorieen zc ON z.zorg_categorie_id = zc.id
-                INNER JOIN dbo.zorg_situaties zs ON z.zorg_situatie_id = zs.id
-                WHERE z.dossier_id = @DossierId
-                ORDER BY zc.naam, zs.naam";
-
-            using var command = new SqlCommand(query, connection);
-            command.Parameters.AddWithValue("@DossierId", dossierId);
-
-            var arrangements = new List<ZorgData>();
-            using var reader = await command.ExecuteReaderAsync();
-            
-            while (await reader.ReadAsync())
-            {
-                arrangements.Add(new ZorgData
-                {
-                    Id = (int)reader["id"],
-                    ZorgCategorieId = (int)reader["zorg_categorie_id"],
-                    ZorgCategorieNaam = ConvertToString(reader["zorg_categorie_naam"]),
-                    ZorgSituatieId = (int)reader["zorg_situatie_id"],
-                    ZorgSituatieNaam = ConvertToString(reader["zorg_situatie_naam"]),
-                    Overeenkomst = ConvertToString(reader["overeenkomst"]),
-                    SituatieAnders = reader["situatie_anders"] == DBNull.Value ? null : ConvertToString(reader["situatie_anders"]),
-                    DossierId = (int)reader["dossier_id"],
-                    AangemaaktOp = (DateTime)reader["aangemaakt_op"],
-                    AangemaaktDoor = (int)reader["aangemaakt_door"],
-                    GewijzigdOp = (DateTime)reader["gewijzigd_op"],
-                    GewijzigdDoor = reader["gewijzigd_door"] == DBNull.Value ? null : (int?)reader["gewijzigd_door"]
-                });
-            }
-
-            return arrangements;
-        }
 
         private static PersonData MapPersonData(SqlDataReader reader)
         {
