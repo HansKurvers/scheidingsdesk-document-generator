@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker;
@@ -461,47 +462,98 @@ namespace Scheidingsdesk
         /// <returns>Text with data replacements applied</returns>
         private string ApplyDataReplacements(string text, DossierData data, string correlationId)
         {
+            // Use reflection to replace all placeholders with proper string conversions
+            var replacements = new Dictionary<string, string>();
+            
             // Replace party information
             if (data.Partij1 != null)
             {
-                text = text.Replace("{{Partij1.VolledigeNaam}}", data.Partij1.VolledigeNaam ?? string.Empty);
-                text = text.Replace("{{Partij1.Naam}}", data.Partij1.Naam ?? string.Empty);
-                text = text.Replace("{{Partij1.Adres}}", data.Partij1.Adres ?? string.Empty);
-                text = text.Replace("{{Partij1.Postcode}}", data.Partij1.Postcode ?? string.Empty);
-                text = text.Replace("{{Partij1.Plaats}}", data.Partij1.Plaats ?? string.Empty);
-                text = text.Replace("{{Partij1.GeboorteDatum}}", data.Partij1.GeboorteDatum?.ToString("dd-MM-yyyy") ?? string.Empty);
-                text = text.Replace("{{Partij1.Telefoon}}", data.Partij1.Telefoon ?? string.Empty);
-                text = text.Replace("{{Partij1.Email}}", data.Partij1.Email ?? string.Empty);
+                AddObjectReplacements(replacements, "Partij1", data.Partij1);
             }
             
             if (data.Partij2 != null)
             {
-                text = text.Replace("{{Partij2.VolledigeNaam}}", data.Partij2.VolledigeNaam ?? string.Empty);
-                text = text.Replace("{{Partij2.Naam}}", data.Partij2.Naam ?? string.Empty);
-                text = text.Replace("{{Partij2.Adres}}", data.Partij2.Adres ?? string.Empty);
-                text = text.Replace("{{Partij2.Postcode}}", data.Partij2.Postcode ?? string.Empty);
-                text = text.Replace("{{Partij2.Plaats}}", data.Partij2.Plaats ?? string.Empty);
-                text = text.Replace("{{Partij2.GeboorteDatum}}", data.Partij2.GeboorteDatum?.ToString("dd-MM-yyyy") ?? string.Empty);
-                text = text.Replace("{{Partij2.Telefoon}}", data.Partij2.Telefoon ?? string.Empty);
-                text = text.Replace("{{Partij2.Email}}", data.Partij2.Email ?? string.Empty);
+                AddObjectReplacements(replacements, "Partij2", data.Partij2);
             }
             
             // Replace dossier information
-            text = text.Replace("{{Dossier.DossierNummer}}", data.DossierNummer ?? string.Empty);
-            text = text.Replace("{{Dossier.AangemaaktOp}}", data.AangemaaktOp.ToString("dd-MM-yyyy"));
+            replacements[$"{{{{Dossier.DossierNummer}}}}"] = ConvertToString(data.DossierNummer);
+            replacements[$"{{{{Dossier.AangemaaktOp}}}}"] = ConvertToString(data.AangemaaktOp);
+            replacements[$"{{{{Dossier.GewijzigdOp}}}}"] = ConvertToString(data.GewijzigdOp);
+            replacements[$"{{{{Dossier.Status}}}}"] = ConvertToString(data.Status);
+            replacements[$"{{{{Dossier.GebruikerId}}}}"] = ConvertToString(data.GebruikerId);
+            replacements[$"{{{{Dossier.Id}}}}"] = ConvertToString(data.Id);
             
             // Replace child information
             for (int i = 0; i < data.Kinderen.Count; i++)
             {
                 var child = data.Kinderen[i];
-                text = text.Replace($"{{{{Kind{i + 1}.VolledigeNaam}}}}", child.VolledigeNaam ?? string.Empty);
-                text = text.Replace($"{{{{Kind{i + 1}.Naam}}}}", child.Naam ?? string.Empty);
-                text = text.Replace($"{{{{Kind{i + 1}.GeboorteDatum}}}}", child.GeboorteDatum?.ToString("dd-MM-yyyy") ?? string.Empty);
-                text = text.Replace($"{{{{Kind{i + 1}.Leeftijd}}}}", child.Leeftijd?.ToString() ?? string.Empty);
-                text = text.Replace($"{{{{Kind{i + 1}.Geslacht}}}}", child.Geslacht ?? string.Empty);
+                AddObjectReplacements(replacements, $"Kind{i + 1}", child);
+            }
+            
+            // Apply all replacements
+            foreach (var replacement in replacements)
+            {
+                text = text.Replace(replacement.Key, replacement.Value);
             }
             
             return text;
+        }
+        
+        /// <summary>
+        /// Adds replacements for all properties of an object
+        /// </summary>
+        private void AddObjectReplacements(Dictionary<string, string> replacements, string prefix, object obj)
+        {
+            if (obj == null) return;
+            
+            var properties = obj.GetType().GetProperties();
+            foreach (var prop in properties)
+            {
+                try
+                {
+                    var value = prop.GetValue(obj);
+                    var key = $"{{{{{prefix}.{prop.Name}}}}}";
+                    replacements[key] = ConvertToString(value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Failed to get property {prop.Name}: {ex.Message}");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Safely converts any value to a string representation
+        /// </summary>
+        private string ConvertToString(object? value)
+        {
+            if (value == null)
+                return string.Empty;
+                
+            // Handle specific types with custom formatting
+            if (value is DateTime dateTime)
+                return dateTime.ToString("dd-MM-yyyy");
+                
+            if (value is bool boolValue)
+                return boolValue ? "Ja" : "Nee";
+                
+            // Handle nullable types
+            var type = value.GetType();
+            if (type == typeof(DateTime?))
+            {
+                var nullableDateTime = (DateTime?)value;
+                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("dd-MM-yyyy") : string.Empty;
+            }
+            
+            if (type == typeof(bool?))
+            {
+                var nullableBool = (bool?)value;
+                return nullableBool.HasValue ? (nullableBool.Value ? "Ja" : "Nee") : string.Empty;
+            }
+                
+            // Default conversion for all other types
+            return value.ToString() ?? string.Empty;
         }
 
         /// <summary>
