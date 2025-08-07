@@ -90,10 +90,10 @@ namespace scheidingsdesk_document_generator.Services
             return new DossierData
             {
                 Id = (int)reader["id"],
-                DossierNummer = (string)reader["dossier_nummer"],
+                DossierNummer = ConvertToString(reader["dossier_nummer"]),
                 AangemaaktOp = (DateTime)reader["aangemaakt_op"],
                 GewijzigdOp = (DateTime)reader["gewijzigd_op"],
-                Status = (string)reader["status"],
+                Status = ConvertToString(reader["status"]),
                 GebruikerId = (int)reader["gebruiker_id"]
             };
         }
@@ -179,9 +179,9 @@ namespace scheidingsdesk_document_generator.Services
                 relations.Add(new ParentChildRelation
                 {
                     OuderId = (int)reader["ouder_id"],
-                    OuderNaam = (string)reader["ouder_naam"],
+                    OuderNaam = ConvertToString(reader["ouder_naam"]),
                     RelatieTypeId = (int)reader["relatie_type_id"],
-                    RelatieType = reader["relatie_type"] == DBNull.Value ? null : (string)reader["relatie_type"]
+                    RelatieType = reader["relatie_type"] == DBNull.Value ? null : ConvertToString(reader["relatie_type"])
                 });
             }
 
@@ -215,15 +215,15 @@ namespace scheidingsdesk_document_generator.Services
                 {
                     Id = (int)reader["id"],
                     DagId = (int)reader["dag_id"],
-                    DagNaam = (string)reader["dag_naam"],
+                    DagNaam = ConvertToString(reader["dag_naam"]),
                     DagdeelId = (int)reader["dagdeel_id"],
-                    DagdeelNaam = (string)reader["dagdeel_naam"],
+                    DagdeelNaam = ConvertToString(reader["dagdeel_naam"]),
                     VerzorgerId = (int)reader["verzorger_id"],
-                    VerzorgerNaam = (string)reader["verzorger_naam"],
-                    WisselTijd = reader["wissel_tijd"] == DBNull.Value ? null : (string)reader["wissel_tijd"],
+                    VerzorgerNaam = ConvertToString(reader["verzorger_naam"]),
+                    WisselTijd = reader["wissel_tijd"] == DBNull.Value ? null : ConvertToString(reader["wissel_tijd"]),
                     WeekRegelingId = (int)reader["week_regeling_id"],
-                    WeekRegelingOmschrijving = (string)reader["week_regeling_omschrijving"],
-                    WeekRegelingAnders = reader["week_regeling_anders"] == DBNull.Value ? null : (string)reader["week_regeling_anders"],
+                    WeekRegelingOmschrijving = ConvertToString(reader["week_regeling_omschrijving"]),
+                    WeekRegelingAnders = reader["week_regeling_anders"] == DBNull.Value ? null : ConvertToString(reader["week_regeling_anders"]),
                     DossierId = (int)reader["dossier_id"],
                     AangemaaktOp = (DateTime)reader["aangemaakt_op"],
                     GewijzigdOp = (DateTime)reader["gewijzigd_op"]
@@ -258,11 +258,11 @@ namespace scheidingsdesk_document_generator.Services
                 {
                     Id = (int)reader["id"],
                     ZorgCategorieId = (int)reader["zorg_categorie_id"],
-                    ZorgCategorieNaam = (string)reader["zorg_categorie_naam"],
+                    ZorgCategorieNaam = ConvertToString(reader["zorg_categorie_naam"]),
                     ZorgSituatieId = (int)reader["zorg_situatie_id"],
-                    ZorgSituatieNaam = (string)reader["zorg_situatie_naam"],
-                    Overeenkomst = (string)reader["overeenkomst"],
-                    SituatieAnders = reader["situatie_anders"] == DBNull.Value ? null : (string)reader["situatie_anders"],
+                    ZorgSituatieNaam = ConvertToString(reader["zorg_situatie_naam"]),
+                    Overeenkomst = ConvertToString(reader["overeenkomst"]),
+                    SituatieAnders = reader["situatie_anders"] == DBNull.Value ? null : ConvertToString(reader["situatie_anders"]),
                     DossierId = (int)reader["dossier_id"],
                     AangemaaktOp = (DateTime)reader["aangemaakt_op"],
                     AangemaaktDoor = (int)reader["aangemaakt_door"],
@@ -279,24 +279,24 @@ namespace scheidingsdesk_document_generator.Services
             return new PersonData
             {
                 Id = (int)reader["id"],
-                Voorletters = reader["voorletters"] == DBNull.Value ? null : (string)reader["voorletters"],
-                Voornamen = reader["voornamen"] == DBNull.Value ? null : (string)reader["voornamen"],
-                Roepnaam = reader["roepnaam"] == DBNull.Value ? null : (string)reader["roepnaam"],
-                Geslacht = reader["geslacht"] == DBNull.Value ? null : (string)reader["geslacht"],
-                Tussenvoegsel = reader["tussenvoegsel"] == DBNull.Value ? null : (string)reader["tussenvoegsel"],
-                Achternaam = (string)reader["achternaam"],
-                Adres = reader["adres"] == DBNull.Value ? null : (string)reader["adres"],
-                Postcode = reader["postcode"] == DBNull.Value ? null : (string)reader["postcode"],
-                Plaats = reader["plaats"] == DBNull.Value ? null : (string)reader["plaats"],
-                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : (string)reader["geboorte_plaats"],
+                Voorletters = reader["voorletters"] == DBNull.Value ? null : ConvertToString(reader["voorletters"]),
+                Voornamen = reader["voornamen"] == DBNull.Value ? null : ConvertToString(reader["voornamen"]),
+                Roepnaam = reader["roepnaam"] == DBNull.Value ? null : ConvertToString(reader["roepnaam"]),
+                Geslacht = reader["geslacht"] == DBNull.Value ? null : ConvertToString(reader["geslacht"]),
+                Tussenvoegsel = reader["tussenvoegsel"] == DBNull.Value ? null : ConvertToString(reader["tussenvoegsel"]),
+                Achternaam = ConvertToString(reader["achternaam"]),
+                Adres = reader["adres"] == DBNull.Value ? null : ConvertToString(reader["adres"]),
+                Postcode = reader["postcode"] == DBNull.Value ? null : ConvertToString(reader["postcode"]),
+                Plaats = reader["plaats"] == DBNull.Value ? null : ConvertToString(reader["plaats"]),
+                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : ConvertToString(reader["geboorte_plaats"]),
                 GeboorteDatum = reader["geboorte_datum"] == DBNull.Value ? null : (DateTime?)reader["geboorte_datum"],
-                Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : (string)reader["nationaliteit_1"],
-                Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : (string)reader["nationaliteit_2"],
-                Telefoon = reader["telefoon"] == DBNull.Value ? null : (string)reader["telefoon"],
-                Email = reader["email"] == DBNull.Value ? null : (string)reader["email"],
-                Beroep = reader["beroep"] == DBNull.Value ? null : (string)reader["beroep"],
+                Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_1"]),
+                Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_2"]),
+                Telefoon = reader["telefoon"] == DBNull.Value ? null : ConvertToString(reader["telefoon"]),
+                Email = reader["email"] == DBNull.Value ? null : ConvertToString(reader["email"]),
+                Beroep = reader["beroep"] == DBNull.Value ? null : ConvertToString(reader["beroep"]),
                 RolId = reader["rol_id"] == DBNull.Value ? null : (int?)reader["rol_id"],
-                RolNaam = reader["rol_naam"] == DBNull.Value ? null : (string)reader["rol_naam"]
+                RolNaam = reader["rol_naam"] == DBNull.Value ? null : ConvertToString(reader["rol_naam"])
             };
         }
 
@@ -305,23 +305,39 @@ namespace scheidingsdesk_document_generator.Services
             return new ChildData
             {
                 Id = (int)reader["id"],
-                Voorletters = reader["voorletters"] == DBNull.Value ? null : (string)reader["voorletters"],
-                Voornamen = reader["voornamen"] == DBNull.Value ? null : (string)reader["voornamen"],
-                Roepnaam = reader["roepnaam"] == DBNull.Value ? null : (string)reader["roepnaam"],
-                Geslacht = reader["geslacht"] == DBNull.Value ? null : (string)reader["geslacht"],
-                Tussenvoegsel = reader["tussenvoegsel"] == DBNull.Value ? null : (string)reader["tussenvoegsel"],
-                Achternaam = (string)reader["achternaam"],
-                Adres = reader["adres"] == DBNull.Value ? null : (string)reader["adres"],
-                Postcode = reader["postcode"] == DBNull.Value ? null : (string)reader["postcode"],
-                Plaats = reader["plaats"] == DBNull.Value ? null : (string)reader["plaats"],
-                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : (string)reader["geboorte_plaats"],
+                Voorletters = reader["voorletters"] == DBNull.Value ? null : ConvertToString(reader["voorletters"]),
+                Voornamen = reader["voornamen"] == DBNull.Value ? null : ConvertToString(reader["voornamen"]),
+                Roepnaam = reader["roepnaam"] == DBNull.Value ? null : ConvertToString(reader["roepnaam"]),
+                Geslacht = reader["geslacht"] == DBNull.Value ? null : ConvertToString(reader["geslacht"]),
+                Tussenvoegsel = reader["tussenvoegsel"] == DBNull.Value ? null : ConvertToString(reader["tussenvoegsel"]),
+                Achternaam = ConvertToString(reader["achternaam"]),
+                Adres = reader["adres"] == DBNull.Value ? null : ConvertToString(reader["adres"]),
+                Postcode = reader["postcode"] == DBNull.Value ? null : ConvertToString(reader["postcode"]),
+                Plaats = reader["plaats"] == DBNull.Value ? null : ConvertToString(reader["plaats"]),
+                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : ConvertToString(reader["geboorte_plaats"]),
                 GeboorteDatum = reader["geboorte_datum"] == DBNull.Value ? null : (DateTime?)reader["geboorte_datum"],
-                Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : (string)reader["nationaliteit_1"],
-                Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : (string)reader["nationaliteit_2"],
-                Telefoon = reader["telefoon"] == DBNull.Value ? null : (string)reader["telefoon"],
-                Email = reader["email"] == DBNull.Value ? null : (string)reader["email"],
-                Beroep = reader["beroep"] == DBNull.Value ? null : (string)reader["beroep"]
+                Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_1"]),
+                Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_2"]),
+                Telefoon = reader["telefoon"] == DBNull.Value ? null : ConvertToString(reader["telefoon"]),
+                Email = reader["email"] == DBNull.Value ? null : ConvertToString(reader["email"]),
+                Beroep = reader["beroep"] == DBNull.Value ? null : ConvertToString(reader["beroep"])
             };
+        }
+
+        /// <summary>
+        /// Safely converts database values to string, handling booleans and other types
+        /// </summary>
+        private static string ConvertToString(object value)
+        {
+            if (value == null || value == DBNull.Value)
+                return string.Empty;
+
+            // Handle boolean values
+            if (value is bool boolValue)
+                return boolValue ? "Ja" : "Nee";
+
+            // Default to string conversion
+            return value.ToString() ?? string.Empty;
         }
     }
 }
