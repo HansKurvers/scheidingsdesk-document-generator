@@ -93,6 +93,8 @@ namespace Scheidingsdesk
                     };
                 }
                 
+                // URL encode spaces in the template URL
+                templateUrl = templateUrl.Replace(" ", "%20");
                 _logger.LogInformation($"[{correlationId}] Downloading template from Azure Storage");
                 
                 byte[] templateBytes;
@@ -363,6 +365,7 @@ namespace Scheidingsdesk
                     
                     replacements[$"{prefix}Naam"] = child.VolledigeNaam ?? "";
                     replacements[$"{prefix}Voornaam"] = child.Voornamen ?? "";
+                    replacements[$"{prefix}Roepnaam"] = child.Roepnaam ?? child.Voornamen?.Split(' ').FirstOrDefault() ?? "";
                     replacements[$"{prefix}Achternaam"] = child.Achternaam ?? "";
                     replacements[$"{prefix}Geboortedatum"] = child.GeboorteDatum?.ToString("dd-MM-yyyy") ?? "";
                     replacements[$"{prefix}Leeftijd"] = child.Leeftijd?.ToString() ?? "";
@@ -371,7 +374,16 @@ namespace Scheidingsdesk
                 
                 // Create a formatted list of all children names
                 var kinderenNamen = string.Join(", ", data.Kinderen.Select(k => k.Voornamen ?? k.VolledigeNaam));
+                var kinderenRoepnamen = string.Join(", ", data.Kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam));
+                
+                // Filter for minor children (under 18)
+                var minderjarigeKinderen = data.Kinderen.Where(k => k.Leeftijd.HasValue && k.Leeftijd.Value < 18).ToList();
+                var roepnamenMinderjarigen = string.Join(", ", minderjarigeKinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam));
+                
                 replacements["KinderenNamen"] = kinderenNamen;
+                replacements["KinderenRoepnamen"] = kinderenRoepnamen;
+                replacements["RoepnamenMinderjarigeKinderen"] = roepnamenMinderjarigen;
+                replacements["AantalMinderjarigeKinderen"] = minderjarigeKinderen.Count.ToString();
                 replacements["KinderenVolledigeNamen"] = string.Join(", ", data.Kinderen.Select(k => k.VolledigeNaam));
             }
             
@@ -386,6 +398,7 @@ namespace Scheidingsdesk
         {
             replacements[$"{prefix}Naam"] = person.VolledigeNaam ?? "";
             replacements[$"{prefix}Voornaam"] = person.Voornamen ?? "";
+            replacements[$"{prefix}Roepnaam"] = person.Roepnaam ?? person.Voornamen?.Split(' ').FirstOrDefault() ?? "";
             replacements[$"{prefix}Achternaam"] = person.Achternaam ?? "";
             replacements[$"{prefix}Tussenvoegsel"] = person.Tussenvoegsel ?? "";
             replacements[$"{prefix}Adres"] = person.Adres ?? "";
@@ -579,6 +592,51 @@ namespace Scheidingsdesk
                     paragraph.Remove();
                 }
             }
+            else if (text.Contains("[[LIJST_KINDEREN]]"))
+            {
+                // Generate a list of children with details
+                var childrenList = GenerateChildrenList(_currentDossierData.Kinderen, correlationId);
+                
+                // Insert all paragraphs in reverse order
+                foreach (var element in childrenList.Reverse<OpenXmlElement>())
+                {
+                    paragraph.Parent?.InsertAfter(element, paragraph);
+                }
+                
+                paragraph.Remove();
+                _logger.LogInformation($"[{correlationId}] Replaced children list placeholder with {childrenList.Count} elements");
+            }
+        }
+        
+        /// <summary>
+        /// Generate a formatted list of children with their details
+        /// </summary>
+        private List<OpenXmlElement> GenerateChildrenList(List<ChildData> kinderen, string correlationId)
+        {
+            var elements = new List<OpenXmlElement>();
+            
+            foreach (var kind in kinderen)
+            {
+                // Create paragraph for each child
+                var paragraph = new Paragraph();
+                var run = new Run();
+                
+                // Format: "Roepnaam (volledige naam), geboren op datum, leeftijd jaar"
+                var roepnaam = kind.Roepnaam ?? kind.Voornamen?.Split(' ').FirstOrDefault() ?? kind.Achternaam;
+                var text = $"• {roepnaam} ({kind.VolledigeNaam}), geboren op {kind.GeboorteDatum?.ToString("dd-MM-yyyy") ?? "onbekend"}";
+                
+                if (kind.Leeftijd.HasValue)
+                {
+                    text += $", {kind.Leeftijd} jaar";
+                }
+                
+                run.Append(new Text(text));
+                paragraph.Append(run);
+                elements.Add(paragraph);
+            }
+            
+            _logger.LogInformation($"[{correlationId}] Generated list for {kinderen.Count} children");
+            return elements;
         }
         
         /// <summary>
@@ -1047,7 +1105,11 @@ namespace Scheidingsdesk
             var rules = new Dictionary<string, string>();
             bool isPlural = childCount > 1;
             
-            // Basic singular/plural rules
+            // Count minor children (under 18)
+            var minorCount = children.Count(c => c.Leeftijd.HasValue && c.Leeftijd.Value < 18);
+            bool minorsPlural = minorCount > 1;
+            
+            // Basic singular/plural rules for all children
             rules["meervoud onze kinderen"] = isPlural ? "onze kinderen" : "ons kind";
             rules["meervoud heeft/hebben"] = isPlural ? "hebben" : "heeft";
             rules["meervoud is/zijn"] = isPlural ? "zijn" : "is";
@@ -1059,6 +1121,17 @@ namespace Scheidingsdesk
             rules["meervoud blijft/blijven"] = isPlural ? "blijven" : "blijft";
             rules["meervoud gaat/gaan"] = isPlural ? "gaan" : "gaat";
             rules["meervoud komt/komen"] = isPlural ? "komen" : "komt";
+            
+            // Grammar rules specifically for minor children
+            rules["MinderjarigeKind"] = minorsPlural ? "minderjarige kinderen" : "minderjarig kind";
+            rules["HetMinderjarigeKind"] = minorsPlural ? "de minderjarige kinderen" : "het minderjarige kind";
+            rules["MinderjarigeHeeft"] = minorsPlural ? "hebben" : "heeft";
+            rules["MinderjarigeIs"] = minorsPlural ? "zijn" : "is";
+            rules["MinderjarigeVerblijft"] = minorsPlural ? "verblijven" : "verblijft";
+            rules["MinderjarigeKan"] = minorsPlural ? "kunnen" : "kan";
+            rules["MinderjarigeZal"] = minorsPlural ? "zullen" : "zal";
+            rules["MinderjarigeMoet"] = minorsPlural ? "moeten" : "moet";
+            rules["MinderjarigeWordt"] = minorsPlural ? "worden" : "wordt";
             
             // Gender and count specific pronouns
             if (isPlural)
