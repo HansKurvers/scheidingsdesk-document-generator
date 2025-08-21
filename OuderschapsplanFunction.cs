@@ -1131,17 +1131,18 @@ namespace Scheidingsdesk
             bool minorsPlural = minorCount > 1;
             
             // Basic singular/plural rules for all children
-            rules["meervoud onze kinderen"] = isPlural ? "onze kinderen" : "ons kind";
-            rules["meervoud heeft/hebben"] = isPlural ? "hebben" : "heeft";
-            rules["meervoud is/zijn"] = isPlural ? "zijn" : "is";
-            rules["meervoud verblijft/verblijven"] = isPlural ? "verblijven" : "verblijft";
-            rules["meervoud kan/kunnen"] = isPlural ? "kunnen" : "kan";
-            rules["meervoud zal/zullen"] = isPlural ? "zullen" : "zal";
-            rules["meervoud moet/moeten"] = isPlural ? "moeten" : "moet";
-            rules["meervoud wordt/worden"] = isPlural ? "worden" : "wordt";
-            rules["meervoud blijft/blijven"] = isPlural ? "blijven" : "blijft";
-            rules["meervoud gaat/gaan"] = isPlural ? "gaan" : "gaat";
-            rules["meervoud komt/komen"] = isPlural ? "komen" : "komt";
+            rules["ons kind/onze kinderen"] = isPlural ? "onze kinderen" : "ons kind";
+            rules["heeft/hebben"] = isPlural ? "hebben" : "heeft";
+            rules["is/zijn"] = isPlural ? "zijn" : "is";
+            rules["verblijft/verblijven"] = isPlural ? "verblijven" : "verblijft";
+            rules["kan/kunnen"] = isPlural ? "kunnen" : "kan";
+            rules["zal/zullen"] = isPlural ? "zullen" : "zal";
+            rules["moet/moeten"] = isPlural ? "moeten" : "moet";
+            rules["wordt/worden"] = isPlural ? "worden" : "wordt";
+            rules["blijft/blijven"] = isPlural ? "blijven" : "blijft";
+            rules["gaat/gaan"] = isPlural ? "gaan" : "gaat";
+            rules["komt/komen"] = isPlural ? "komen" : "komt";
+            rules["verblijft/verblijven"] = isPlural ? "verblijven" : "verblijft";
             
             // Grammar rules specifically for minor children
             rules["MinderjarigeKind"] = minorsPlural ? "minderjarige kinderen" : "minderjarig kind";
@@ -1157,8 +1158,8 @@ namespace Scheidingsdesk
             // Gender and count specific pronouns
             if (isPlural)
             {
-                rules["meervoud hem/haar/hen"] = "hen";
-                rules["meervoud hij/zij/ze"] = "ze";
+                rules["hem/haar/hen"] = "hen";
+                rules["hij/zij/ze"] = "ze";
             }
             else if (children.Count == 1)
             {
@@ -1170,26 +1171,26 @@ namespace Scheidingsdesk
                 
                 if (isMale)
                 {
-                    rules["meervoud hem/haar/hen"] = "hem";
-                    rules["meervoud hij/zij/ze"] = "hij";
+                    rules["hem/haar/hen"] = "hem";
+                    rules["hij/zij/ze"] = "hij";
                 }
                 else if (isFemale)
                 {
-                    rules["meervoud hem/haar/hen"] = "haar";
-                    rules["meervoud hij/zij/ze"] = "zij";
+                    rules["hem/haar/hen"] = "haar";
+                    rules["hij/zij/ze"] = "zij";
                 }
                 else
                 {
                     // Default to neutral when gender is unknown
-                    rules["meervoud hem/haar/hen"] = "hem/haar";
-                    rules["meervoud hij/zij/ze"] = "hij/zij";
+                    rules["hem/haar/hen"] = "hem/haar";
+                    rules["hij/zij/ze"] = "hij/zij";
                 }
             }
             else
             {
                 // No children case
-                rules["meervoud hem/haar/hen"] = "hem/haar";
-                rules["meervoud hij/zij/ze"] = "hij/zij";
+                rules["hem/haar/hen"] = "hem/haar";
+                rules["hij/zij/ze"] = "hij/zij";
             }
             
             _logger.LogInformation($"[{correlationId}] Created {rules.Count} grammar rules");
