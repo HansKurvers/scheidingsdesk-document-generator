@@ -21,6 +21,7 @@ var host = new HostBuilder()
         });
 
         // Register services
+        services.AddHttpClient();
         services.AddScoped<DatabaseService>();
     })
     

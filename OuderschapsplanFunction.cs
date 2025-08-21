@@ -1,14 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using System.Diagnostics;
-using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -24,12 +16,14 @@ namespace Scheidingsdesk
     {
         private readonly ILogger<OuderschapsplanFunction> _logger;
         private readonly DatabaseService _databaseService;
+        private readonly HttpClient _httpClient;
         private DossierData? _currentDossierData;
 
-        public OuderschapsplanFunction(ILogger<OuderschapsplanFunction> logger, DatabaseService databaseService)
+        public OuderschapsplanFunction(ILogger<OuderschapsplanFunction> logger, DatabaseService databaseService, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _databaseService = databaseService;
+            _httpClient = httpClientFactory.CreateClient();
         }
 
         [Function("Ouderschapsplan")]
@@ -82,45 +76,59 @@ namespace Scheidingsdesk
 
                 _logger.LogInformation($"[{correlationId}] Processing ouderschapsplan for DossierId: {requestData.DossierId}");
 
-                // Load template file - try multiple locations
-                string templateFileName = "Ouderschapsplan NIEUW.docx";
-                string[] possiblePaths = new[]
-                {
-                    Path.Combine(Directory.GetCurrentDirectory(), "Ouderschapsplan", templateFileName),
-                    Path.Combine(Directory.GetCurrentDirectory(), templateFileName),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ouderschapsplan", templateFileName),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, templateFileName),
-                    Path.Combine("/home/site/wwwroot", "Ouderschapsplan", templateFileName),
-                    Path.Combine("/home/site/wwwroot", templateFileName)
-                };
-
-                string? templatePath = null;
-                foreach (var path in possiblePaths)
-                {
-                    _logger.LogInformation($"[{correlationId}] Checking for template at: {path}");
-                    if (File.Exists(path))
-                    {
-                        templatePath = path;
-                        break;
-                    }
-                }
+                // Download template from Azure Blob Storage using configured URL with SAS token
+                string templateUrl = Environment.GetEnvironmentVariable("TemplateStorageUrl") 
+                                      ?? throw new InvalidOperationException("TemplateStorageUrl environment variable is not set.");
                 
-                if (templatePath == null)
+                if (templateUrl.Contains("[SAS_TOKEN_HERE]"))
                 {
-                    _logger.LogError($"[{correlationId}] Template file not found in any of the expected locations. Current directory: {Directory.GetCurrentDirectory()}, Base directory: {AppDomain.CurrentDomain.BaseDirectory}");
+                    _logger.LogError($"[{correlationId}] Template URL contains placeholder. Please configure TemplateStorageUrl with a valid SAS token.");
                     return new ObjectResult(new
                     {
-                        error = "Template file not found. Please ensure the template exists.",
-                        correlationId = correlationId,
-                        currentDirectory = Directory.GetCurrentDirectory(),
-                        baseDirectory = AppDomain.CurrentDomain.BaseDirectory
+                        error = "Template storage not properly configured. Please add SAS token to TemplateStorageUrl setting.",
+                        correlationId = correlationId
                     })
                     {
                         StatusCode = 500
                     };
                 }
-
-                _logger.LogInformation($"[{correlationId}] Template found at: {templatePath}");
+                
+                _logger.LogInformation($"[{correlationId}] Downloading template from Azure Storage");
+                
+                byte[] templateBytes;
+                try 
+                {
+                    var response = await _httpClient.GetAsync(templateUrl);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogError($"[{correlationId}] Failed to download template. Status: {response.StatusCode}");
+                        return new ObjectResult(new
+                        {
+                            error = "Failed to download template from Azure Storage",
+                            correlationId = correlationId,
+                            statusCode = response.StatusCode.ToString()
+                        })
+                        {
+                            StatusCode = 500
+                        };
+                    }
+                    
+                    templateBytes = await response.Content.ReadAsByteArrayAsync();
+                    _logger.LogInformation($"[{correlationId}] Template downloaded successfully. Size: {templateBytes.Length} bytes");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"[{correlationId}] Error downloading template");
+                    return new ObjectResult(new
+                    {
+                        error = "Error downloading template",
+                        correlationId = correlationId,
+                        details = ex.Message
+                    })
+                    {
+                        StatusCode = 500
+                    };
+                }
 
                 // Get data from database
                 var dossierData = await GetDossierDataAsync(requestData.DossierId, correlationId);
@@ -135,7 +143,7 @@ namespace Scheidingsdesk
                 }
 
                 // Generate document
-                var documentStream = await GenerateDocumentAsync(templatePath, dossierData, correlationId);
+                var documentStream = await GenerateDocumentAsync(templateBytes, dossierData, correlationId);
                 
                 if (documentStream == null)
                 {
@@ -258,14 +266,13 @@ namespace Scheidingsdesk
         /// <param name="data">Data to fill in the template</param>
         /// <param name="correlationId">Correlation ID for logging</param>
         /// <returns>Generated document as MemoryStream</returns>
-        private async Task<MemoryStream?> GenerateDocumentAsync(string templatePath, DossierData data, string correlationId)
+        private async Task<MemoryStream?> GenerateDocumentAsync(byte[] templateBytes, DossierData data, string correlationId)
         {
-            _logger.LogInformation($"[{correlationId}] Starting document generation from template: {templatePath}");
+            _logger.LogInformation($"[{correlationId}] Starting document generation from template bytes");
             
             try
             {
-                // Read template file
-                byte[] templateBytes = await File.ReadAllBytesAsync(templatePath);
+                // Create stream from template bytes
                 var documentStream = new MemoryStream();
                 await documentStream.WriteAsync(templateBytes, 0, templateBytes.Length);
                 documentStream.Position = 0;
