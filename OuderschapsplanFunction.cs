@@ -372,23 +372,44 @@ namespace Scheidingsdesk
                     replacements[$"{prefix}Geslacht"] = child.Geslacht ?? "";
                 }
                 
-                // Create a formatted list of all children names
-                var kinderenNamen = string.Join(", ", data.Kinderen.Select(k => k.Voornamen ?? k.VolledigeNaam));
-                var kinderenRoepnamen = string.Join(", ", data.Kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam));
+                // Create formatted lists with proper Dutch grammar (laatste twee met "en")
+                var voornamenList = data.Kinderen.Select(k => k.Voornamen ?? k.VolledigeNaam).ToList();
+                var roepnamenList = data.Kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList();
+                var volledigeNamenList = data.Kinderen.Select(k => k.VolledigeNaam).ToList();
                 
                 // Filter for minor children (under 18)
                 var minderjarigeKinderen = data.Kinderen.Where(k => k.Leeftijd.HasValue && k.Leeftijd.Value < 18).ToList();
-                var roepnamenMinderjarigen = string.Join(", ", minderjarigeKinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam));
+                var roepnamenMinderjaarigenList = minderjarigeKinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList();
                 
-                replacements["KinderenNamen"] = kinderenNamen;
-                replacements["KinderenRoepnamen"] = kinderenRoepnamen;
-                replacements["RoepnamenMinderjarigeKinderen"] = roepnamenMinderjarigen;
+                replacements["KinderenNamen"] = FormatDutchList(voornamenList);
+                replacements["KinderenRoepnamen"] = FormatDutchList(roepnamenList);
+                replacements["RoepnamenMinderjarigeKinderen"] = FormatDutchList(roepnamenMinderjaarigenList);
                 replacements["AantalMinderjarigeKinderen"] = minderjarigeKinderen.Count.ToString();
-                replacements["KinderenVolledigeNamen"] = string.Join(", ", data.Kinderen.Select(k => k.VolledigeNaam));
+                replacements["KinderenVolledigeNamen"] = FormatDutchList(volledigeNamenList);
             }
             
             _logger.LogInformation($"[{correlationId}] Built {replacements.Count} replacements");
             return replacements;
+        }
+        
+        /// <summary>
+        /// Format a list of names with proper Dutch grammar
+        /// Examples: "Emma", "Kees en Emma", "Bart, Kees en Emma"
+        /// </summary>
+        private string FormatDutchList(List<string> items)
+        {
+            if (items == null || items.Count == 0)
+                return "";
+            
+            if (items.Count == 1)
+                return items[0];
+            
+            if (items.Count == 2)
+                return $"{items[0]} en {items[1]}";
+            
+            // For 3 or more items: "item1, item2, ... en lastItem"
+            var allButLast = string.Join(", ", items.Take(items.Count - 1));
+            return $"{allButLast} en {items.Last()}";
         }
         
         /// <summary>
