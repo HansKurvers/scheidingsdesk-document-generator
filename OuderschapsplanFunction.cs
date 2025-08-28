@@ -1124,11 +1124,11 @@ namespace Scheidingsdesk
             _logger.LogInformation($"[{correlationId}] Creating grammar rules for {childCount} children");
             
             var rules = new Dictionary<string, string>();
-            bool isPlural = childCount > 1;
+           
             
             // Count minor children (under 18)
             var minorCount = children.Count(c => c.Leeftijd.HasValue && c.Leeftijd.Value < 18);
-            bool minorsPlural = minorCount > 1;
+            bool isPlural = minorCount > 1;
             
             // Basic singular/plural rules for all children
             rules["ons kind/onze kinderen"] = isPlural ? "onze kinderen" : "ons kind";
@@ -1143,25 +1143,16 @@ namespace Scheidingsdesk
             rules["gaat/gaan"] = isPlural ? "gaan" : "gaat";
             rules["komt/komen"] = isPlural ? "komen" : "komt";
             rules["verblijft/verblijven"] = isPlural ? "verblijven" : "verblijft";
-            
-            // Grammar rules specifically for minor children
-            rules["MinderjarigeKind"] = minorsPlural ? "minderjarige kinderen" : "minderjarig kind";
-            rules["HetMinderjarigeKind"] = minorsPlural ? "de minderjarige kinderen" : "het minderjarige kind";
-            rules["MinderjarigeHeeft"] = minorsPlural ? "hebben" : "heeft";
-            rules["MinderjarigeIs"] = minorsPlural ? "zijn" : "is";
-            rules["MinderjarigeVerblijft"] = minorsPlural ? "verblijven" : "verblijft";
-            rules["MinderjarigeKan"] = minorsPlural ? "kunnen" : "kan";
-            rules["MinderjarigeZal"] = minorsPlural ? "zullen" : "zal";
-            rules["MinderjarigeMoet"] = minorsPlural ? "moeten" : "moet";
-            rules["MinderjarigeWordt"] = minorsPlural ? "worden" : "wordt";
-            
+          
+       
+              
             // Gender and count specific pronouns
             if (isPlural)
             {
                 rules["hem/haar/hen"] = "hen";
                 rules["hij/zij/ze"] = "ze";
             }
-            else if (children.Count == 1)
+            else if (minorCount == 1)
             {
                 var child = children.First();
                 bool isMale = string.Equals(child.Geslacht, "M", StringComparison.OrdinalIgnoreCase) || 
