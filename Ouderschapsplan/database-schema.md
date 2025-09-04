@@ -117,6 +117,41 @@ Care situations lookup table.
 - **naam** (nvarchar(200), NOT NULL) - Situation name
 - **zorg_categorie_id** (int, nullable, FK → dbo.zorg_categorieen.id) - Related category
 
+## Financial/Alimentatie Tables
+
+### dbo.alimentaties
+Main table for alimony/financial arrangements.
+- **id** (int, PK, Identity) - Primary key
+- **dossier_id** (int, NOT NULL, FK → dbo.dossiers.id) - Related dossier
+- **netto_besteedbaar_gezinsinkomen** (decimal(10,2), nullable) - Net disposable family income
+- **kosten_kinderen** (decimal(10,2), nullable) - Total costs for children
+- **bijdrage_kosten_kinderen** (decimal(10,2), nullable) - Contribution to children costs
+- **bijdrage_template** (int, nullable, FK → dbo.bijdrage_templates.id) - Template for contribution calculation
+
+### dbo.bijdrage_templates
+Templates for contribution calculations.
+- **id** (int, PK, Identity) - Primary key
+- **omschrijving** (nvarchar(500), NOT NULL) - Description of the template
+
+### dbo.bijdragen_kosten_kinderen
+Individual contributions to children costs per person.
+- **id** (int, PK, Identity) - Primary key
+- **alimentatie_id** (int, NOT NULL, FK → dbo.alimentaties.id) - Related alimentatie record
+- **personen_id** (int, NOT NULL, FK → dbo.personen.id) - Person making the contribution
+- **eigen_aandeel** (decimal(10,2), nullable) - Own share/contribution amount
+
+### dbo.financiele_afspraken_kinderen
+Financial agreements per child.
+- **id** (int, PK, Identity) - Primary key
+- **alimentatie_id** (int, NOT NULL, FK → dbo.alimentaties.id) - Related alimentatie record
+- **kind_id** (int, NOT NULL, FK → dbo.personen.id) - Child reference
+- **alimentatie_bedrag** (decimal(10,2), nullable) - Alimony amount for this child
+- **hoofdverblijf** (int, nullable, FK → dbo.personen.id) - Main residence parent
+- **kinderbijslag_ontvanger** (int, nullable, FK → dbo.personen.id) - Child benefit recipient
+- **zorgkorting_percentage** (decimal(5,2), nullable) - Care discount percentage
+- **inschrijving** (int, nullable, FK → dbo.personen.id) - Registration parent
+- **kindgebonden_budget** (int, nullable, FK → dbo.personen.id) - Child-related budget recipient
+
 ## Lookup Tables
 
 ### dbo.rollen
@@ -172,6 +207,18 @@ Templates for custody and visitation arrangements.
 - `zorg.gewijzigd_door` → `gebruikers.id`
 - `zorg_situaties.zorg_categorie_id` → `zorg_categorieen.id`
 
+### Alimentatie/Financial Relationships
+- `alimentaties.dossier_id` → `dossiers.id`
+- `alimentaties.bijdrage_template` → `bijdrage_templates.id`
+- `bijdragen_kosten_kinderen.alimentatie_id` → `alimentaties.id`
+- `bijdragen_kosten_kinderen.personen_id` → `personen.id`
+- `financiele_afspraken_kinderen.alimentatie_id` → `alimentaties.id`
+- `financiele_afspraken_kinderen.kind_id` → `personen.id`
+- `financiele_afspraken_kinderen.hoofdverblijf` → `personen.id`
+- `financiele_afspraken_kinderen.kinderbijslag_ontvanger` → `personen.id`
+- `financiele_afspraken_kinderen.inschrijving` → `personen.id`
+- `financiele_afspraken_kinderen.kindgebonden_budget` → `personen.id`
+
 ## Business Rules
 
 1. **Override Fields**: Both `omgang.week_regeling_anders` and `zorg.situatie_anders` are used when the standard options don't fit (when "Anders" is selected)
@@ -217,4 +264,23 @@ INNER JOIN zorg_categorieen zc ON z.zorg_categorie_id = zc.id
 INNER JOIN zorg_situaties zs ON z.zorg_situatie_id = zs.id
 WHERE z.dossier_id = @dossier_id
 ORDER BY zc.naam, zs.naam;
+```
+
+### Get alimentatie/financial data for a dossier
+```sql
+SELECT 
+    a.*,
+    bt.omschrijving AS bijdrage_template_omschrijving
+FROM alimentaties a
+LEFT JOIN bijdrage_templates bt ON a.bijdrage_template = bt.id
+WHERE a.dossier_id = @dossier_id;
+
+-- Get financial agreements per child
+SELECT 
+    fak.*,
+    p.voornamen + ' ' + p.achternaam AS kind_naam
+FROM financiele_afspraken_kinderen fak
+INNER JOIN personen p ON fak.kind_id = p.id
+INNER JOIN alimentaties a ON fak.alimentatie_id = a.id
+WHERE a.dossier_id = @dossier_id;
 ```

@@ -35,6 +35,11 @@ namespace scheidingsdesk_document_generator.Models
         public List<ZorgData> Zorg { get; set; } = new List<ZorgData>();
 
         /// <summary>
+        /// Alimentatie (alimony) information
+        /// </summary>
+        public AlimentatieData? Alimentatie { get; set; }
+
+        /// <summary>
         /// Gets party 1 (rol_id = 1)
         /// </summary>
         public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);
@@ -87,5 +92,49 @@ namespace scheidingsdesk_document_generator.Models
         /// Gets the effective situation (custom override or standard situation)
         /// </summary>
         public string EffectieveSituatie => !string.IsNullOrEmpty(SituatieAnders) ? SituatieAnders : ZorgSituatieNaam ?? string.Empty;
+    }
+
+    public class AlimentatieData
+    {
+        public int Id { get; set; }
+        public int DossierId { get; set; }
+        public decimal? NettoBesteedbaarGezinsinkomen { get; set; }
+        public decimal? KostenKinderen { get; set; }
+        public decimal? BijdrageKostenKinderen { get; set; }
+        public int? BijdrageTemplate { get; set; }
+        public string? BijdrageTemplateOmschrijving { get; set; }
+
+        /// <summary>
+        /// Child cost contributions per person
+        /// </summary>
+        public List<BijdrageKostenKinderenData> BijdragenKostenKinderen { get; set; } = new List<BijdrageKostenKinderenData>();
+
+        /// <summary>
+        /// Financial agreements per child
+        /// </summary>
+        public List<FinancieleAfsprakenKinderenData> FinancieleAfsprakenKinderen { get; set; } = new List<FinancieleAfsprakenKinderenData>();
+    }
+
+    public class BijdrageKostenKinderenData
+    {
+        public int Id { get; set; }
+        public int AlimentatieId { get; set; }
+        public int PersonenId { get; set; }
+        public string? PersoonNaam { get; set; }
+        public decimal? EigenAandeel { get; set; }
+    }
+
+    public class FinancieleAfsprakenKinderenData
+    {
+        public int Id { get; set; }
+        public int AlimentatieId { get; set; }
+        public int KindId { get; set; }
+        public string? KindNaam { get; set; }
+        public decimal? AlimentatieBedrag { get; set; }
+        public int? Hoofdverblijf { get; set; }
+        public int? KinderbijslagOntvanger { get; set; }
+        public decimal? ZorgkortingPercentage { get; set; }
+        public int? Inschrijving { get; set; }
+        public int? KindgebondenBudget { get; set; }
     }
 }

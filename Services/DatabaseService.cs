@@ -101,7 +101,35 @@ namespace scheidingsdesk_document_generator.Services
                     INNER JOIN dbo.zorg_categorieen zc ON z.zorg_categorie_id = zc.id
                     INNER JOIN dbo.zorg_situaties zs ON z.zorg_situatie_id = zs.id
                     WHERE z.dossier_id = @DossierId
-                    ORDER BY zc.naam, zs.naam;";
+                    ORDER BY zc.naam, zs.naam;
+
+                    -- Result set 7: Alimentatie (Alimony)
+                    SELECT a.id, a.dossier_id, a.netto_besteedbaar_gezinsinkomen,
+                           a.kosten_kinderen, a.bijdrage_kosten_kinderen,
+                           a.bijdrage_template, bt.omschrijving AS bijdrage_template_omschrijving
+                    FROM dbo.alimentaties a
+                    LEFT JOIN dbo.bijdrage_templates bt ON a.bijdrage_template = bt.id
+                    WHERE a.dossier_id = @DossierId;
+
+                    -- Result set 8: Bijdragen kosten kinderen (Child cost contributions)
+                    SELECT bkk.id, bkk.alimentatie_id, bkk.personen_id, bkk.eigen_aandeel,
+                           p.voornamen + ISNULL(' ' + p.tussenvoegsel, '') + ' ' + p.achternaam AS persoon_naam
+                    FROM dbo.bijdragen_kosten_kinderen bkk
+                    INNER JOIN dbo.personen p ON bkk.personen_id = p.id
+                    WHERE bkk.alimentatie_id IN (
+                        SELECT id FROM dbo.alimentaties WHERE dossier_id = @DossierId
+                    );
+
+                    -- Result set 9: Financiele afspraken kinderen (Financial agreements for children)
+                    SELECT fak.id, fak.alimentatie_id, fak.kind_id, fak.alimentatie_bedrag,
+                           fak.hoofdverblijf, fak.kinderbijslag_ontvanger, fak.zorgkorting_percentage,
+                           fak.inschrijving, fak.kindgebonden_budget,
+                           p.voornamen + ISNULL(' ' + p.tussenvoegsel, '') + ' ' + p.achternaam AS kind_naam
+                    FROM dbo.financiele_afspraken_kinderen fak
+                    INNER JOIN dbo.personen p ON fak.kind_id = p.id
+                    WHERE fak.alimentatie_id IN (
+                        SELECT id FROM dbo.alimentaties WHERE dossier_id = @DossierId
+                    );";
 
                 using var command = new SqlCommand(query, connection);
                 command.Parameters.AddWithValue("@DossierId", dossierId);
@@ -215,6 +243,63 @@ namespace scheidingsdesk_document_generator.Services
                     });
                 }
                 dossier.Zorg = careArrangements;
+
+                // Result set 7: Alimentatie
+                await reader.NextResultAsync();
+                AlimentatieData? alimentatie = null;
+                if (await reader.ReadAsync())
+                {
+                    alimentatie = new AlimentatieData
+                    {
+                        Id = (int)reader["id"],
+                        DossierId = (int)reader["dossier_id"],
+                        NettoBesteedbaarGezinsinkomen = reader["netto_besteedbaar_gezinsinkomen"] == DBNull.Value ? null : (decimal?)reader["netto_besteedbaar_gezinsinkomen"],
+                        KostenKinderen = reader["kosten_kinderen"] == DBNull.Value ? null : (decimal?)reader["kosten_kinderen"],
+                        BijdrageKostenKinderen = reader["bijdrage_kosten_kinderen"] == DBNull.Value ? null : (decimal?)reader["bijdrage_kosten_kinderen"],
+                        BijdrageTemplate = reader["bijdrage_template"] == DBNull.Value ? null : (int?)reader["bijdrage_template"],
+                        BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"])
+                    };
+                }
+                dossier.Alimentatie = alimentatie;
+
+                // Result set 8: Bijdragen kosten kinderen
+                await reader.NextResultAsync();
+                var bijdragenKostenKinderen = new List<BijdrageKostenKinderenData>();
+                while (await reader.ReadAsync())
+                {
+                    bijdragenKostenKinderen.Add(new BijdrageKostenKinderenData
+                    {
+                        Id = (int)reader["id"],
+                        AlimentatieId = (int)reader["alimentatie_id"],
+                        PersonenId = (int)reader["personen_id"],
+                        PersoonNaam = ConvertToString(reader["persoon_naam"]),
+                        EigenAandeel = reader["eigen_aandeel"] == DBNull.Value ? null : (decimal?)reader["eigen_aandeel"]
+                    });
+                }
+                if (alimentatie != null)
+                    alimentatie.BijdragenKostenKinderen = bijdragenKostenKinderen;
+
+                // Result set 9: Financiele afspraken kinderen
+                await reader.NextResultAsync();
+                var financieleAfsprakenKinderen = new List<FinancieleAfsprakenKinderenData>();
+                while (await reader.ReadAsync())
+                {
+                    financieleAfsprakenKinderen.Add(new FinancieleAfsprakenKinderenData
+                    {
+                        Id = (int)reader["id"],
+                        AlimentatieId = (int)reader["alimentatie_id"],
+                        KindId = (int)reader["kind_id"],
+                        KindNaam = ConvertToString(reader["kind_naam"]),
+                        AlimentatieBedrag = reader["alimentatie_bedrag"] == DBNull.Value ? null : (decimal?)reader["alimentatie_bedrag"],
+                        Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : (int?)reader["hoofdverblijf"],
+                        KinderbijslagOntvanger = reader["kinderbijslag_ontvanger"] == DBNull.Value ? null : (int?)reader["kinderbijslag_ontvanger"],
+                        ZorgkortingPercentage = reader["zorgkorting_percentage"] == DBNull.Value ? null : (decimal?)reader["zorgkorting_percentage"],
+                        Inschrijving = reader["inschrijving"] == DBNull.Value ? null : (int?)reader["inschrijving"],
+                        KindgebondenBudget = reader["kindgebonden_budget"] == DBNull.Value ? null : (int?)reader["kindgebonden_budget"]
+                    });
+                }
+                if (alimentatie != null)
+                    alimentatie.FinancieleAfsprakenKinderen = financieleAfsprakenKinderen;
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;

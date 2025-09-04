@@ -51,6 +51,27 @@
 
   (Same pattern for Kind2, Kind3, etc.)
 
+  Alimentatie/Financial Information:
+
+  - NettoBesteedbaarGezinsinkomen - Net disposable family income
+  - KostenKinderen - Total costs for children
+  - BijdrageKostenKinderen - Contribution to children costs
+  - BijdrageTemplateOmschrijving - Description of contribution template used
+
+  Per Person Contributions (replace # with person ID):
+  - Partij1EigenAandeel - Party 1's own contribution share
+  - Partij2EigenAandeel - Party 2's own contribution share
+
+  Per Child Financial Agreements (replace # with 1, 2, 3, etc.):
+  - Kind1AlimentatieBedrag - Child 1 alimony amount
+  - Kind1Hoofdverblijf - Child 1 main residence party (name)
+  - Kind1KinderbijslagOntvanger - Child 1 child benefit recipient (name)
+  - Kind1ZorgkortingPercentage - Child 1 care discount percentage
+  - Kind1Inschrijving - Child 1 registration party (name)
+  - Kind1KindgebondenBudget - Child 1 child-related budget recipient (name)
+
+  (Same pattern for Kind2, Kind3, etc.)
+
   Grammar Rules (Dutch singular/plural):
 
   - meervoud onze kinderen - "onze kinderen" (plural) or "ons kind" (singular)
@@ -73,6 +94,7 @@
   - [[TABEL_ZORG]] - Generates care arrangements table
   - [[TABEL_VAKANTIES]] - Generates holiday schedule table
   - [[TABEL_FEESTDAGEN]] - Generates public holidays table
+  - [[TABEL_ALIMENTATIE]] - Generates alimony/financial agreements table
 
   Additional Available Fields (with dot notation):
 

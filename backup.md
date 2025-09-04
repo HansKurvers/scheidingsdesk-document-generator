@@ -1,0 +1,9 @@
+ We hebben een alimentatie feature toegevoegd met de volgende tables en velden. Update dit ook in placeholders en een database-schema.md: dbo.alimentaties (id                                                  │
+│   dossier_id                                                                                                                                                                                                     │
+│   netto_besteedbaar_gezinsinkomen                                                                                                                                                                                │
+│   kosten_kinderen                                                                                                                                                                                                │
+│   bijdrage_kosten_kinderen                                                                                                                                                                                       │
+│   bijdrage_template                                                                                                                                                                                              │
+│   ), dbo.bijdrage_templates(id                                                                                                                                                                                   │
+│   omschrijving), dbo.bijdragen_kosten_kinderen(id, alimentatie_id, personen_id, eigen_aandeel), dbo.financiele_afspraken_kinderen(id, alimentatie_id, kind_id, alimentatie_bedrag, hoofdverblijf,                │
+│   kinderbijslag_ontvanger, zorgkorting_percentage, inschrijving, kindgebonden_budget).      
