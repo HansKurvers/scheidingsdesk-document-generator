@@ -352,6 +352,7 @@ namespace Scheidingsdesk
             replacements["DossierNummer"] = data.DossierNummer ?? "";
             replacements["DossierDatum"] = data.AangemaaktOp.ToString("dd-MM-yyyy");
             replacements["HuidigeDatum"] = DateTime.Now.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("nl-NL"));
+            replacements["IsAnoniem"] = data.IsAnoniem?.ToString() ?? "Nee";
             
             // Add children data
             if (data.Kinderen.Any())
@@ -388,8 +389,69 @@ namespace Scheidingsdesk
                 replacements["KinderenVolledigeNamen"] = FormatDutchList(volledigeNamenList);
             }
             
+            // Add OuderschapsplanInfo data if available
+            if (data.OuderschapsplanInfo != null)
+            {
+                var info = data.OuderschapsplanInfo;
+                
+                // Relationship information
+                replacements["SoortRelatie"] = info.SoortRelatie ?? "";
+                replacements["SoortRelatieVerbreking"] = info.SoortRelatieVerbreking ?? "";
+                replacements["BetrokkenheidKind"] = info.BetrokkenheidKind ?? "";
+                replacements["Kiesplan"] = info.Kiesplan ?? "";
+                
+                // Party choices - use display names
+                replacements["GezagPartij"] = GetPartijNaam(info.GezagPartij, data.Partij1, data.Partij2);
+                replacements["WaOpNaamVan"] = GetPartijNaam(info.WaOpNaamVanPartij, data.Partij1, data.Partij2);
+                replacements["ZorgverzekeringOpNaamVan"] = GetPartijNaam(info.ZorgverzekeringOpNaamVanPartij, data.Partij1, data.Partij2);
+                replacements["KinderbijslagOntvanger"] = GetKinderbijslagOntvanger(info.KinderbijslagPartij, data.Partij1, data.Partij2);
+                
+                // Device choices
+                replacements["KeuzeDevices"] = info.KeuzeDevices ?? "";
+                
+                // Living and care arrangements
+                replacements["Hoofdverblijf"] = info.Hoofdverblijf ?? "";
+                replacements["Zorgverdeling"] = info.Zorgverdeling ?? "";
+                replacements["OpvangKinderen"] = info.OpvangKinderen ?? "";
+                replacements["BankrekeningnummersKind"] = info.BankrekeningnummersOpNaamVanKind ?? "";
+                replacements["ParentingCoordinator"] = info.ParentingCoordinator ?? "";
+                
+                // BRP and KGB data (JSON fields - could be parsed if needed)
+                replacements["BrpPartij1"] = info.BrpPartij1 ?? "";
+                replacements["BrpPartij2"] = info.BrpPartij2 ?? "";
+                replacements["KgbPartij1"] = info.KgbPartij1 ?? "";
+                replacements["KgbPartij2"] = info.KgbPartij2 ?? "";
+            }
+            
             _logger.LogInformation($"[{correlationId}] Built {replacements.Count} replacements");
             return replacements;
+        }
+        
+        /// <summary>
+        /// Get the party name based on the party number (1 or 2)
+        /// </summary>
+        private string GetPartijNaam(int? partijNummer, PersonData? partij1, PersonData? partij2)
+        {
+            return partijNummer switch
+            {
+                1 => partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1",
+                2 => partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2",
+                _ => ""
+            };
+        }
+        
+        /// <summary>
+        /// Get the kinderbijslag recipient based on the party number (1, 2, or 3 for kinderrekening)
+        /// </summary>
+        private string GetKinderbijslagOntvanger(int? partijNummer, PersonData? partij1, PersonData? partij2)
+        {
+            return partijNummer switch
+            {
+                1 => partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1",
+                2 => partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2",
+                3 => "Kinderrekening",
+                _ => ""
+            };
         }
         
         /// <summary>

@@ -40,7 +40,7 @@ namespace scheidingsdesk_document_generator.Services
                 // Create a single command with multiple result sets
                 const string query = @"
                     -- Result set 1: Dossier information
-                    SELECT id, dossier_nummer, aangemaakt_op, gewijzigd_op, status, gebruiker_id
+                    SELECT id, dossier_nummer, aangemaakt_op, gewijzigd_op, status, gebruiker_id, is_anoniem
                     FROM dbo.dossiers 
                     WHERE id = @DossierId;
 
@@ -150,6 +150,25 @@ namespace scheidingsdesk_document_generator.Services
                     ELSE
                     BEGIN
                         SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 10: Ouderschapsplan info - Optional
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'ouderschapsplan_info' AND schema_id = SCHEMA_ID('dbo'))
+                    BEGIN
+                        SELECT opi.id, opi.dossier_id, opi.partij_1_persoon_id, opi.partij_2_persoon_id,
+                               opi.soort_relatie, opi.soort_relatie_verbreking, opi.betrokkenheid_kind, opi.kiesplan,
+                               opi.gezag_partij, opi.wa_op_naam_van_partij, opi.keuze_devices, 
+                               opi.zorgverzekering_op_naam_van_partij, opi.kinderbijslag_partij,
+                               opi.brp_partij_1, opi.brp_partij_2, opi.kgb_partij_1, opi.kgb_partij_2,
+                               opi.hoofdverblijf, opi.zorgverdeling, opi.opvang_kinderen,
+                               opi.bankrekeningnummers_op_naam_van_kind, opi.parenting_coordinator,
+                               opi.created_at, opi.updated_at
+                        FROM dbo.ouderschapsplan_info opi
+                        WHERE opi.dossier_id = @DossierId;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
                     END";
 
                 using var command = new SqlCommand(query, connection);
@@ -171,7 +190,8 @@ namespace scheidingsdesk_document_generator.Services
                     AangemaaktOp = (DateTime)reader["aangemaakt_op"],
                     GewijzigdOp = (DateTime)reader["gewijzigd_op"],
                     Status = ConvertToString(reader["status"]),
-                    GebruikerId = (int)reader["gebruiker_id"]
+                    GebruikerId = (int)reader["gebruiker_id"],
+                    IsAnoniem = reader["is_anoniem"] == DBNull.Value ? null : (bool?)reader["is_anoniem"]
                 };
 
                 // Result set 2: Parties
@@ -348,6 +368,48 @@ namespace scheidingsdesk_document_generator.Services
                 }
                 if (alimentatie != null)
                     alimentatie.FinancieleAfsprakenKinderen = financieleAfsprakenKinderen;
+
+                // Result set 10: Ouderschapsplan info (Optional)
+                await reader.NextResultAsync();
+                OuderschapsplanInfoData? ouderschapsplanInfo = null;
+                try
+                {
+                    if (reader.FieldCount > 0 && await reader.ReadAsync())
+                    {
+                        ouderschapsplanInfo = new OuderschapsplanInfoData
+                        {
+                            Id = (int)reader["id"],
+                            DossierId = (int)reader["dossier_id"],
+                            Partij1PersoonId = (int)reader["partij_1_persoon_id"],
+                            Partij2PersoonId = (int)reader["partij_2_persoon_id"],
+                            SoortRelatie = reader["soort_relatie"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie"]),
+                            SoortRelatieVerbreking = reader["soort_relatie_verbreking"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie_verbreking"]),
+                            BetrokkenheidKind = reader["betrokkenheid_kind"] == DBNull.Value ? null : ConvertToString(reader["betrokkenheid_kind"]),
+                            Kiesplan = reader["kiesplan"] == DBNull.Value ? null : ConvertToString(reader["kiesplan"]),
+                            GezagPartij = reader["gezag_partij"] == DBNull.Value ? null : (int?)reader["gezag_partij"],
+                            WaOpNaamVanPartij = reader["wa_op_naam_van_partij"] == DBNull.Value ? null : (int?)reader["wa_op_naam_van_partij"],
+                            KeuzeDevices = reader["keuze_devices"] == DBNull.Value ? null : ConvertToString(reader["keuze_devices"]),
+                            ZorgverzekeringOpNaamVanPartij = reader["zorgverzekering_op_naam_van_partij"] == DBNull.Value ? null : (int?)reader["zorgverzekering_op_naam_van_partij"],
+                            KinderbijslagPartij = reader["kinderbijslag_partij"] == DBNull.Value ? null : (int?)reader["kinderbijslag_partij"],
+                            BrpPartij1 = reader["brp_partij_1"] == DBNull.Value ? null : ConvertToString(reader["brp_partij_1"]),
+                            BrpPartij2 = reader["brp_partij_2"] == DBNull.Value ? null : ConvertToString(reader["brp_partij_2"]),
+                            KgbPartij1 = reader["kgb_partij_1"] == DBNull.Value ? null : ConvertToString(reader["kgb_partij_1"]),
+                            KgbPartij2 = reader["kgb_partij_2"] == DBNull.Value ? null : ConvertToString(reader["kgb_partij_2"]),
+                            Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : ConvertToString(reader["hoofdverblijf"]),
+                            Zorgverdeling = reader["zorgverdeling"] == DBNull.Value ? null : ConvertToString(reader["zorgverdeling"]),
+                            OpvangKinderen = reader["opvang_kinderen"] == DBNull.Value ? null : ConvertToString(reader["opvang_kinderen"]),
+                            BankrekeningnummersOpNaamVanKind = reader["bankrekeningnummers_op_naam_van_kind"] == DBNull.Value ? null : ConvertToString(reader["bankrekeningnummers_op_naam_van_kind"]),
+                            ParentingCoordinator = reader["parenting_coordinator"] == DBNull.Value ? null : ConvertToString(reader["parenting_coordinator"]),
+                            CreatedAt = (DateTime)reader["created_at"],
+                            UpdatedAt = (DateTime)reader["updated_at"]
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Ouderschapsplan info table may not exist yet, skipping");
+                }
+                dossier.OuderschapsplanInfo = ouderschapsplanInfo;
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;

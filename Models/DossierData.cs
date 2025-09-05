@@ -13,6 +13,7 @@ namespace scheidingsdesk_document_generator.Models
         public DateTime GewijzigdOp { get; set; }
         public string Status { get; set; } = string.Empty;
         public int GebruikerId { get; set; }
+        public bool? IsAnoniem { get; set; }
 
         /// <summary>
         /// Parties involved in the dossier (rol_id 1 and 2)
@@ -38,6 +39,11 @@ namespace scheidingsdesk_document_generator.Models
         /// Alimentatie (alimony) information
         /// </summary>
         public AlimentatieData? Alimentatie { get; set; }
+
+        /// <summary>
+        /// Ouderschapsplan specific information
+        /// </summary>
+        public OuderschapsplanInfoData? OuderschapsplanInfo { get; set; }
 
         /// <summary>
         /// Gets party 1 (rol_id = 1)
