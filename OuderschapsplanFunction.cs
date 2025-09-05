@@ -425,6 +425,7 @@ namespace Scheidingsdesk
             replacements[$"{prefix}Adres"] = person.Adres ?? "";
             replacements[$"{prefix}Postcode"] = person.Postcode ?? "";
             replacements[$"{prefix}Plaats"] = person.Plaats ?? "";
+            replacements[$"{prefix}Geboorteplaats"] = person.GeboortePlaats ?? "";
             replacements[$"{prefix}Telefoon"] = person.Telefoon ?? "";
             replacements[$"{prefix}Email"] = person.Email ?? "";
             replacements[$"{prefix}Geboortedatum"] = person.GeboorteDatum?.ToString("dd-MM-yyyy") ?? "";
@@ -1338,6 +1339,7 @@ namespace Scheidingsdesk
                 replacements["Partij1Adres"] = ConvertToString(data.Partij1.Adres);
                 replacements["Partij1Postcode"] = ConvertToString(data.Partij1.Postcode);
                 replacements["Partij1Plaats"] = ConvertToString(data.Partij1.Plaats);
+                replacements["Partij1Geboorteplaats"] = ConvertToString(data.Partij1.GeboortePlaats);
             }
             
             if (data.Partij2 != null)
@@ -1348,6 +1350,7 @@ namespace Scheidingsdesk
                 replacements["Partij2Adres"] = ConvertToString(data.Partij2.Adres);
                 replacements["Partij2Postcode"] = ConvertToString(data.Partij2.Postcode);
                 replacements["Partij2Plaats"] = ConvertToString(data.Partij2.Plaats);
+                replacements["Partij2Geboorteplaats"] = ConvertToString(data.Partij2.GeboortePlaats);
             }
             
             // Replace dossier information with multiple formats

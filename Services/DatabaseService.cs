@@ -47,7 +47,7 @@ namespace scheidingsdesk_document_generator.Services
                     -- Result set 2: Parties (rol_id 1 and 2)
                     SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
                            p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
-                           p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
+                           p.geboorteplaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
                            p.telefoon, p.email, p.beroep, dp.rol_id, r.naam as rol_naam
                     FROM dbo.personen p
                     INNER JOIN dbo.dossiers_partijen dp ON p.id = dp.persoon_id
@@ -58,7 +58,7 @@ namespace scheidingsdesk_document_generator.Services
                     -- Result set 3: Children
                     SELECT p.id, p.voorletters, p.voornamen, p.roepnaam, p.geslacht, 
                            p.tussenvoegsel, p.achternaam, p.adres, p.postcode, p.plaats,
-                           p.geboorte_plaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
+                           p.geboorteplaats, p.geboorte_datum, p.nationaliteit_1, p.nationaliteit_2,
                            p.telefoon, p.email, p.beroep
                     FROM dbo.personen p
                     INNER JOIN dbo.dossiers_kinderen dk ON p.id = dk.kind_id
@@ -379,7 +379,7 @@ namespace scheidingsdesk_document_generator.Services
                 Adres = reader["adres"] == DBNull.Value ? null : ConvertToString(reader["adres"]),
                 Postcode = reader["postcode"] == DBNull.Value ? null : ConvertToString(reader["postcode"]),
                 Plaats = reader["plaats"] == DBNull.Value ? null : ConvertToString(reader["plaats"]),
-                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : ConvertToString(reader["geboorte_plaats"]),
+                GeboortePlaats = reader["geboorteplaats"] == DBNull.Value ? null : ConvertToString(reader["geboorteplaats"]),
                 GeboorteDatum = reader["geboorte_datum"] == DBNull.Value ? null : (DateTime?)reader["geboorte_datum"],
                 Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_1"]),
                 Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_2"]),
@@ -405,7 +405,7 @@ namespace scheidingsdesk_document_generator.Services
                 Adres = reader["adres"] == DBNull.Value ? null : ConvertToString(reader["adres"]),
                 Postcode = reader["postcode"] == DBNull.Value ? null : ConvertToString(reader["postcode"]),
                 Plaats = reader["plaats"] == DBNull.Value ? null : ConvertToString(reader["plaats"]),
-                GeboortePlaats = reader["geboorte_plaats"] == DBNull.Value ? null : ConvertToString(reader["geboorte_plaats"]),
+                GeboortePlaats = reader["geboorteplaats"] == DBNull.Value ? null : ConvertToString(reader["geboorteplaats"]),
                 GeboorteDatum = reader["geboorte_datum"] == DBNull.Value ? null : (DateTime?)reader["geboorte_datum"],
                 Nationaliteit1 = reader["nationaliteit_1"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_1"]),
                 Nationaliteit2 = reader["nationaliteit_2"] == DBNull.Value ? null : ConvertToString(reader["nationaliteit_2"]),
