@@ -4,6 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Scheidingsdesk;
 using scheidingsdesk_document_generator.Services;
+using scheidingsdesk_document_generator.Services.DocumentGeneration;
+using scheidingsdesk_document_generator.Services.DocumentGeneration.Processors;
+using scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers;
+using scheidingsdesk_document_generator.Services.DocumentGeneration.Generators;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -20,11 +24,27 @@ var host = new HostBuilder()
             logging.SetMinimumLevel(LogLevel.Information);
         });
 
-        // Register services
+        // Register HTTP client
         services.AddHttpClient();
+
+        // Register database service
         services.AddScoped<DatabaseService>();
+
+        // Register document generation services
+        services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
+        services.AddScoped<ITemplateProvider, TemplateProvider>();
+        services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
+        services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
+        services.AddScoped<GrammarRulesBuilder>();
+
+        // Register all table generators (Strategy Pattern)
+        services.AddScoped<ITableGenerator, OmgangTableGenerator>();
+        services.AddScoped<ITableGenerator, ZorgTableGenerator>();
+        services.AddScoped<ITableGenerator, VakantieTableGenerator>();
+        services.AddScoped<ITableGenerator, FeestdagenTableGenerator>();
+        services.AddScoped<ITableGenerator, ChildrenListGenerator>();
     })
-    
+
     .Build();
 
 host.Run();
