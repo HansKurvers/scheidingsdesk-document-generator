@@ -288,8 +288,10 @@ namespace scheidingsdesk_document_generator.Services
                 // Result set 7: Alimentatie (Optional - may not exist if tables are not created yet)
                 await reader.NextResultAsync();
                 AlimentatieData? alimentatie = null;
-                try 
+                try
                 {
+                    _logger.LogInformation("Reading alimentatie data for dossier {DossierId}, FieldCount: {FieldCount}", dossierId, reader.FieldCount);
+
                     if (reader.FieldCount > 0 && await reader.ReadAsync())
                     {
                         alimentatie = new AlimentatieData
@@ -302,6 +304,12 @@ namespace scheidingsdesk_document_generator.Services
                             BijdrageTemplate = reader["bijdrage_template"] == DBNull.Value ? null : (int?)reader["bijdrage_template"],
                             BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"])
                         };
+                        _logger.LogInformation("Loaded alimentatie: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={Kosten}",
+                            alimentatie.NettoBesteedbaarGezinsinkomen, alimentatie.KostenKinderen);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No alimentatie data found for dossier {DossierId}", dossierId);
                     }
                 }
                 catch (Exception ex)
@@ -315,20 +323,26 @@ namespace scheidingsdesk_document_generator.Services
                 var bijdragenKostenKinderen = new List<BijdrageKostenKinderenData>();
                 try
                 {
+                    _logger.LogInformation("Reading bijdragen kosten kinderen for dossier {DossierId}, FieldCount: {FieldCount}", dossierId, reader.FieldCount);
+
                     if (reader.FieldCount > 0)
                     {
                         while (await reader.ReadAsync())
                         {
-                            bijdragenKostenKinderen.Add(new BijdrageKostenKinderenData
+                            var bijdrage = new BijdrageKostenKinderenData
                             {
                                 Id = (int)reader["id"],
                                 AlimentatieId = (int)reader["alimentatie_id"],
                                 PersonenId = (int)reader["personen_id"],
                                 PersoonNaam = ConvertToString(reader["persoon_naam"]),
                                 EigenAandeel = reader["eigen_aandeel"] == DBNull.Value ? null : (decimal?)reader["eigen_aandeel"]
-                            });
+                            };
+                            bijdragenKostenKinderen.Add(bijdrage);
+                            _logger.LogInformation("Loaded bijdrage: PersonId={PersonId}, Naam={Naam}, Aandeel={Aandeel}",
+                                bijdrage.PersonenId, bijdrage.PersoonNaam, bijdrage.EigenAandeel);
                         }
                     }
+                    _logger.LogInformation("Total bijdragen loaded: {Count}", bijdragenKostenKinderen.Count);
                 }
                 catch (Exception ex)
                 {
@@ -342,11 +356,13 @@ namespace scheidingsdesk_document_generator.Services
                 var financieleAfsprakenKinderen = new List<FinancieleAfsprakenKinderenData>();
                 try
                 {
+                    _logger.LogInformation("Reading financiele afspraken kinderen for dossier {DossierId}, FieldCount: {FieldCount}", dossierId, reader.FieldCount);
+
                     if (reader.FieldCount > 0)
                     {
                         while (await reader.ReadAsync())
                         {
-                            financieleAfsprakenKinderen.Add(new FinancieleAfsprakenKinderenData
+                            var afspraak = new FinancieleAfsprakenKinderenData
                             {
                                 Id = (int)reader["id"],
                                 AlimentatieId = (int)reader["alimentatie_id"],
@@ -358,9 +374,13 @@ namespace scheidingsdesk_document_generator.Services
                                 ZorgkortingPercentage = reader["zorgkorting_percentage"] == DBNull.Value ? null : (decimal?)reader["zorgkorting_percentage"],
                                 Inschrijving = reader["inschrijving"] == DBNull.Value ? null : (int?)reader["inschrijving"],
                                 KindgebondenBudget = reader["kindgebonden_budget"] == DBNull.Value ? null : (int?)reader["kindgebonden_budget"]
-                            });
+                            };
+                            financieleAfsprakenKinderen.Add(afspraak);
+                            _logger.LogInformation("Loaded financiele afspraak: KindId={KindId}, Naam={Naam}, Bedrag={Bedrag}, Hoofdverblijf={Hoofdverblijf}",
+                                afspraak.KindId, afspraak.KindNaam, afspraak.AlimentatieBedrag, afspraak.Hoofdverblijf);
                         }
                     }
+                    _logger.LogInformation("Total financiele afspraken loaded: {Count}", financieleAfsprakenKinderen.Count);
                 }
                 catch (Exception ex)
                 {

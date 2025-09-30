@@ -68,6 +68,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
             var replacements = _placeholderProcessor.BuildReplacements(dossierData, grammarRules);
             _logger.LogInformation($"[{correlationId}] Built {replacements.Count} placeholder replacements");
 
+            // Log alimentatie-related placeholders for debugging
+            if (replacements.ContainsKey("NettoBesteedbaarGezinsinkomen"))
+                _logger.LogInformation($"[{correlationId}] NettoBesteedbaarGezinsinkomen = '{replacements["NettoBesteedbaarGezinsinkomen"]}'");
+            if (replacements.ContainsKey("Partij1EigenAandeel"))
+                _logger.LogInformation($"[{correlationId}] Partij1EigenAandeel = '{replacements["Partij1EigenAandeel"]}'");
+            if (replacements.ContainsKey("KinderenAlimentatie"))
+                _logger.LogInformation($"[{correlationId}] KinderenAlimentatie = '{replacements["KinderenAlimentatie"].Substring(0, Math.Min(100, replacements["KinderenAlimentatie"].Length))}...'");
+
             // Step 5: Process the document
             _logger.LogInformation($"[{correlationId}] Step 5: Processing document");
             var documentStream = await ProcessDocumentAsync(templateBytes, dossierData, replacements, correlationId);
