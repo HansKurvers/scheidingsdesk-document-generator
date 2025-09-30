@@ -63,11 +63,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2);
             }
 
-            // Add alimentatie data if available
-            if (data.Alimentatie != null)
-            {
-                AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
-            }
+            // Add alimentatie data (always add placeholders, even if empty)
+            AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
 
             return replacements;
         }
@@ -297,16 +294,36 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// </summary>
         private void AddAlimentatieReplacements(
             Dictionary<string, string> replacements,
-            AlimentatieData alimentatie,
+            AlimentatieData? alimentatie,
             PersonData? partij1,
             PersonData? partij2,
             List<ChildData> kinderen)
         {
+            // Initialize all placeholders with empty values first
+            replacements["NettoBesteedbaarGezinsinkomen"] = "";
+            replacements["KostenKinderen"] = "";
+            replacements["BijdrageKostenKinderen"] = "";
+            replacements["BijdrageTemplateOmschrijving"] = "";
+            replacements["Partij1EigenAandeel"] = "";
+            replacements["Partij2EigenAandeel"] = "";
+            replacements["KinderenAlimentatie"] = "";
+
+            // If no alimentatie data, return early
+            if (alimentatie == null)
+            {
+                _logger.LogDebug("No alimentatie data available, placeholders set to empty strings");
+                return;
+            }
+
             // Basic alimentatie data
             replacements["NettoBesteedbaarGezinsinkomen"] = DataFormatter.FormatCurrency(alimentatie.NettoBesteedbaarGezinsinkomen);
             replacements["KostenKinderen"] = DataFormatter.FormatCurrency(alimentatie.KostenKinderen);
             replacements["BijdrageKostenKinderen"] = DataFormatter.FormatCurrency(alimentatie.BijdrageKostenKinderen);
             replacements["BijdrageTemplateOmschrijving"] = alimentatie.BijdrageTemplateOmschrijving ?? "";
+
+            _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}",
+                replacements["NettoBesteedbaarGezinsinkomen"],
+                replacements["KostenKinderen"]);
 
             // Per person contributions (eigen aandeel)
             if (alimentatie.BijdragenKostenKinderen.Any())
@@ -317,10 +334,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     if (partij1 != null && bijdrage.PersonenId == partij1.Id)
                     {
                         replacements["Partij1EigenAandeel"] = DataFormatter.FormatCurrency(bijdrage.EigenAandeel);
+                        _logger.LogDebug("Set Partij1EigenAandeel to {Amount}", replacements["Partij1EigenAandeel"]);
                     }
                     else if (partij2 != null && bijdrage.PersonenId == partij2.Id)
                     {
                         replacements["Partij2EigenAandeel"] = DataFormatter.FormatCurrency(bijdrage.EigenAandeel);
+                        _logger.LogDebug("Set Partij2EigenAandeel to {Amount}", replacements["Partij2EigenAandeel"]);
                     }
                 }
             }
@@ -374,10 +393,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 }
 
                 replacements["KinderenAlimentatie"] = string.Join("\n\n", kinderenAlimentatieList);
-            }
-            else
-            {
-                replacements["KinderenAlimentatie"] = "";
+                _logger.LogDebug("Added KinderenAlimentatie with {Count} children", kinderenAlimentatieList.Count);
             }
         }
 
