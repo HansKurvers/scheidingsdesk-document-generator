@@ -1,20 +1,27 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using DocumentFormat.OpenXml;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using scheidingsdesk_document_generator.Services.DocumentGeneration.Processors;
 
 namespace Scheidingsdesk
 {
+    /// <summary>
+    /// Azure Function endpoint for removing content controls from Word documents
+    /// Delegates content control processing to IContentControlProcessor service (SOLID/DRY)
+    /// </summary>
     public class RemoveContentControls
     {
         private readonly ILogger<RemoveContentControls> _logger;
+        private readonly IContentControlProcessor _contentControlProcessor;
 
-        public RemoveContentControls(ILogger<RemoveContentControls> logger)
+        public RemoveContentControls(
+            ILogger<RemoveContentControls> logger,
+            IContentControlProcessor contentControlProcessor)
         {
             _logger = logger;
+            _contentControlProcessor = contentControlProcessor;
         }
 
         [Function("RemoveContentControls")]
@@ -79,7 +86,9 @@ namespace Scheidingsdesk
                         var mainPart = outputDoc.MainDocumentPart;
                         if (mainPart != null)
                         {
-                            ProcessContentControls(mainPart.Document);
+                            // Use shared service instead of duplicate code (DRY principle)
+                            string correlationId = Guid.NewGuid().ToString();
+                            _contentControlProcessor.RemoveContentControls(mainPart.Document, correlationId);
                             mainPart.Document.Save();
                             _logger.LogInformation("Content controls processed successfully.");
                         }
@@ -102,67 +111,14 @@ namespace Scheidingsdesk
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing document: {ex.Message}");
-                return new ObjectResult(new 
-                { 
+                return new ObjectResult(new
+                {
                     error = "Error processing document",
-                    details = ex.Message 
+                    details = ex.Message
                 })
                 {
                     StatusCode = 500
                 };
-            }
-        }
-
-        private void ProcessContentControls(DocumentFormat.OpenXml.OpenXmlElement element)
-        {
-            var sdtElements = element.Descendants<SdtElement>().ToList();
-            
-            _logger.LogInformation($"Found {sdtElements.Count} content controls to process.");
-            
-            // Process from bottom to top to avoid issues with nested content controls
-            for (int i = sdtElements.Count - 1; i >= 0; i--)
-            {
-                var sdt = sdtElements[i];
-                var parent = sdt.Parent;
-                if (parent == null) continue;
-                
-                var contentElements = sdt.Elements().Where(e => e.LocalName == "sdtContent").FirstOrDefault();
-                if (contentElements == null) continue;
-                
-                var contentToPreserve = contentElements.ChildElements.ToList();
-                
-                if (contentToPreserve.Any())
-                {
-                    foreach (var child in contentToPreserve)
-                    {
-                        var clonedChild = child.CloneNode(true);
-                        
-                        // Fix text formatting on all Run elements
-                        foreach (var run in clonedChild.Descendants<Run>())
-                        {
-                            var runProps = run.RunProperties ?? run.AppendChild(new RunProperties());
-                            
-                            // Remove existing colors and set to black
-                            var colorElements = runProps.Elements<Color>().ToList();
-                            foreach (var color in colorElements)
-                            {
-                                runProps.RemoveChild(color);
-                            }
-                            runProps.AppendChild(new Color() { Val = "000000" });
-                            
-                            // Remove any shading
-                            var shadingElements = runProps.Elements<Shading>().ToList();
-                            foreach (var shading in shadingElements)
-                            {
-                                runProps.RemoveChild(shading);
-                            }
-                        }
-                        
-                        parent.InsertBefore(clonedChild, sdt);
-                    }
-                }
-                
-                parent.RemoveChild(sdt);
             }
         }
     }
