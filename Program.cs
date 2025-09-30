@@ -39,9 +39,7 @@ var host = new HostBuilder()
 
         // Register all table generators (Strategy Pattern)
         services.AddScoped<ITableGenerator, OmgangTableGenerator>();
-        services.AddScoped<ITableGenerator, ZorgTableGenerator>();
-        services.AddScoped<ITableGenerator, VakantieTableGenerator>();
-        services.AddScoped<ITableGenerator, FeestdagenTableGenerator>();
+        services.AddScoped<ITableGenerator, ZorgTableGenerator>(); // Handles ALL zorg categories including vakanties & feestdagen
         services.AddScoped<ITableGenerator, ChildrenListGenerator>();
     })
 

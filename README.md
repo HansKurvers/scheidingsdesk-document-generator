@@ -108,9 +108,7 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │       └── Generators/                         # Strategy Pattern: Tabel generators
 │           ├── ITableGenerator.cs              # Interface voor alle generators
 │           ├── OmgangTableGenerator.cs         # 📅 Omgangstabellen (visitation)
-│           ├── ZorgTableGenerator.cs           # 🏥 Zorgtabellen (care arrangements)
-│           ├── VakantieTableGenerator.cs       # ✈️ Vakantie regelingen
-│           ├── FeestdagenTableGenerator.cs     # 🎉 Feestdagen tabel
+│           ├── ZorgTableGenerator.cs           # 🏥 Zorgtabellen (care, vakanties, feestdagen)
 │           └── ChildrenListGenerator.cs        # 👶 Kinderen lijst generatie
 │
 ├── OuderschapsplanFunction.cs                   # ✨ HTTP Endpoint (142 regels, was 1669)
@@ -163,9 +161,7 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
        ├─→ ContentControlProcessor.ProcessTablePlaceholders()
        │   └─→ Gebruikt Strategy Pattern voor tabel generatie:
        │       ├─→ OmgangTableGenerator
-       │       ├─→ ZorgTableGenerator
-       │       ├─→ VakantieTableGenerator
-       │       ├─→ FeestdagenTableGenerator
+       │       ├─→ ZorgTableGenerator (handelt alle zorg categorieën af)
        │       └─→ ChildrenListGenerator
        │
        └─→ ContentControlProcessor.RemoveContentControls()
@@ -254,10 +250,8 @@ public interface ITableGenerator
 
 **Beschikbare generators:**
 1. **OmgangTableGenerator** - Genereert omgangstabellen per week regeling
-2. **ZorgTableGenerator** - Genereert zorgtabellen per categorie
-3. **VakantieTableGenerator** - Genereert vakantieregelingen
-4. **FeestdagenTableGenerator** - Genereert standaard Nederlandse feestdagen
-5. **ChildrenListGenerator** - Genereert bullet-point lijst van kinderen
+2. **ZorgTableGenerator** - Genereert zorgtabellen per categorie (inclusief vakanties, feestdagen, en alle andere zorg categorieën uit de database)
+3. **ChildrenListGenerator** - Genereert bullet-point lijst van kinderen
 
 ### Dependency Injection Setup
 
@@ -276,9 +270,7 @@ services.AddScoped<GrammarRulesBuilder>();
 
 // Table generators (Strategy Pattern)
 services.AddScoped<ITableGenerator, OmgangTableGenerator>();
-services.AddScoped<ITableGenerator, ZorgTableGenerator>();
-services.AddScoped<ITableGenerator, VakantieTableGenerator>();
-services.AddScoped<ITableGenerator, FeestdagenTableGenerator>();
+services.AddScoped<ITableGenerator, ZorgTableGenerator>(); // Handles ALL zorg categories including vakanties & feestdagen
 services.AddScoped<ITableGenerator, ChildrenListGenerator>();
 ```
 
@@ -749,13 +741,14 @@ Deze worden automatisch vervangen op basis van aantal minderjarige kinderen en g
 
 Deze placeholders worden vervangen door dynamisch gegenereerde tabellen:
 
-- `[[TABEL_OMGANG]]` - Genereert omgangstabellen per week regeling
-- `[[TABEL_ZORG]]` - Genereert zorgtabellen per categorie
-- `[[TABEL_VAKANTIES]]` - Genereert vakantieregelingen tabel
-- `[[TABEL_FEESTDAGEN]]` - Genereert feestdagen tabel
+- `[[TABEL_OMGANG]]` - Genereert omgangstabellen per week regeling uit database
+- `[[TABEL_ZORG]]` - Genereert zorgtabellen per categorie uit database (inclusief vakanties, feestdagen, bijzondere dagen, beslissingen, etc.)
 - `[[LIJST_KINDEREN]]` - Genereert opsomming van kinderen met details
 
 **Let op:** Deze placeholders moeten op een eigen paragraph staan (niet inline in een zin).
+
+**Belangrijke opmerking over Vakanties & Feestdagen:**
+Vakanties en feestdagen worden automatisch gegenereerd als onderdeel van `[[TABEL_ZORG]]`. In de database zitten deze als zorg categorieën met namen zoals "Vakanties", "Feestdagen", etc. Er zijn geen aparte placeholders `[[TABEL_VAKANTIES]]` of `[[TABEL_FEESTDAGEN]]` nodig.
 
 ## Deployment
 
@@ -1161,7 +1154,7 @@ Dit project is eigendom van Scheidingsdesk en bedoeld voor interne gebruik in he
 - ContentControlProcessor (Content controls & table placeholders)
 - GrammarRulesBuilder (Dutch grammar)
 - 3 Helpers: DutchLanguageHelper, DataFormatter, OpenXmlHelper
-- 5 Generators: Omgang, Zorg, Vakantie, Feestdagen, Children List
+- 3 Generators: Omgang, Zorg (incl. vakanties/feestdagen), Children List
 
 **Backwards Compatibility:**
 - ✅ Exact zelfde API endpoint
