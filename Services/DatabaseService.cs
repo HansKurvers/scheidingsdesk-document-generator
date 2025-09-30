@@ -298,9 +298,9 @@ namespace scheidingsdesk_document_generator.Services
                         {
                             Id = (int)reader["id"],
                             DossierId = (int)reader["dossier_id"],
-                            NettoBesteedbaarGezinsinkomen = reader["netto_besteedbaar_gezinsinkomen"] == DBNull.Value ? null : (decimal?)reader["netto_besteedbaar_gezinsinkomen"],
-                            KostenKinderen = reader["kosten_kinderen"] == DBNull.Value ? null : (decimal?)reader["kosten_kinderen"],
-                            BijdrageKostenKinderen = reader["bijdrage_kosten_kinderen"] == DBNull.Value ? null : (decimal?)reader["bijdrage_kosten_kinderen"],
+                            NettoBesteedbaarGezinsinkomen = reader["netto_besteedbaar_gezinsinkomen"] == DBNull.Value ? null : Convert.ToDecimal(reader["netto_besteedbaar_gezinsinkomen"]),
+                            KostenKinderen = reader["kosten_kinderen"] == DBNull.Value ? null : Convert.ToDecimal(reader["kosten_kinderen"]),
+                            BijdrageKostenKinderen = reader["bijdrage_kosten_kinderen"] == DBNull.Value ? null : Convert.ToDecimal(reader["bijdrage_kosten_kinderen"]),
                             BijdrageTemplate = reader["bijdrage_template"] == DBNull.Value ? null : (int?)reader["bijdrage_template"],
                             BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"])
                         };
@@ -368,10 +368,10 @@ namespace scheidingsdesk_document_generator.Services
                                 AlimentatieId = (int)reader["alimentatie_id"],
                                 KindId = (int)reader["kind_id"],
                                 KindNaam = ConvertToString(reader["kind_naam"]),
-                                AlimentatieBedrag = reader["alimentatie_bedrag"] == DBNull.Value ? null : (decimal?)reader["alimentatie_bedrag"],
+                                AlimentatieBedrag = reader["alimentatie_bedrag"] == DBNull.Value ? null : Convert.ToDecimal(reader["alimentatie_bedrag"]),
                                 Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : ConvertToString(reader["hoofdverblijf"]),
                                 KinderbijslagOntvanger = reader["kinderbijslag_ontvanger"] == DBNull.Value ? null : ConvertToString(reader["kinderbijslag_ontvanger"]),
-                                ZorgkortingPercentage = reader["zorgkorting_percentage"] == DBNull.Value ? null : (decimal?)reader["zorgkorting_percentage"],
+                                ZorgkortingPercentage = reader["zorgkorting_percentage"] == DBNull.Value ? null : Convert.ToDecimal(reader["zorgkorting_percentage"]),
                                 Inschrijving = reader["inschrijving"] == DBNull.Value ? null : ConvertToString(reader["inschrijving"]),
                                 KindgebondenBudget = reader["kindgebonden_budget"] == DBNull.Value ? null : ConvertToString(reader["kindgebonden_budget"])
                             };
