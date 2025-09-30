@@ -10,9 +10,10 @@ Een Azure Functions applicatie voor het automatisch genereren van juridische doc
 4. [API Endpoints](#api-endpoints)
 5. [Data Models](#data-models)
 6. [Development Setup](#development-setup)
-7. [Deployment](#deployment)
-8. [Testing](#testing)
-9. [Troubleshooting](#troubleshooting)
+7. [Template Placeholders](#template-placeholders)
+8. [Deployment](#deployment)
+9. [Testing](#testing)
+10. [Troubleshooting](#troubleshooting)
 
 ## Overzicht
 
@@ -24,6 +25,8 @@ De Scheidingsdesk Document Generator is een serverless applicatie gebouwd met Az
 - Zorgregelingen (care arrangements)
 - Alimentatie informatie
 - Vakantie- en feestdagenregelingen
+
+**Belangrijke refactoring (v2.0.0)**: Het systeem is volledig gerefactored volgens SOLID principes en DRY. De oorspronkelijke monolithische functie (1669 regels) is opgesplitst in 18 modulaire, herbruikbare services en generators, wat heeft geleid tot een **91.5% code reductie** in het endpoint zelf (142 regels).
 
 ## Functionaliteiten
 
@@ -58,34 +61,72 @@ De Scheidingsdesk Document Generator is een serverless applicatie gebouwd met Az
 
 ## Architectuur
 
+### Belangrijke Design Principes
+
+Deze applicatie is gebouwd met de volgende principes in gedachten:
+
+- **SOLID Principes**: Elke class heeft één verantwoordelijkheid, services zijn open voor extensie maar gesloten voor modificatie
+- **DRY (Don't Repeat Yourself)**: Code duplicatie is geëlimineerd door herbruikbare helpers en services
+- **Strategy Pattern**: Nieuwe tabel generators kunnen worden toegevoegd zonder bestaande code te wijzigen
+- **Dependency Injection**: Alle dependencies worden geïnjecteerd, wat testbaarheid en onderhoudbaarheid verbetert
+- **Separation of Concerns**: Duidelijke scheiding tussen endpoints, orchestrators, processors, generators en helpers
+
 ### Project Structuur
 
 ```
 /scheidingsdesk-document-generator/
-├── Models/                          # Data modellen
-│   ├── DossierData.cs              # Hoofdmodel voor dossier
-│   ├── PersonData.cs               # Persoonsgegevens (partijen)
-│   ├── ChildData.cs                # Kindergegevens
-│   └── OuderschapsplanInfoData.cs  # Ouderschapsplan specifieke info
-├── Services/                        # Business logic services
-│   └── DatabaseService.cs          # Database interactie
-├── Ouderschapsplan/                 # Templates
-│   └── Ouderschapsplan NIEUW.docx  # Word template
-├── OuderschapsplanFunction.cs      # Hoofdfunctie voor ouderschapsplan
-├── ProcessDocumentFunction.cs      # Document processing functie
-├── DocumentProcessor.cs            # Core document processing logic
-├── RemoveContentControls.cs        # Legacy content control removal
-├── HealthCheckFunction.cs          # Health check endpoint
-├── Program.cs                      # Host configuratie en DI setup
-├── host.json                       # Azure Functions configuratie
-├── local.settings.json             # Lokale development settings
-└── scheidingsdesk-document-generator.csproj  # Project file
+├── Models/                                      # Data modellen
+│   ├── DossierData.cs                          # Hoofdmodel voor dossier
+│   ├── PersonData.cs                           # Persoonsgegevens (partijen)
+│   ├── ChildData.cs                            # Kindergegevens
+│   ├── OmgangData.cs                           # Omgangsregelingen
+│   ├── ZorgData.cs                             # Zorgregelingen
+│   ├── AlimentatieData.cs                      # Alimentatie informatie
+│   └── OuderschapsplanInfoData.cs              # Ouderschapsplan specifieke info
+│
+├── Services/                                    # Business logic services
+│   ├── DatabaseService.cs                      # Database interactie (SQL queries)
+│   │
+│   └── DocumentGeneration/                     # Document generatie module
+│       ├── DocumentGenerationService.cs        # 🎯 ORCHESTRATOR - coördineert alle stappen
+│       ├── IDocumentGenerationService.cs
+│       ├── TemplateProvider.cs                 # Template download van Azure Blob
+│       ├── ITemplateProvider.cs
+│       │
+│       ├── Helpers/                            # Herbruikbare utility classes
+│       │   ├── DutchLanguageHelper.cs          # 🇳🇱 Nederlandse grammatica regels
+│       │   ├── DataFormatter.cs                # 📝 Data formatting (datums, namen, adressen)
+│       │   ├── OpenXmlHelper.cs                # 📄 Word document element creatie
+│       │   └── GrammarRulesBuilder.cs          # 🔤 Grammar rules op basis van kinderen
+│       │
+│       ├── Processors/                         # Document verwerking
+│       │   ├── PlaceholderProcessor.cs         # Vervangt placeholders in document
+│       │   ├── IPlaceholderProcessor.cs
+│       │   ├── ContentControlProcessor.cs      # Verwerkt content controls en tabel placeholders
+│       │   └── IContentControlProcessor.cs
+│       │
+│       └── Generators/                         # Strategy Pattern: Tabel generators
+│           ├── ITableGenerator.cs              # Interface voor alle generators
+│           ├── OmgangTableGenerator.cs         # 📅 Omgangstabellen (visitation)
+│           ├── ZorgTableGenerator.cs           # 🏥 Zorgtabellen (care arrangements)
+│           ├── VakantieTableGenerator.cs       # ✈️ Vakantie regelingen
+│           ├── FeestdagenTableGenerator.cs     # 🎉 Feestdagen tabel
+│           └── ChildrenListGenerator.cs        # 👶 Kinderen lijst generatie
+│
+├── OuderschapsplanFunction.cs                   # ✨ HTTP Endpoint (142 regels, was 1669)
+├── OuderschapsplanFunction.cs.OLD               # 📦 Backup van originele versie
+├── ProcessDocumentFunction.cs                   # Document processing endpoint
+├── HealthCheckFunction.cs                       # Health check endpoint
+├── Program.cs                                   # 🔧 DI configuratie en host setup
+├── host.json                                    # Azure Functions configuratie
+├── local.settings.json                          # Lokale development settings
+└── scheidingsdesk-document-generator.csproj     # Project file
 ```
 
 ### Technologie Stack
 
 - **.NET 9.0** - Runtime framework
-- **Azure Functions v4** - Serverless computing platform
+- **Azure Functions v4** - Serverless computing platform (isolated worker model)
 - **DocumentFormat.OpenXml 3.0.2** - Word document manipulatie
 - **Microsoft.Data.SqlClient 5.2.1** - SQL database connectiviteit
 - **Microsoft.ApplicationInsights** - Monitoring en logging
@@ -96,27 +137,156 @@ De Scheidingsdesk Document Generator is een serverless applicatie gebouwd met Az
 ```
 1. HTTP Request (POST /api/ouderschapsplan)
    ↓
-2. OuderschapsplanFunction ontvangt DossierId
+2. OuderschapsplanFunction (Endpoint)
+   - Valideert request
+   - Genereert correlation ID voor tracking
    ↓
-3. DatabaseService haalt data op uit SQL database
-   - Dossier informatie
-   - Partijen (rol_id 1 en 2)
-   - Kinderen met parent relaties
-   - Omgang (visitation arrangements)
-   - Zorg (care arrangements)
-   - Alimentatie (optioneel)
-   - Ouderschapsplan info (optioneel)
+3. DocumentGenerationService (Orchestrator) coördineert:
    ↓
-4. Template wordt gedownload van Azure Blob Storage
+   ├─→ TemplateProvider
+   │   └─→ Download template van Azure Blob Storage
+   │
+   ├─→ DatabaseService
+   │   └─→ Haalt dossier data op (partijen, kinderen, omgang, zorg)
+   │
+   ├─→ GrammarRulesBuilder
+   │   └─→ Bouwt Nederlandse grammatica regels op basis van kinderen
+   │
+   ├─→ PlaceholderProcessor
+   │   └─→ Bouwt alle placeholder vervangingen (500+ placeholders)
+   │
+   └─→ Document Processing:
+       │
+       ├─→ PlaceholderProcessor.ProcessDocument()
+       │   └─→ Vervangt alle tekst placeholders in body, headers, footers
+       │
+       ├─→ ContentControlProcessor.ProcessTablePlaceholders()
+       │   └─→ Gebruikt Strategy Pattern voor tabel generatie:
+       │       ├─→ OmgangTableGenerator
+       │       ├─→ ZorgTableGenerator
+       │       ├─→ VakantieTableGenerator
+       │       ├─→ FeestdagenTableGenerator
+       │       └─→ ChildrenListGenerator
+       │
+       └─→ ContentControlProcessor.RemoveContentControls()
+           └─→ Verwijdert Word content controls, behoudt content
    ↓
-5. Document generatie proces:
-   - Grammatica regels aanmaken op basis van aantal kinderen
-   - Alle placeholders vervangen met data
-   - Dynamische tabellen genereren
-   - Headers en footers verwerken
-   ↓
-6. Gegenereerd document wordt teruggegeven als file download
+4. Gegenereerd document wordt teruggegeven als file download
 ```
+
+### Service Layer Uitleg
+
+#### 🎯 Orchestrator
+
+**DocumentGenerationService** - De hoofdorchestrator die alle stappen coördineert:
+```csharp
+public async Task<Stream> GenerateDocumentAsync(int dossierId, string templateUrl, string correlationId)
+{
+    // Step 1: Download template
+    var templateBytes = await _templateProvider.GetTemplateAsync(templateUrl);
+
+    // Step 2: Get dossier data
+    var dossierData = await _databaseService.GetDossierDataAsync(dossierId);
+
+    // Step 3: Build grammar rules
+    var grammarRules = _grammarRulesBuilder.BuildRules(dossierData.Kinderen, correlationId);
+
+    // Step 4: Build placeholder replacements
+    var replacements = _placeholderProcessor.BuildReplacements(dossierData, grammarRules);
+
+    // Step 5: Process document
+    return await ProcessDocumentAsync(templateBytes, dossierData, replacements, correlationId);
+}
+```
+
+#### 📝 Helpers (Stateless Utilities)
+
+Deze helpers bevatten geen state en bieden herbruikbare functionaliteit:
+
+1. **DutchLanguageHelper** - Nederlandse taalregels
+   - Lijsten formatteren met "en" tussen laatste items
+   - Voornaamwoorden (hij/zij/hen, hem/haar/hen)
+   - Werkwoorden in enkelvoud/meervoud (heeft/hebben, is/zijn, etc.)
+
+2. **DataFormatter** - Data formatting
+   - Datums (dd-MM-yyyy, Nederlandse lange datum)
+   - Namen (voornaam + tussenvoegsel + achternaam)
+   - Adressen, valuta, conversies
+
+3. **OpenXmlHelper** - Word document elementen
+   - Gestylede tabel cellen en headers
+   - Tabellen met borders en kleuren
+   - Paragrafen en headings
+
+4. **GrammarRulesBuilder** (Injectable service)
+   - Bouwt grammatica regels op basis van kinderen data
+   - Bepaalt enkelvoud/meervoud aan de hand van minderjarige kinderen
+
+#### 🔄 Processors
+
+1. **PlaceholderProcessor** - Vervangt alle text placeholders
+   - Bouwt dictionary met 500+ placeholders
+   - Verwerkt body, headers, footers
+   - Ondersteunt 4 formaten: `[[Key]]`, `{Key}`, `<<Key>>`, `[Key]`
+
+2. **ContentControlProcessor** - Verwerkt speciale content
+   - Gebruikt Strategy Pattern voor tabel generators
+   - Verwijdert Word content controls
+   - Behoudt en fix formatting van content
+
+#### 🏭 Generators (Strategy Pattern)
+
+Elke generator implementeert `ITableGenerator`:
+
+```csharp
+public interface ITableGenerator
+{
+    string PlaceholderTag { get; }  // Bijv. "[[TABEL_OMGANG]]"
+    List<OpenXmlElement> Generate(DossierData data, string correlationId);
+}
+```
+
+**Voordelen van dit pattern:**
+- ✅ Nieuwe tabel types toevoegen zonder bestaande code te wijzigen
+- ✅ Elke generator is onafhankelijk testbaar
+- ✅ Duidelijke scheiding van verantwoordelijkheden
+- ✅ Makkelijk te onderhouden en uitbreiden
+
+**Beschikbare generators:**
+1. **OmgangTableGenerator** - Genereert omgangstabellen per week regeling
+2. **ZorgTableGenerator** - Genereert zorgtabellen per categorie
+3. **VakantieTableGenerator** - Genereert vakantieregelingen
+4. **FeestdagenTableGenerator** - Genereert standaard Nederlandse feestdagen
+5. **ChildrenListGenerator** - Genereert bullet-point lijst van kinderen
+
+### Dependency Injection Setup
+
+Alle services worden geregistreerd in `Program.cs`:
+
+```csharp
+// Core services
+services.AddSingleton<DatabaseService>();
+
+// Document generation services
+services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
+services.AddScoped<ITemplateProvider, TemplateProvider>();
+services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
+services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
+services.AddScoped<GrammarRulesBuilder>();
+
+// Table generators (Strategy Pattern)
+services.AddScoped<ITableGenerator, OmgangTableGenerator>();
+services.AddScoped<ITableGenerator, ZorgTableGenerator>();
+services.AddScoped<ITableGenerator, VakantieTableGenerator>();
+services.AddScoped<ITableGenerator, FeestdagenTableGenerator>();
+services.AddScoped<ITableGenerator, ChildrenListGenerator>();
+```
+
+**Waarom deze opzet?**
+- ✅ **Testbaarheid**: Elke service kan gemockt worden voor unit tests
+- ✅ **Herbruikbaarheid**: Services kunnen worden gebruikt in andere functies/endpoints
+- ✅ **Onderhoudbaarheid**: Wijzigingen in één service beïnvloeden andere niet
+- ✅ **Uitbreidbaarheid**: Nieuwe features toevoegen is simpel (bijv. nieuwe tabel generator)
 
 ## API Endpoints
 
@@ -350,7 +520,8 @@ Maak een `local.settings.json` bestand aan:
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
-    "APPLICATIONINSIGHTS_CONNECTION_STRING": "your-app-insights-connection-string"
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "your-app-insights-connection-string",
+    "TemplateStorageUrl": "https://yourstorageaccount.blob.core.windows.net/templates/Ouderschapsplan%20NIEUW.docx?sp=r&st=2024-01-01T00:00:00Z&se=2025-12-31T23:59:59Z&sv=2021-06-08&sr=b&sig=your-sas-token"
   },
   "ConnectionStrings": {
     "DefaultConnection": "Server=your-server.database.windows.net;Database=your-database;User Id=your-user;Password=your-password;Encrypt=True;"
@@ -362,13 +533,11 @@ Maak een `local.settings.json` bestand aan:
 }
 ```
 
-**Environment Variables** (kan ook in `local.settings.json` onder `Values`):
+**Belangrijke configuratie variabelen:**
 
-```json
-{
-  "TemplateStorageUrl": "https://yourstorageaccount.blob.core.windows.net/templates/Ouderschapsplan%20NIEUW.docx?sp=r&st=2024-01-01T00:00:00Z&se=2025-12-31T23:59:59Z&sv=2021-06-08&sr=b&sig=your-sas-token"
-}
-```
+- `TemplateStorageUrl`: Volledige URL naar Word template in Azure Blob Storage met SAS token
+- `DefaultConnection`: SQL Server connection string
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`: Voor logging en monitoring
 
 ### Stap 4: Build en Run
 
@@ -401,6 +570,96 @@ curl -X POST http://localhost:7071/api/ouderschapsplan \
   -d '{"DossierId": 1}' \
   -o test_ouderschapsplan.docx
 ```
+
+### Development Tips voor Junior Developers
+
+#### Code Toevoegen: Nieuwe Tabel Generator
+
+Wil je een nieuwe tabel type toevoegen? Volg deze stappen:
+
+1. **Create nieuwe generator class** in `Services/DocumentGeneration/Generators/`
+
+```csharp
+public class MijnNieuweTabelGenerator : ITableGenerator
+{
+    private readonly ILogger<MijnNieuweTabelGenerator> _logger;
+
+    public string PlaceholderTag => "[[TABEL_MIJN_NIEUWE]]";
+
+    public MijnNieuweTabelGenerator(ILogger<MijnNieuweTabelGenerator> logger)
+    {
+        _logger = logger;
+    }
+
+    public List<OpenXmlElement> Generate(DossierData data, string correlationId)
+    {
+        var elements = new List<OpenXmlElement>();
+
+        // Gebruik OpenXmlHelper voor tabel creatie
+        var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.Blue);
+
+        // Add header row
+        var headerRow = OpenXmlHelper.CreateHeaderRow(
+            new[] { "Kolom 1", "Kolom 2" },
+            OpenXmlHelper.Colors.Blue,
+            OpenXmlHelper.Colors.White
+        );
+        table.Append(headerRow);
+
+        // Add data rows
+        // ... jouw logica hier ...
+
+        elements.Add(table);
+        return elements;
+    }
+}
+```
+
+2. **Registreer in Program.cs**
+
+```csharp
+services.AddScoped<ITableGenerator, MijnNieuweTabelGenerator>();
+```
+
+3. **Gebruik in template**
+
+Voeg `[[TABEL_MIJN_NIEUWE]]` toe op een eigen regel in je Word template.
+
+**Dat is alles!** Je hoeft geen bestaande code te wijzigen. Het Strategy Pattern zorgt ervoor dat je generator automatisch wordt gebruikt.
+
+#### Debuggen
+
+**Lokaal debuggen in Visual Studio:**
+1. Zet breakpoints in de service die je wilt debuggen
+2. Start met F5 (Debug mode)
+3. Gebruik cURL of Postman om request te sturen
+4. Code stopt bij je breakpoint
+
+**Logs bekijken:**
+- Lokaal: Logs verschijnen in console waar `func start` draait
+- Azure: Gebruik Application Insights in Azure Portal
+
+**Correlation IDs:**
+Elke request krijgt een unique `correlationId` die door alle logs loopt. Dit maakt het makkelijk om één specifieke request te volgen:
+
+```kusto
+traces
+| where customDimensions.CorrelationId == "de-correlation-id-van-je-request"
+| order by timestamp asc
+```
+
+#### Code Lezen Tips
+
+Als je nieuwe code leest, volg de flow:
+
+1. **Start bij endpoint** (`OuderschapsplanFunction.cs`)
+2. **Ga naar orchestrator** (`DocumentGenerationService.cs`)
+3. **Bekijk welke services worden aangeroepen** (TemplateProvider, DatabaseService, etc.)
+4. **Duik in specifieke processors/generators** als je details wilt weten
+
+**Handige shortcuts:**
+- Ctrl+Click (VS Code) of F12 (Visual Studio) op een method om naar definitie te gaan
+- Shift+F12 om alle plekken te vinden waar een method wordt gebruikt
 
 ## Template Placeholders
 
@@ -468,7 +727,7 @@ De Word template ondersteunt de volgende placeholders (meerdere formaten worden 
 
 ### Grammatica Placeholders
 
-Deze worden automatisch vervangen op basis van aantal minderjarige kinderen:
+Deze worden automatisch vervangen op basis van aantal minderjarige kinderen en geslacht:
 
 - `[[ons kind/onze kinderen]]` → "ons kind" of "onze kinderen"
 - `[[heeft/hebben]]` → "heeft" of "hebben"
@@ -484,6 +743,8 @@ Deze worden automatisch vervangen op basis van aantal minderjarige kinderen:
 - `[[hem/haar/hen]]` → "hem", "haar" of "hen" (gebaseerd op geslacht)
 - `[[hij/zij/ze]]` → "hij", "zij" of "ze" (gebaseerd op geslacht)
 
+**Hoe werkt dit?** De `GrammarRulesBuilder` analyseert de kinderen data en bouwt automatisch de juiste vervoegingen. Als je 1 kind hebt wordt het enkelvoud gebruikt, bij meerdere kinderen meervoud.
+
 ### Dynamische Tabellen
 
 Deze placeholders worden vervangen door dynamisch gegenereerde tabellen:
@@ -493,6 +754,8 @@ Deze placeholders worden vervangen door dynamisch gegenereerde tabellen:
 - `[[TABEL_VAKANTIES]]` - Genereert vakantieregelingen tabel
 - `[[TABEL_FEESTDAGEN]]` - Genereert feestdagen tabel
 - `[[LIJST_KINDEREN]]` - Genereert opsomming van kinderen met details
+
+**Let op:** Deze placeholders moeten op een eigen paragraph staan (niet inline in een zin).
 
 ## Deployment
 
@@ -596,25 +859,45 @@ jobs:
 
 ### Unit Tests
 
-Het project gebruikt een test-driven approach. Voorbeeld test scenario's:
+Het project is ontworpen voor testbaarheid door dependency injection en scheiding van concerns.
 
-**DatabaseService Tests:**
+**Voorbeeld test voor PlaceholderProcessor:**
+
 ```csharp
 [Fact]
-public async Task GetDossierDataAsync_ValidId_ReturnsCompleteData()
+public void BuildReplacements_WithValidData_ReturnsAllPlaceholders()
 {
     // Arrange
-    var service = new DatabaseService(configuration, logger);
-    int dossierId = 1;
+    var processor = new PlaceholderProcessor(mockLogger.Object);
+    var dossierData = CreateTestDossierData();
+    var grammarRules = new Dictionary<string, string>();
 
     // Act
-    var result = await service.GetDossierDataAsync(dossierId);
+    var result = processor.BuildReplacements(dossierData, grammarRules);
 
     // Assert
-    Assert.NotNull(result);
-    Assert.Equal(dossierId, result.Id);
-    Assert.NotEmpty(result.Partijen);
-    Assert.NotEmpty(result.Kinderen);
+    Assert.NotEmpty(result);
+    Assert.True(result.ContainsKey("DossierNummer"));
+    Assert.True(result.ContainsKey("Partij1Naam"));
+}
+```
+
+**Voorbeeld test voor TableGenerator:**
+
+```csharp
+[Fact]
+public void Generate_WithValidOmgangData_CreatesTable()
+{
+    // Arrange
+    var generator = new OmgangTableGenerator(mockLogger.Object);
+    var dossierData = CreateTestDossierData();
+
+    // Act
+    var elements = generator.Generate(dossierData, "test-correlation-id");
+
+    // Assert
+    Assert.NotEmpty(elements);
+    Assert.Contains(elements, e => e is Table);
 }
 ```
 
@@ -635,9 +918,25 @@ curl -X POST http://localhost:7071/api/ouderschapsplan \
 # Verificeer het gegenereerde document
 ```
 
-### Postman Collection
+### Mocking Services
 
-Import `Scheidingsdesk.postman_collection.json` voor ready-to-use API tests.
+**DatabaseService mocken:**
+
+```csharp
+var mockDatabaseService = new Mock<DatabaseService>();
+mockDatabaseService
+    .Setup(x => x.GetDossierDataAsync(It.IsAny<int>()))
+    .ReturnsAsync(testDossierData);
+```
+
+**TemplateProvider mocken:**
+
+```csharp
+var mockTemplateProvider = new Mock<ITemplateProvider>();
+mockTemplateProvider
+    .Setup(x => x.GetTemplateAsync(It.IsAny<string>()))
+    .ReturnsAsync(templateBytes);
+```
 
 ## Troubleshooting
 
@@ -699,6 +998,15 @@ az sql server firewall-rule create \
 - Verifieer dat omgang/zorg data aanwezig is in database
 - Check dat `DagId` waarden tussen 1-7 liggen en `DagdeelId` tussen 1-4
 
+#### 6. Service not found / Dependency injection error
+
+**Oorzaak**: Service is niet geregistreerd in `Program.cs`
+
+**Oplossing**:
+- Check of alle services geregistreerd zijn in `Program.cs`
+- Verify dat interfaces correct zijn geïmplementeerd
+- Bij nieuwe generator: check of `ITableGenerator` implementatie is geregistreerd
+
 ### Logging en Monitoring
 
 **Lokaal:**
@@ -736,14 +1044,47 @@ requests
     Success = countif(success == true),
     Failed = countif(success == false)
 | extend SuccessRate = (Success * 100.0) / Total
+
+// Follow een specifieke request
+traces
+| where customDimensions.CorrelationId == "jouw-correlation-id"
+| order by timestamp asc
+| project timestamp, message, severityLevel
 ```
 
-### Support Contact
+### Debug Tips
 
-Voor verdere hulp:
-- Check Application Insights logs met correlation ID
-- Raadpleeg database voor data consistentie
-- Verifieer Azure resources configuratie
+**Stap-voor-stap debuggen van document generatie:**
+
+1. **Check template download**
+   ```
+   Zoek in logs naar: "Downloading template from Azure Storage"
+   Verify: "Template downloaded successfully. Size: X bytes"
+   ```
+
+2. **Check database data**
+   ```
+   Zoek naar: "Step 2: Retrieving dossier data"
+   Verify data is opgehaald voor partijen, kinderen, omgang, zorg
+   ```
+
+3. **Check placeholder vervanging**
+   ```
+   Zoek naar: "Built X placeholder replacements"
+   Zoek naar: "Processing placeholders"
+   ```
+
+4. **Check tabel generatie**
+   ```
+   Zoek naar: "Found placeholder: [[TABEL_OMGANG]]"
+   Zoek naar: "Generated omgang table"
+   ```
+
+5. **Check content control removal**
+   ```
+   Zoek naar: "Removing X content controls"
+   Zoek naar: "Content controls removal completed"
+   ```
 
 ## Security & Best Practices
 
@@ -751,23 +1092,24 @@ Voor verdere hulp:
 
 1. **Function Key Authentication**: Alle endpoints zijn beveiligd met function keys
 2. **SQL Injection Prevention**: Gebruik van parameterized queries
-3. **Secrets Management**: Connection strings en SAS tokens via Azure App Settings
-4. **No Data Persistence**: Alle verwerking gebeurt in-memory
-5. **Minimal Logging**: Geen gevoelige data wordt gelogd
+3. **Secrets Management**: Connection strings en SAS tokens via Azure App Settings (niet in code!)
+4. **No Data Persistence**: Alle verwerking gebeurt in-memory, geen tijdelijke bestanden
+5. **Minimal Logging**: Geen gevoelige data (persoonsgegevens) wordt gelogd
 
 ### Performance Best Practices
 
 1. **Database Connection Pooling**: Enabled by default in SqlClient
-2. **Streaming**: Large documents worden gestreamd (niet volledig in geheugen)
-3. **Caching**: Template caching zou geïmplementeerd kunnen worden
-4. **Batch Processing**: Multi-resultset queries verminderen database roundtrips
+2. **Streaming**: Documents worden gestreamd (niet volledig in geheugen geladen)
+3. **Async/Await**: Alle I/O operaties zijn async voor betere schaalbaarheid
+4. **Scoped Services**: Services worden per request aangemaakt en disposed
 
 ### Code Quality
 
+- **SOLID Principes**: Toegepast in hele architectuur
 - **Error Handling**: Comprehensive try-catch met specifieke exception types
-- **Logging**: Structured logging met correlation IDs
-- **Code Documentation**: XML comments op alle publieke methods
-- **Separation of Concerns**: Duidelijke scheiding tussen layers (Controllers, Services, Models)
+- **Logging**: Structured logging met correlation IDs voor traceability
+- **Code Documentation**: XML comments op alle publieke methods en classes
+- **Separation of Concerns**: Duidelijke scheiding tussen endpoints, orchestrators, processors, generators en helpers
 
 ## Toekomstige Verbeteringen
 
@@ -781,6 +1123,19 @@ Mogelijke verbeteringen voor volgende versies:
 6. **Webhook Support**: Notificaties bij voltooiing van document generatie
 7. **Versioning**: Template versie beheer en fallback mechanisme
 8. **Multi-language**: Ondersteuning voor meerdere talen
+9. **Unit Tests**: Volledige test coverage voor alle services en generators
+10. **Nieuwe Document Types**: Andere juridische documenten (convenant, etc.)
+
+**Hoe nieuwe document types toe te voegen:**
+
+Dankzij de modulaire opzet kun je eenvoudig nieuwe document types toevoegen:
+
+1. Maak een nieuwe functie (bijv. `ConvenantFunction.cs`)
+2. Hergebruik `DocumentGenerationService` als orchestrator
+3. Maak specifieke generators voor nieuwe tabel types
+4. Voeg nieuwe placeholders toe in `PlaceholderProcessor`
+
+Alle helpers (`DutchLanguageHelper`, `DataFormatter`, `OpenXmlHelper`) zijn volledig herbruikbaar!
 
 ## License
 
@@ -788,18 +1143,56 @@ Dit project is eigendom van Scheidingsdesk en bedoeld voor interne gebruik in he
 
 ## Changelog
 
-### v1.2.0 (Current)
+### v2.0.0 (Current) - 🎉 Grote Refactoring
+
+**Belangrijkste wijzigingen:**
+- ♻️ **Volledige refactoring** volgens SOLID principes en DRY
+- 📉 **91.5% code reductie** in endpoint (1669 → 142 regels)
+- 🏗️ **18 nieuwe modulaire services** voor herbruikbaarheid
+- 🎯 **Strategy Pattern** voor tabel generators
+- 💉 **Dependency Injection** door hele applicatie
+- 🧪 **Volledig testbaar** - alle services kunnen worden gemockt
+- 📝 **Uitgebreide documentatie** voor junior developers
+
+**Nieuwe architectuur:**
+- DocumentGenerationService (Orchestrator)
+- TemplateProvider (Azure Blob Storage)
+- PlaceholderProcessor (Text replacement)
+- ContentControlProcessor (Content controls & table placeholders)
+- GrammarRulesBuilder (Dutch grammar)
+- 3 Helpers: DutchLanguageHelper, DataFormatter, OpenXmlHelper
+- 5 Generators: Omgang, Zorg, Vakantie, Feestdagen, Children List
+
+**Backwards Compatibility:**
+- ✅ Exact zelfde API endpoint
+- ✅ Zelfde request/response format
+- ✅ Geen frontend wijzigingen nodig
+
+**Breaking Changes:**
+- Geen! De refactoring is 100% backwards compatible.
+
+### v1.2.0
+
 - Toegevoegd: Ouderschapsplan functionaliteit
 - Toegevoegd: Dynamische tabel generatie
 - Toegevoegd: Grammatica regels systeem
 - Toegevoegd: Alimentatie ondersteuning
+- Toegevoegd: Geboorteplaats veld
 - Verbeterd: Error handling en logging
 
 ### v1.1.0
+
 - Toegevoegd: Document processing endpoint
 - Verbeterd: Content control verwijdering
 - Toegevoegd: Health check endpoint
 
 ### v1.0.0
+
 - Initiele release
 - Basis document processing functionaliteit
+
+---
+
+**Voor vragen of hulp:** Check de troubleshooting sectie of bekijk Application Insights logs met correlation ID.
+
+**Happy coding! 🚀**
