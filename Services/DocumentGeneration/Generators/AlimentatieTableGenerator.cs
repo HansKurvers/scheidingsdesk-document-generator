@@ -166,8 +166,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
 
                     row.Append(OpenXmlHelper.CreateStyledCell(kind.VolledigeNaam ?? ""));
                     row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)));
-                    row.Append(OpenXmlHelper.CreateStyledCell(GetPartijNaam(afspraak.Hoofdverblijf, partij1, partij2)));
-                    row.Append(OpenXmlHelper.CreateStyledCell(GetKinderbijslagOntvanger(afspraak.KinderbijslagOntvanger, partij1, partij2)));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Hoofdverblijf ?? ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KinderbijslagOntvanger ?? ""));
                     row.Append(OpenXmlHelper.CreateStyledCell(afspraak.ZorgkortingPercentage.HasValue ? $"{afspraak.ZorgkortingPercentage:0.##}%" : ""));
 
                     table.Append(row);

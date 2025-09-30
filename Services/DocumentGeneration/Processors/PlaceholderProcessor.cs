@@ -377,28 +377,24 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                             lines.Add($"  - Alimentatie: {DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)}");
 
                         // Hoofdverblijf
-                        var hoofdverblijf = GetPartijNaam(afspraak.Hoofdverblijf, partij1, partij2);
-                        if (!string.IsNullOrEmpty(hoofdverblijf))
-                            lines.Add($"  - Hoofdverblijf: {hoofdverblijf}");
+                        if (!string.IsNullOrEmpty(afspraak.Hoofdverblijf))
+                            lines.Add($"  - Hoofdverblijf: {afspraak.Hoofdverblijf}");
 
                         // Kinderbijslag ontvanger
-                        var kinderbijslag = GetKinderbijslagOntvanger(afspraak.KinderbijslagOntvanger, partij1, partij2);
-                        if (!string.IsNullOrEmpty(kinderbijslag))
-                            lines.Add($"  - Kinderbijslag: {kinderbijslag}");
+                        if (!string.IsNullOrEmpty(afspraak.KinderbijslagOntvanger))
+                            lines.Add($"  - Kinderbijslag: {afspraak.KinderbijslagOntvanger}");
 
                         // Zorgkorting percentage
                         if (afspraak.ZorgkortingPercentage.HasValue)
                             lines.Add($"  - Zorgkorting: {afspraak.ZorgkortingPercentage:0.##}%");
 
                         // Inschrijving
-                        var inschrijving = GetPartijNaam(afspraak.Inschrijving, partij1, partij2);
-                        if (!string.IsNullOrEmpty(inschrijving))
-                            lines.Add($"  - Inschrijving bij: {inschrijving}");
+                        if (!string.IsNullOrEmpty(afspraak.Inschrijving))
+                            lines.Add($"  - Inschrijving bij: {afspraak.Inschrijving}");
 
                         // Kindgebonden budget
-                        var kgb = GetKinderbijslagOntvanger(afspraak.KindgebondenBudget, partij1, partij2);
-                        if (!string.IsNullOrEmpty(kgb))
-                            lines.Add($"  - Kindgebonden budget: {kgb}");
+                        if (!string.IsNullOrEmpty(afspraak.KindgebondenBudget))
+                            lines.Add($"  - Kindgebonden budget: {afspraak.KindgebondenBudget}");
 
                         kinderenAlimentatieList.Add(string.Join("\n", lines));
                     }

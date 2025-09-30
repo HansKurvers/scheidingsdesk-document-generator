@@ -369,11 +369,11 @@ namespace scheidingsdesk_document_generator.Services
                                 KindId = (int)reader["kind_id"],
                                 KindNaam = ConvertToString(reader["kind_naam"]),
                                 AlimentatieBedrag = reader["alimentatie_bedrag"] == DBNull.Value ? null : (decimal?)reader["alimentatie_bedrag"],
-                                Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : (int?)reader["hoofdverblijf"],
-                                KinderbijslagOntvanger = reader["kinderbijslag_ontvanger"] == DBNull.Value ? null : (int?)reader["kinderbijslag_ontvanger"],
+                                Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : ConvertToString(reader["hoofdverblijf"]),
+                                KinderbijslagOntvanger = reader["kinderbijslag_ontvanger"] == DBNull.Value ? null : ConvertToString(reader["kinderbijslag_ontvanger"]),
                                 ZorgkortingPercentage = reader["zorgkorting_percentage"] == DBNull.Value ? null : (decimal?)reader["zorgkorting_percentage"],
-                                Inschrijving = reader["inschrijving"] == DBNull.Value ? null : (int?)reader["inschrijving"],
-                                KindgebondenBudget = reader["kindgebonden_budget"] == DBNull.Value ? null : (int?)reader["kindgebonden_budget"]
+                                Inschrijving = reader["inschrijving"] == DBNull.Value ? null : ConvertToString(reader["inschrijving"]),
+                                KindgebondenBudget = reader["kindgebonden_budget"] == DBNull.Value ? null : ConvertToString(reader["kindgebonden_budget"])
                             };
                             financieleAfsprakenKinderen.Add(afspraak);
                             _logger.LogInformation("Loaded financiele afspraak: KindId={KindId}, Naam={Naam}, Bedrag={Bedrag}, Hoofdverblijf={Hoofdverblijf}",

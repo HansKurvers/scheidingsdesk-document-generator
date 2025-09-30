@@ -137,10 +137,10 @@ namespace scheidingsdesk_document_generator.Models
         public int KindId { get; set; }
         public string? KindNaam { get; set; }
         public decimal? AlimentatieBedrag { get; set; }
-        public int? Hoofdverblijf { get; set; }
-        public int? KinderbijslagOntvanger { get; set; }
+        public string? Hoofdverblijf { get; set; }
+        public string? KinderbijslagOntvanger { get; set; }
         public decimal? ZorgkortingPercentage { get; set; }
-        public int? Inschrijving { get; set; }
-        public int? KindgebondenBudget { get; set; }
+        public string? Inschrijving { get; set; }
+        public string? KindgebondenBudget { get; set; }
     }
 }
