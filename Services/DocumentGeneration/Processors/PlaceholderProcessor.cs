@@ -63,6 +63,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2);
             }
 
+            // Add alimentatie data if available
+            if (data.Alimentatie != null)
+            {
+                AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
+            }
+
             return replacements;
         }
 
@@ -284,6 +290,95 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 3 => "Kinderrekening",
                 _ => ""
             };
+        }
+
+        /// <summary>
+        /// Add alimentatie (alimony) related replacements
+        /// </summary>
+        private void AddAlimentatieReplacements(
+            Dictionary<string, string> replacements,
+            AlimentatieData alimentatie,
+            PersonData? partij1,
+            PersonData? partij2,
+            List<ChildData> kinderen)
+        {
+            // Basic alimentatie data
+            replacements["NettoBesteedbaarGezinsinkomen"] = DataFormatter.FormatCurrency(alimentatie.NettoBesteedbaarGezinsinkomen);
+            replacements["KostenKinderen"] = DataFormatter.FormatCurrency(alimentatie.KostenKinderen);
+            replacements["BijdrageKostenKinderen"] = DataFormatter.FormatCurrency(alimentatie.BijdrageKostenKinderen);
+            replacements["BijdrageTemplateOmschrijving"] = alimentatie.BijdrageTemplateOmschrijving ?? "";
+
+            // Per person contributions (eigen aandeel)
+            if (alimentatie.BijdragenKostenKinderen.Any())
+            {
+                foreach (var bijdrage in alimentatie.BijdragenKostenKinderen)
+                {
+                    // Match by person ID to determine which party it is
+                    if (partij1 != null && bijdrage.PersonenId == partij1.Id)
+                    {
+                        replacements["Partij1EigenAandeel"] = DataFormatter.FormatCurrency(bijdrage.EigenAandeel);
+                    }
+                    else if (partij2 != null && bijdrage.PersonenId == partij2.Id)
+                    {
+                        replacements["Partij2EigenAandeel"] = DataFormatter.FormatCurrency(bijdrage.EigenAandeel);
+                    }
+                }
+            }
+
+            // Build formatted list of all children's financial agreements
+            if (alimentatie.FinancieleAfsprakenKinderen.Any() && kinderen.Any())
+            {
+                var kinderenAlimentatieList = new List<string>();
+
+                foreach (var kind in kinderen)
+                {
+                    var afspraak = alimentatie.FinancieleAfsprakenKinderen.FirstOrDefault(f => f.KindId == kind.Id);
+
+                    if (afspraak != null)
+                    {
+                        var lines = new List<string>();
+
+                        // Kind naam
+                        lines.Add($"{kind.VolledigeNaam}:");
+
+                        // Alimentatie bedrag
+                        if (afspraak.AlimentatieBedrag.HasValue)
+                            lines.Add($"  - Alimentatie: {DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)}");
+
+                        // Hoofdverblijf
+                        var hoofdverblijf = GetPartijNaam(afspraak.Hoofdverblijf, partij1, partij2);
+                        if (!string.IsNullOrEmpty(hoofdverblijf))
+                            lines.Add($"  - Hoofdverblijf: {hoofdverblijf}");
+
+                        // Kinderbijslag ontvanger
+                        var kinderbijslag = GetKinderbijslagOntvanger(afspraak.KinderbijslagOntvanger, partij1, partij2);
+                        if (!string.IsNullOrEmpty(kinderbijslag))
+                            lines.Add($"  - Kinderbijslag: {kinderbijslag}");
+
+                        // Zorgkorting percentage
+                        if (afspraak.ZorgkortingPercentage.HasValue)
+                            lines.Add($"  - Zorgkorting: {afspraak.ZorgkortingPercentage:0.##}%");
+
+                        // Inschrijving
+                        var inschrijving = GetPartijNaam(afspraak.Inschrijving, partij1, partij2);
+                        if (!string.IsNullOrEmpty(inschrijving))
+                            lines.Add($"  - Inschrijving bij: {inschrijving}");
+
+                        // Kindgebonden budget
+                        var kgb = GetKinderbijslagOntvanger(afspraak.KindgebondenBudget, partij1, partij2);
+                        if (!string.IsNullOrEmpty(kgb))
+                            lines.Add($"  - Kindgebonden budget: {kgb}");
+
+                        kinderenAlimentatieList.Add(string.Join("\n", lines));
+                    }
+                }
+
+                replacements["KinderenAlimentatie"] = string.Join("\n\n", kinderenAlimentatieList);
+            }
+            else
+            {
+                replacements["KinderenAlimentatie"] = "";
+            }
         }
 
         #endregion

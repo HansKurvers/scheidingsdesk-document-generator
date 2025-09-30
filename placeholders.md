@@ -53,24 +53,40 @@
 
   Alimentatie/Financial Information:
 
-  - NettoBesteedbaarGezinsinkomen - Net disposable family income
-  - KostenKinderen - Total costs for children
-  - BijdrageKostenKinderen - Contribution to children costs
+  General Alimentatie Data:
+  - NettoBesteedbaarGezinsinkomen - Net disposable family income (formatted as Euro currency)
+  - KostenKinderen - Total costs for children (formatted as Euro currency)
+  - BijdrageKostenKinderen - Contribution to children costs (formatted as Euro currency)
   - BijdrageTemplateOmschrijving - Description of contribution template used
 
-  Per Person Contributions (replace # with person ID):
-  - Partij1EigenAandeel - Party 1's own contribution share
-  - Partij2EigenAandeel - Party 2's own contribution share
+  Per Person Contributions:
+  - Partij1EigenAandeel - Party 1's own contribution share (formatted as Euro currency)
+  - Partij2EigenAandeel - Party 2's own contribution share (formatted as Euro currency)
 
-  Per Child Financial Agreements (replace # with 1, 2, 3, etc.):
-  - Kind1AlimentatieBedrag - Child 1 alimony amount
-  - Kind1Hoofdverblijf - Child 1 main residence party (name)
-  - Kind1KinderbijslagOntvanger - Child 1 child benefit recipient (name)
-  - Kind1ZorgkortingPercentage - Child 1 care discount percentage
-  - Kind1Inschrijving - Child 1 registration party (name)
-  - Kind1KindgebondenBudget - Child 1 child-related budget recipient (name)
+  Dynamic List - All Children's Financial Information:
+  - KinderenAlimentatie - Automatically generates a formatted list of all children with their complete financial agreements
+    Example output:
+    Jan de Vries:
+      - Alimentatie: € 350,00
+      - Hoofdverblijf: Maria
+      - Kinderbijslag: Maria
+      - Zorgkorting: 50%
+      - Inschrijving bij: Maria
+      - Kindgebonden budget: Maria
 
-  (Same pattern for Kind2, Kind3, etc.)
+    Piet de Vries:
+      - Alimentatie: € 300,00
+      - Hoofdverblijf: Jan
+      - Kinderbijslag: Kinderrekening
+      - Zorgkorting: 50%
+      - Inschrijving bij: Jan
+      - Kindgebonden budget: Kinderrekening
+
+  Note: All alimentatie data is automatically retrieved from the database tables:
+  - dbo.alimentaties (main alimentatie data)
+  - dbo.bijdrage_kosten_kinderen (per person contributions)
+  - dbo.financiele_afspraken_kinderen (per child financial agreements)
+  - dbo.bijdrage_templates (contribution template descriptions)
 
   Grammar Rules (Dutch singular/plural):
 
