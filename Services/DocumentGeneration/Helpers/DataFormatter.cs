@@ -1,22 +1,25 @@
 using System;
+using System.Globalization;
 
 namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 {
     /// <summary>
     /// Helper class for formatting data consistently throughout the application
     /// Handles dates, names, addresses, and type conversions
+    /// All date formatting uses Dutch culture (nl-NL) for month names
     /// </summary>
     public static class DataFormatter
     {
+        private static readonly CultureInfo DutchCulture = new CultureInfo("nl-NL");
         /// <summary>
-        /// Formats a date with the specified format string
+        /// Formats a date with the specified format string using Dutch culture
         /// </summary>
         /// <param name="date">Date to format</param>
         /// <param name="format">Format string (default: d-MMMM-yyyy)</param>
-        /// <returns>Formatted date string or empty string if null</returns>
+        /// <returns>Formatted date string in Dutch or empty string if null</returns>
         public static string FormatDate(DateTime? date, string format = "d-MMMM-yyyy")
         {
-            return date?.ToString(format) ?? string.Empty;
+            return date?.ToString(format, DutchCulture) ?? string.Empty;
         }
 
         /// <summary>
@@ -30,7 +33,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (!date.HasValue)
                 return string.Empty;
 
-            return date.Value.ToString("d MMMMM yyyy", new System.Globalization.CultureInfo("nl-NL"));
+            return date.Value.ToString("d MMMM yyyy", DutchCulture);
         }
 
         /// <summary>
@@ -89,7 +92,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
             // Handle DateTime
             if (value is DateTime dateTime)
-                return dateTime.ToString("d-MMMM-yyyy");
+                return dateTime.ToString("d-MMMM-yyyy", DutchCulture);
 
             // Handle bool
             if (value is bool boolValue)
@@ -100,7 +103,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (type == typeof(DateTime?))
             {
                 var nullableDateTime = (DateTime?)value;
-                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("d-MMMM-yyyy") : string.Empty;
+                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("d-MMMM-yyyy", DutchCulture) : string.Empty;
             }
 
             // Handle nullable bool
@@ -129,7 +132,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         }
 
         /// <summary>
-        /// Formats a decimal as currency (Euro)
+        /// Formats a decimal as currency (Euro) using Dutch formatting
         /// </summary>
         /// <param name="amount">Amount to format</param>
         /// <returns>Formatted currency string (e.g., "€ 1.234,56")</returns>
@@ -138,7 +141,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (!amount.HasValue)
                 return string.Empty;
 
-            return amount.Value.ToString("C2", new System.Globalization.CultureInfo("nl-NL"));
+            return amount.Value.ToString("C2", DutchCulture);
         }
 
         /// <summary>
