@@ -12,15 +12,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         /// Formats a date with the specified format string
         /// </summary>
         /// <param name="date">Date to format</param>
-        /// <param name="format">Format string (default: dd-MM-yyyy)</param>
+        /// <param name="format">Format string (default: d-MMMM-yyyy)</param>
         /// <returns>Formatted date string or empty string if null</returns>
-        public static string FormatDate(DateTime? date, string format = "dd-MM-yyyy")
+        public static string FormatDate(DateTime? date, string format = "d-MMMM-yyyy")
         {
             return date?.ToString(format) ?? string.Empty;
         }
 
         /// <summary>
-        /// Formats a date in Dutch long format (dd MMMM yyyy)
+        /// Formats a date in Dutch long format (d MMMM yyyy)
         /// Example: 15 januari 2024
         /// </summary>
         /// <param name="date">Date to format</param>
@@ -30,7 +30,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (!date.HasValue)
                 return string.Empty;
 
-            return date.Value.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("nl-NL"));
+            return date.Value.ToString("d MMMMM yyyy", new System.Globalization.CultureInfo("nl-NL"));
         }
 
         /// <summary>
@@ -89,7 +89,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
             // Handle DateTime
             if (value is DateTime dateTime)
-                return dateTime.ToString("dd-MM-yyyy");
+                return dateTime.ToString("d-MMMM-yyyy");
 
             // Handle bool
             if (value is bool boolValue)
@@ -100,7 +100,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (type == typeof(DateTime?))
             {
                 var nullableDateTime = (DateTime?)value;
-                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("dd-MM-yyyy") : string.Empty;
+                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("d-MMMM-yyyy") : string.Empty;
             }
 
             // Handle nullable bool
