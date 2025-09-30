@@ -41,6 +41,7 @@ var host = new HostBuilder()
         services.AddScoped<ITableGenerator, OmgangTableGenerator>();
         services.AddScoped<ITableGenerator, ZorgTableGenerator>(); // Handles ALL zorg categories including vakanties & feestdagen
         services.AddScoped<ITableGenerator, ChildrenListGenerator>();
+        services.AddScoped<ITableGenerator, AlimentatieTableGenerator>();
     })
 
     .Build();
