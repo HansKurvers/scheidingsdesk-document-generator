@@ -1,151 +1,185 @@
-  Text Placeholders (Use any format: [[Variable]], {Variable}, [Variable], <<Variable>>)
+Tekst Placeholders (Gebruik elk formaat: [[Variable]], {Variable}, [Variable], <<Variable>>)
 
-  Party 1 Information:
+Partij 1 Informatie:
 
-  - Partij1Naam - Full name
-  - Partij1Voornaam - First name(s)
-  - Partij1Achternaam - Last name
-  - Partij1Tussenvoegsel - Name prefix (van, de, etc.)
-  - Partij1Adres - Street address
-  - Partij1Postcode - Postal code
-  - Partij1Plaats - City
-  - Partij1Telefoon - Phone number
-  - Partij1Email - Email address
-  - Partij1Geboortedatum - Birth date (dd-MM-yyyy)
-  - Partij1VolledigAdres - Complete address (street, postal, city)
+- Partij1Naam - Volledige naam
+- Partij1Voornaam - Voornaam/voornamen
+- Partij1Roepnaam - Roepnaam
+- Partij1Achternaam - Achternaam
+- Partij1Tussenvoegsel - Tussenvoegsel (van, de, etc.)
+- Partij1Adres - Straatnaam en huisnummer
+- Partij1Postcode - Postcode
+- Partij1Plaats - Woonplaats
+- Partij1Geboorteplaats - Geboorteplaats
+- Partij1Telefoon - Telefoonnummer
+- Partij1Email - E-mailadres
+- Partij1Geboortedatum - Geboortedatum (dd-MM-yyyy)
+- Partij1VolledigAdres - Volledig adres (straat, postcode, plaats)
 
-  Party 2 Information:
+Partij 2 Informatie:
 
-  - Partij2Naam - Full name
-  - Partij2Voornaam - First name(s)
-  - Partij2Achternaam - Last name
-  - Partij2Tussenvoegsel - Name prefix
-  - Partij2Adres - Street address
-  - Partij2Postcode - Postal code
-  - Partij2Plaats - City
-  - Partij2Telefoon - Phone number
-  - Partij2Email - Email address
-  - Partij2Geboortedatum - Birth date (dd-MM-yyyy)
-  - Partij2VolledigAdres - Complete address
+- Partij2Naam - Volledige naam
+- Partij2Voornaam - Voornaam/voornamen
+- Partij2Roepnaam - Roepnaam
+- Partij2Achternaam - Achternaam
+- Partij2Tussenvoegsel - Tussenvoegsel
+- Partij2Adres - Straatnaam en huisnummer
+- Partij2Postcode - Postcode
+- Partij2Plaats - Woonplaats
+- Partij2Geboorteplaats - Geboorteplaats
+- Partij2Telefoon - Telefoonnummer
+- Partij2Email - E-mailadres
+- Partij2Geboortedatum - Geboortedatum (dd-MM-yyyy)
+- Partij2VolledigAdres - Volledig adres
 
-  Dossier Information:
+Dossier Informatie:
 
-  - DossierNummer - Dossier number
-  - DossierDatum - Creation date (dd-MM-yyyy)
-  - HuidigeDatum - Today's date in Dutch (e.g., "07 augustus 2025")
+- DossierNummer - Dossiernummer
+- DossierDatum - Aanmaakdatum (dd-MM-yyyy)
+- HuidigeDatum - Huidige datum in het Nederlands (bijv. "07 augustus 2025")
+- IsAnoniem - Of het dossier anoniem is (true/false)
 
-  Children Information:
+Kinderen Informatie:
 
-  - AantalKinderen - Number of children
-  - KinderenNamen - Comma-separated list of first names
-  - KinderenVolledigeNamen - Comma-separated list of full names
+- AantalKinderen - Aantal kinderen
+- AantalMinderjarigeKinderen - Aantal minderjarige kinderen (jonger dan 18)
+- KinderenNamen - Komma-gescheiden lijst van voornamen
+- KinderenRoepnamen - Komma-gescheiden lijst van roepnamen
+- KinderenVolledigeNamen - Komma-gescheiden lijst van volledige namen
+- RoepnamenMinderjarigeKinderen - Komma-gescheiden lijst van roepnamen van minderjarige kinderen
 
-  Individual Child Data (replace # with 1, 2, 3, etc.):
+Individuele Kind Gegevens (vervang # met 1, 2, 3, etc.):
 
-  - Kind1Naam - Child 1 full name
-  - Kind1Voornaam - Child 1 first name(s)
-  - Kind1Achternaam - Child 1 last name
-  - Kind1Geboortedatum - Child 1 birth date (dd-MM-yyyy)
-  - Kind1Leeftijd - Child 1 age
-  - Kind1Geslacht - Child 1 gender
+- Kind1Naam - Kind 1 volledige naam
+- Kind1Voornaam - Kind 1 voornaam/voornamen
+- Kind1Roepnaam - Kind 1 roepnaam
+- Kind1Achternaam - Kind 1 achternaam
+- Kind1Geboortedatum - Kind 1 geboortedatum (dd-MM-yyyy)
+- Kind1Leeftijd - Kind 1 leeftijd
+- Kind1Geslacht - Kind 1 geslacht
 
-  (Same pattern for Kind2, Kind3, etc.)
+(Zelfde patroon voor Kind2, Kind3, etc.)
 
-  Alimentatie/Financial Information:
+Ouderschapsplan Informatie:
 
-  General Alimentatie Data:
-  - NettoBesteedbaarGezinsinkomen - Net disposable family income (formatted as Euro currency)
-  - KostenKinderen - Total costs for children (formatted as Euro currency)
-  - BijdrageKostenKinderen - Contribution to children costs (formatted as Euro currency)
-  - BijdrageTemplateOmschrijving - Description of contribution template used
+Relatie & Juridisch:
+- SoortRelatie - Soort relatie
+- SoortRelatieVerbreking - Soort relatieverbreking
+- BetrokkenheidKind - Betrokkenheid kind
+- Kiesplan - Kiesplan
+- GezagPartij - Partij met gezag (geeft roepnaam terug)
+- ParentingCoordinator - Parenting coordinator informatie
 
-  Per Person Contributions:
-  - Partij1EigenAandeel - Party 1's own contribution share (formatted as Euro currency)
-  - Partij2EigenAandeel - Party 2's own contribution share (formatted as Euro currency)
+Zorg & Verblijf:
+- Hoofdverblijf - Hoofdverblijfplaats
+- Zorgverdeling - Zorgverdeling
+- OpvangKinderen - Opvang kinderen
 
-  Dynamic List - All Children's Financial Information:
-  - KinderenAlimentatie - Automatically generates a formatted list of all children with their complete financial agreements
-    Example output:
-    Jan de Vries:
-      - Alimentatie: € 350,00
-      - Hoofdverblijf: Maria
-      - Kinderbijslag: Maria
-      - Zorgkorting: 50%
-      - Inschrijving bij: Maria
-      - Kindgebonden budget: Maria
+Financieel & Administratief:
+- WaOpNaamVan - Partij met WA verzekering (geeft roepnaam terug)
+- ZorgverzekeringOpNaamVan - Partij met zorgverzekering (geeft roepnaam terug)
+- KinderbijslagOntvanger - Ontvanger kinderbijslag (geeft roepnaam of "Kinderrekening" terug)
+- BankrekeningnummersKind - Bankrekeningnummers kind
 
-    Piet de Vries:
-      - Alimentatie: € 300,00
-      - Hoofdverblijf: Jan
-      - Kinderbijslag: Kinderrekening
-      - Zorgkorting: 50%
-      - Inschrijving bij: Jan
-      - Kindgebonden budget: Kinderrekening
+Overig:
+- KeuzeDevices - Keuze apparaten
 
-  Note: All alimentatie data is automatically retrieved from the database tables:
-  - dbo.alimentaties (main alimentatie data)
-  - dbo.bijdrage_kosten_kinderen (per person contributions)
-  - dbo.financiele_afspraken_kinderen (per child financial agreements)
-  - dbo.bijdrage_templates (contribution template descriptions)
+Alimentatie/Financiële Informatie:
 
-  Grammar Rules (Dutch singular/plural):
+Algemene Alimentatie Gegevens:
+- NettoBesteedbaarGezinsinkomen - Netto besteedbaar gezinsinkomen (geformatteerd als Euro bedrag)
+- KostenKinderen - Totale kosten voor kinderen (geformatteerd als Euro bedrag)
+- BijdrageKostenKinderen - Bijdrage aan kosten kinderen (geformatteerd als Euro bedrag)
+- BijdrageTemplateOmschrijving - Omschrijving van gebruikte bijdrage template
 
-  - meervoud onze kinderen - "onze kinderen" (plural) or "ons kind" (singular)
-  - meervoud heeft/hebben - "hebben" (plural) or "heeft" (singular)
-  - meervoud is/zijn - "zijn" (plural) or "is" (singular)
-  - meervoud verblijft/verblijven - "verblijven" (plural) or "verblijft" (singular)
-  - meervoud kan/kunnen - "kunnen" (plural) or "kan" (singular)
-  - meervoud zal/zullen - "zullen" (plural) or "zal" (singular)
-  - meervoud moet/moeten - "moeten" (plural) or "moet" (singular)
-  - meervoud wordt/worden - "worden" (plural) or "wordt" (singular)
-  - meervoud blijft/blijven - "blijven" (plural) or "blijft" (singular)
-  - meervoud gaat/gaan - "gaan" (plural) or "gaat" (singular)
-  - meervoud komt/komen - "komen" (plural) or "komt" (singular)
-  - meervoud hem/haar/hen - "hen" (plural), "hem" (male), "haar" (female)
-  - meervoud hij/zij/ze - "ze" (plural), "hij" (male), "zij" (female)
+Bijdragen Per Persoon:
+- Partij1EigenAandeel - Eigen aandeel van Partij 1 (geformatteerd als Euro bedrag)
+- Partij2EigenAandeel - Eigen aandeel van Partij 2 (geformatteerd als Euro bedrag)
 
-  Table Placeholders (Put on its own line in the document):
+Dynamische Lijst - Financiële Afspraken Alle Kinderen:
+- KinderenAlimentatie - Genereert automatisch een geformatteerde lijst van alle kinderen met hun complete financiële afspraken
+  Voorbeeld output:
+  Jan de Vries:
+    - Alimentatie: € 350,00
+    - Hoofdverblijf: Maria
+    - Kinderbijslag: Maria
+    - Zorgkorting: 50%
+    - Inschrijving bij: Maria
+    - Kindgebonden budget: Maria
 
-  - [[TABEL_OMGANG]] - Generates visitation schedule table
-  - [[TABEL_ZORG]] - Generates care arrangements table
-  - [[TABEL_VAKANTIES]] - Generates holiday schedule table
-  - [[TABEL_FEESTDAGEN]] - Generates public holidays table
-  - [[TABEL_ALIMENTATIE]] - Generates alimony/financial agreements table
+  Piet de Vries:
+    - Alimentatie: € 300,00
+    - Hoofdverblijf: Jan
+    - Kinderbijslag: Kinderrekening
+    - Zorgkorting: 50%
+    - Inschrijving bij: Jan
+    - Kindgebonden budget: Kinderrekening
 
-  Additional Available Fields (with dot notation):
+Opmerking: Alle alimentatie gegevens worden automatisch opgehaald uit de database tabellen:
+- dbo.alimentaties (algemene alimentatie gegevens)
+- dbo.bijdrage_kosten_kinderen (bijdragen per persoon)
+- dbo.financiele_afspraken_kinderen (financiële afspraken per kind)
+- dbo.bijdrage_templates (omschrijvingen bijdrage templates)
 
-  You can also use these with dots:
-  - Partij1.VolledigeNaam
-  - Partij1.Adres
-  - Partij2.VolledigeNaam
-  - Dossier.DossierNummer
-  - Dossier.AangemaaktOp
-  - etc.
+Grammatica Regels (Nederlands enkelvoud/meervoud):
 
-  Example Template Usage:
+Opmerking: Gebruik de volledige vorm in je template (bijv. [[heeft/hebben]], niet [[meervoud heeft/hebben]])
 
-  OUDERSCHAPSPLAN
+- ons kind/onze kinderen - "onze kinderen" (meervoud) of "ons kind" (enkelvoud)
+- heeft/hebben - "hebben" (meervoud) of "heeft" (enkelvoud)
+- is/zijn - "zijn" (meervoud) of "is" (enkelvoud)
+- verblijft/verblijven - "verblijven" (meervoud) of "verblijft" (enkelvoud)
+- kan/kunnen - "kunnen" (meervoud) of "kan" (enkelvoud)
+- zal/zullen - "zullen" (meervoud) of "zal" (enkelvoud)
+- moet/moeten - "moeten" (meervoud) of "moet" (enkelvoud)
+- wordt/worden - "worden" (meervoud) of "wordt" (enkelvoud)
+- blijft/blijven - "blijven" (meervoud) of "blijft" (enkelvoud)
+- gaat/gaan - "gaan" (meervoud) of "gaat" (enkelvoud)
+- komt/komen - "komen" (meervoud) of "komt" (enkelvoud)
+- hem/haar/hen - "hen" (meervoud), "hem" (mannelijk), "haar" (vrouwelijk)
+- hij/zij/ze - "ze" (meervoud), "hij" (mannelijk), "zij" (vrouwelijk)
 
-  Ondergetekenden:
+Tabel Placeholders (Plaats op een eigen regel in het document):
 
-  1. [[Partij1Naam]]
-     Geboren: [[Partij1Geboortedatum]]
-     Wonende: [[Partij1VolledigAdres]]
+- [[TABEL_ALIMENTATIE]] - Genereert alimentatie/financiële afspraken tabel
+- [[TABEL_OMGANG]] - Genereert omgangsregeling tabel
+- [[TABEL_ZORG]] - Genereert zorgafspraken tabel
+- [[LIJST_KINDEREN]] - Genereert geformatteerde lijst van kinderen met details
 
-  2. [[Partij2Naam]]
-     Geboren: [[Partij2Geboortedatum]]
-     Wonende: [[Partij2VolledigAdres]]
+Aanvullende Beschikbare Velden (met punt notatie):
 
-  Verklaren het volgende te zijn overeengekomen met betrekking tot [[meervoud onze kinderen]]:
-  [[KinderenVolledigeNamen]]
+Je kunt deze ook gebruiken met punten:
+- Partij1.VolledigeNaam
+- Partij1.Adres
+- Partij2.VolledigeNaam
+- Dossier.DossierNummer
+- Dossier.AangemaaktOp
+- etc.
 
-  [[meervoud onze kinderen]] [[meervoud verblijft/verblijven]] afwisselend bij beide ouders.
+Voorbeeld Template Gebruik:
 
-  OMGANGSREGELING:
-  [[TABEL_OMGANG]]
+OUDERSCHAPSPLAN
 
-  ZORGAFSPRAKEN:
-  [[TABEL_ZORG]]
+Ondergetekenden:
 
-  VAKANTIES:
-  [[TABEL_VAKANTIES]]
+1. [[Partij1Naam]]
+   Geboren: [[Partij1Geboortedatum]]
+   Wonende: [[Partij1VolledigAdres]]
+
+2. [[Partij2Naam]]
+   Geboren: [[Partij2Geboortedatum]]
+   Wonende: [[Partij2VolledigAdres]]
+
+Verklaren het volgende te zijn overeengekomen met betrekking tot [[ons kind/onze kinderen]]:
+[[KinderenVolledigeNamen]]
+
+[[ons kind/onze kinderen]] [[verblijft/verblijven]] afwisselend bij beide ouders.
+
+OMGANGSREGELING:
+[[TABEL_OMGANG]]
+
+ZORGAFSPRAKEN:
+[[TABEL_ZORG]]
+
+FINANCIËLE AFSPRAKEN:
+[[TABEL_ALIMENTATIE]]
