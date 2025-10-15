@@ -15,6 +15,7 @@ Partij 1 Informatie:
 - [[Partij1Email]] - E-mailadres
 - [[Partij1Geboortedatum]] - Geboortedatum (dd-MM-yyyy)
 - [[Partij1VolledigAdres]] - Volledig adres (straat, postcode, plaats)
+- [[Partij1Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
 
 Partij 2 Informatie:
 
@@ -31,6 +32,7 @@ Partij 2 Informatie:
 - [[Partij2Email]] - E-mailadres
 - [[Partij2Geboortedatum]] - Geboortedatum (dd-MM-yyyy)
 - [[Partij2VolledigAdres]] - Volledig adres
+- [[Partij2Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
 
 Dossier Informatie:
 
@@ -63,7 +65,12 @@ Individuele Kind Gegevens (vervang # met 1, 2, 3, etc.):
 Ouderschapsplan Informatie:
 
 Relatie & Juridisch:
-- [[SoortRelatie]] - Soort relatie
+- [[SoortRelatie]] - Soort relatie (bijv. "gehuwd", "geregistreerd_partnerschap", "samenwonend")
+- [[SoortRelatieVoorwaarden]] - Afgeleide placeholder: voorwaarden behorend bij de relatie
+  * "gehuwd" → "huwelijkse voorwaarden"
+  * "geregistreerd_partnerschap" → "partnerschapsvoorwaarden"
+  * "samenwonend" → "samenlevingsovereenkomst"
+  * anders → "overeenkomst"
 - [[SoortRelatieVerbreking]] - Soort relatieverbreking
 - [[BetrokkenheidKind]] - Betrokkenheid kind
 - [[Kiesplan]] - Kiesplan
@@ -183,3 +190,26 @@ ZORGAFSPRAKEN:
 
 FINANCIËLE AFSPRAKEN:
 [[TABEL_ALIMENTATIE]]
+
+Voorbeeld Partij Benaming Gebruik:
+
+OUDERSCHAPSPLAN
+
+[[Partij1Benaming]] en [[Partij2Benaming]] zijn overeengekomen dat [[ons kind/onze kinderen]]
+afwisselend bij beide ouders [[verblijft/verblijven]].
+
+Bij niet-anoniem dossier wordt dit bijvoorbeeld:
+"Jan en Maria zijn overeengekomen dat hun kinderen afwisselend bij beide ouders verblijven."
+
+Bij anoniem dossier wordt dit bijvoorbeeld:
+"De man en de vrouw zijn overeengekomen dat hun kinderen afwisselend bij beide ouders verblijven."
+
+Technische Werking Partij Benaming:
+
+- Als IsAnoniem = false (niet anoniem):
+  [[Partij1Benaming]] → Roepnaam van Partij 1 (bijv. "Jan")
+  [[Partij2Benaming]] → Roepnaam van Partij 2 (bijv. "Maria")
+
+- Als IsAnoniem = true (anoniem):
+  [[Partij1Benaming]] → "de man" (geslacht = M), "de vrouw" (geslacht = V), of "de persoon" (onbekend)
+  [[Partij2Benaming]] → "de man" (geslacht = M), "de vrouw" (geslacht = V), of "de persoon" (onbekend)

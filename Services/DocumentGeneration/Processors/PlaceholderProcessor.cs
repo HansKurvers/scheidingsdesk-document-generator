@@ -37,12 +37,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add party data
             if (data.Partij1 != null)
             {
-                AddPersonReplacements(replacements, "Partij1", data.Partij1);
+                AddPersonReplacements(replacements, "Partij1", data.Partij1, data.IsAnoniem);
             }
 
             if (data.Partij2 != null)
             {
-                AddPersonReplacements(replacements, "Partij2", data.Partij2);
+                AddPersonReplacements(replacements, "Partij2", data.Partij2, data.IsAnoniem);
             }
 
             // Add dossier data
@@ -184,7 +184,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// <summary>
         /// Add person-related replacements
         /// </summary>
-        private void AddPersonReplacements(Dictionary<string, string> replacements, string prefix, PersonData person)
+        private void AddPersonReplacements(Dictionary<string, string> replacements, string prefix, PersonData person, bool? isAnoniem = null)
         {
             replacements[$"{prefix}Naam"] = person.VolledigeNaam ?? "";
             replacements[$"{prefix}Voornaam"] = person.Voornamen ?? "";
@@ -205,6 +205,32 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 person.Postcode,
                 person.Plaats
             );
+
+            // Benaming placeholder (contextual party designation)
+            replacements[$"{prefix}Benaming"] = GetPartijBenaming(person, isAnoniem);
+        }
+
+        /// <summary>
+        /// Gets the appropriate designation for a party based on anonymity and gender
+        /// </summary>
+        private static string GetPartijBenaming(PersonData? person, bool? isAnoniem)
+        {
+            if (person == null) return "";
+
+            // If anonymous, use generic gender-based designation
+            if (isAnoniem == true)
+            {
+                var geslacht = person.Geslacht?.Trim().ToLowerInvariant();
+                return geslacht switch
+                {
+                    "m" or "man" => "de man",
+                    "v" or "vrouw" => "de vrouw",
+                    _ => "de persoon" // Fallback for unknown gender
+                };
+            }
+
+            // If not anonymous, use roepnaam (or first name as fallback)
+            return person.Naam; // Uses existing property that handles roepnaam fallback
         }
 
         /// <summary>
@@ -260,6 +286,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["BetrokkenheidKind"] = info.BetrokkenheidKind ?? "";
             replacements["Kiesplan"] = info.Kiesplan ?? "";
 
+            // Derived placeholder: Map SoortRelatie to the appropriate legal agreement term
+            replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
+
             // Party choices - use display names
             replacements["GezagPartij"] = GetPartijNaam(info.GezagPartij, partij1, partij2);
             replacements["WaOpNaamVan"] = GetPartijNaam(info.WaOpNaamVanPartij, partij1, partij2);
@@ -298,6 +327,23 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 2 => partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2",
                 3 => "Kinderrekening",
                 _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the appropriate legal agreement term based on relationship type
+        /// </summary>
+        private string GetRelatieVoorwaarden(string? soortRelatie)
+        {
+            if (string.IsNullOrEmpty(soortRelatie))
+                return "";
+
+            return soortRelatie.ToLowerInvariant() switch
+            {
+                "gehuwd" => "huwelijkse voorwaarden",
+                "geregistreerd_partnerschap" => "partnerschapsvoorwaarden",
+                "samenwonend" => "samenlevingsovereenkomst",
+                _ => "overeenkomst"
             };
         }
 
