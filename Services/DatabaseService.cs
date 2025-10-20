@@ -156,8 +156,9 @@ namespace scheidingsdesk_document_generator.Services
                     IF EXISTS (SELECT * FROM sys.tables WHERE name = 'ouderschapsplan_info' AND schema_id = SCHEMA_ID('dbo'))
                     BEGIN
                         SELECT opi.id, opi.dossier_id, opi.partij_1_persoon_id, opi.partij_2_persoon_id,
-                               opi.soort_relatie, opi.soort_relatie_verbreking, opi.betrokkenheid_kind, opi.kiesplan,
-                               opi.gezag_partij, opi.wa_op_naam_van_partij, opi.keuze_devices, 
+                               opi.soort_relatie, opi.datum_aanvang_relatie, opi.soort_relatie_verbreking,
+                               opi.betrokkenheid_kind, opi.kiesplan,
+                               opi.gezag_partij, opi.wa_op_naam_van_partij, opi.keuze_devices,
                                opi.zorgverzekering_op_naam_van_partij, opi.kinderbijslag_partij,
                                opi.brp_partij_1, opi.brp_partij_2, opi.kgb_partij_1, opi.kgb_partij_2,
                                opi.hoofdverblijf, opi.zorgverdeling, opi.opvang_kinderen,
@@ -403,6 +404,7 @@ namespace scheidingsdesk_document_generator.Services
                             Partij1PersoonId = (int)reader["partij_1_persoon_id"],
                             Partij2PersoonId = (int)reader["partij_2_persoon_id"],
                             SoortRelatie = reader["soort_relatie"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie"]),
+                            DatumAanvangRelatie = reader["datum_aanvang_relatie"] == DBNull.Value ? null : (DateTime?)reader["datum_aanvang_relatie"],
                             SoortRelatieVerbreking = reader["soort_relatie_verbreking"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie_verbreking"]),
                             BetrokkenheidKind = reader["betrokkenheid_kind"] == DBNull.Value ? null : ConvertToString(reader["betrokkenheid_kind"]),
                             Kiesplan = reader["kiesplan"] == DBNull.Value ? null : ConvertToString(reader["kiesplan"]),

@@ -7,13 +7,15 @@ Partij 1 Informatie:
 - [[Partij1Roepnaam]] - Roepnaam
 - [[Partij1Achternaam]] - Achternaam
 - [[Partij1Tussenvoegsel]] - Tussenvoegsel (van, de, etc.)
+- [[Partij1VolledigeNaamMetTussenvoegsel]] - Voornamen + tussenvoegsel + achternaam (bijv. "Jan Peter de Vries")
+- [[Partij1VolledigeAchternaam]] - Tussenvoegsel + achternaam (bijv. "de Vries")
 - [[Partij1Adres]] - Straatnaam en huisnummer
 - [[Partij1Postcode]] - Postcode
 - [[Partij1Plaats]] - Woonplaats
 - [[Partij1Geboorteplaats]] - Geboorteplaats
 - [[Partij1Telefoon]] - Telefoonnummer
 - [[Partij1Email]] - E-mailadres
-- [[Partij1Geboortedatum]] - Geboortedatum (dd-MM-yyyy)
+- [[Partij1Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij1VolledigAdres]] - Volledig adres (straat, postcode, plaats)
 - [[Partij1Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
 
@@ -24,21 +26,23 @@ Partij 2 Informatie:
 - [[Partij2Roepnaam]] - Roepnaam
 - [[Partij2Achternaam]] - Achternaam
 - [[Partij2Tussenvoegsel]] - Tussenvoegsel
+- [[Partij2VolledigeNaamMetTussenvoegsel]] - Voornamen + tussenvoegsel + achternaam (bijv. "Maria van der Berg")
+- [[Partij2VolledigeAchternaam]] - Tussenvoegsel + achternaam (bijv. "van der Berg")
 - [[Partij2Adres]] - Straatnaam en huisnummer
 - [[Partij2Postcode]] - Postcode
 - [[Partij2Plaats]] - Woonplaats
 - [[Partij2Geboorteplaats]] - Geboorteplaats
 - [[Partij2Telefoon]] - Telefoonnummer
 - [[Partij2Email]] - E-mailadres
-- [[Partij2Geboortedatum]] - Geboortedatum (dd-MM-yyyy)
+- [[Partij2Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij2VolledigAdres]] - Volledig adres
 - [[Partij2Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
 
 Dossier Informatie:
 
 - [[DossierNummer]] - Dossiernummer
-- [[DossierDatum]] - Aanmaakdatum (dd-MM-yyyy)
-- [[HuidigeDatum]] - Huidige datum in het Nederlands (bijv. "07 augustus 2025")
+- [[DossierDatum]] - Aanmaakdatum (d MMMM yyyy, bijv. "15 januari 2024")
+- [[HuidigeDatum]] - Huidige datum in het Nederlands (d MMMM yyyy, bijv. "7 augustus 2025")
 - [[IsAnoniem]] - Of het dossier anoniem is (true/false)
 
 Kinderen Informatie:
@@ -56,7 +60,7 @@ Individuele Kind Gegevens (vervang # met 1, 2, 3, etc.):
 - [[Kind1Voornaam]] - Kind 1 voornaam/voornamen
 - [[Kind1Roepnaam]] - Kind 1 roepnaam
 - [[Kind1Achternaam]] - Kind 1 achternaam
-- [[Kind1Geboortedatum]] - Kind 1 geboortedatum (dd-MM-yyyy)
+- [[Kind1Geboortedatum]] - Kind 1 geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Kind1Leeftijd]] - Kind 1 leeftijd
 - [[Kind1Geslacht]] - Kind 1 geslacht
 
@@ -66,12 +70,26 @@ Ouderschapsplan Informatie:
 
 Relatie & Juridisch:
 - [[SoortRelatie]] - Soort relatie (bijv. "gehuwd", "geregistreerd_partnerschap", "samenwonend")
+- [[DatumAanvangRelatie]] - Datum aanvang huwelijk/relatie (d MMMM yyyy, bijv. "15 januari 2024")
 - [[SoortRelatieVoorwaarden]] - Afgeleide placeholder: voorwaarden behorend bij de relatie
   * "gehuwd" → "huwelijkse voorwaarden"
   * "geregistreerd_partnerschap" → "partnerschapsvoorwaarden"
   * "samenwonend" → "samenlevingsovereenkomst"
   * anders → "overeenkomst"
-- [[SoortRelatieVerbreking]] - Soort relatieverbreking
+- [[SoortRelatieVerbreking]] - Afgeleide placeholder: verbreking behorend bij de relatie
+  * "gehuwd" → "echtscheiding"
+  * "geregistreerd_partnerschap" → "ontbinding van het geregistreerd partnerschap"
+  * "samenwonend" → "beëindiging van de samenleving"
+- [[RelatieAanvangZin]] - Afgeleide placeholder: volledige zin over aanvang relatie
+  * "gehuwd" → "Wij zijn op [datum] met elkaar getrouwd."
+  * "geregistreerd_partnerschap" → "Wij zijn op [datum] met elkaar een geregistreerd partnerschap aangegaan."
+  * "samenwonend" → "Wij hebben vanaf [datum] met elkaar samengewoond."
+  * "lat_relatie" / "ex_partners" / "anders" → "Wij hebben vanaf [datum] een relatie met elkaar gehad."
+- [[OuderschapsplanDoelZin]] - Afgeleide placeholder: zin over het doel van het ouderschapsplan
+  * "gehuwd" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we gaan scheiden."
+  * "geregistreerd_partnerschap" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we ons geregistreerd partnerschap willen laten ontbinden."
+  * "samenwonend" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we onze samenleving willen beëindigen."
+  * "lat_relatie" / "ex_partners" / "anders" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen]."
 - [[BetrokkenheidKind]] - Betrokkenheid kind
 - [[Kiesplan]] - Kiesplan
 - [[GezagPartij]] - Partij met gezag (geeft roepnaam terug)

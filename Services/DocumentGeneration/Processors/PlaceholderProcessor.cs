@@ -60,7 +60,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add ouderschapsplan info if available
             if (data.OuderschapsplanInfo != null)
             {
-                AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2);
+                AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen);
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
@@ -206,6 +206,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 person.Plaats
             );
 
+            // Full name with middle name (tussenvoegsel): voornamen + tussenvoegsel + achternaam
+            replacements[$"{prefix}VolledigeNaamMetTussenvoegsel"] = GetVolledigeNaamMetTussenvoegsel(person);
+
+            // Full last name with middle name (tussenvoegsel): tussenvoegsel + achternaam
+            replacements[$"{prefix}VolledigeAchternaam"] = GetVolledigeAchternaam(person);
+
             // Benaming placeholder (contextual party designation)
             replacements[$"{prefix}Benaming"] = GetPartijBenaming(person, isAnoniem);
         }
@@ -231,6 +237,47 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // If not anonymous, use roepnaam (or first name as fallback)
             return person.Naam; // Uses existing property that handles roepnaam fallback
+        }
+
+        /// <summary>
+        /// Gets the full name with middle name (tussenvoegsel): voornamen + tussenvoegsel + achternaam
+        /// Example: "Jan Peter de Vries"
+        /// </summary>
+        private static string GetVolledigeNaamMetTussenvoegsel(PersonData? person)
+        {
+            if (person == null) return "";
+
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(person.Voornamen))
+                parts.Add(person.Voornamen.Trim());
+
+            if (!string.IsNullOrWhiteSpace(person.Tussenvoegsel))
+                parts.Add(person.Tussenvoegsel.Trim());
+
+            if (!string.IsNullOrWhiteSpace(person.Achternaam))
+                parts.Add(person.Achternaam.Trim());
+
+            return string.Join(" ", parts);
+        }
+
+        /// <summary>
+        /// Gets the full last name with middle name (tussenvoegsel): tussenvoegsel + achternaam
+        /// Example: "de Vries"
+        /// </summary>
+        private static string GetVolledigeAchternaam(PersonData? person)
+        {
+            if (person == null) return "";
+
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(person.Tussenvoegsel))
+                parts.Add(person.Tussenvoegsel.Trim());
+
+            if (!string.IsNullOrWhiteSpace(person.Achternaam))
+                parts.Add(person.Achternaam.Trim());
+
+            return string.Join(" ", parts);
         }
 
         /// <summary>
@@ -279,15 +326,19 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             Dictionary<string, string> replacements,
             OuderschapsplanInfoData info,
             PersonData? partij1,
-            PersonData? partij2)
+            PersonData? partij2,
+            List<ChildData> kinderen)
         {
             replacements["SoortRelatie"] = info.SoortRelatie ?? "";
-            replacements["SoortRelatieVerbreking"] = info.SoortRelatieVerbreking ?? "";
+            replacements["DatumAanvangRelatie"] = DataFormatter.FormatDate(info.DatumAanvangRelatie);
             replacements["BetrokkenheidKind"] = info.BetrokkenheidKind ?? "";
             replacements["Kiesplan"] = info.Kiesplan ?? "";
 
-            // Derived placeholder: Map SoortRelatie to the appropriate legal agreement term
+            // Derived placeholders: Map SoortRelatie to the appropriate terms
             replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
+            replacements["SoortRelatieVerbreking"] = GetRelatieVerbreking(info.SoortRelatie);
+            replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie);
+            replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
             // Party choices - use display names
             replacements["GezagPartij"] = GetPartijNaam(info.GezagPartij, partij1, partij2);
@@ -345,6 +396,66 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 "samenwonend" => "samenlevingsovereenkomst",
                 _ => "overeenkomst"
             };
+        }
+
+        /// <summary>
+        /// Get the appropriate relationship termination term based on relationship type
+        /// </summary>
+        private string GetRelatieVerbreking(string? soortRelatie)
+        {
+            if (string.IsNullOrEmpty(soortRelatie))
+                return "";
+
+            return soortRelatie.ToLowerInvariant() switch
+            {
+                "gehuwd" => "echtscheiding",
+                "geregistreerd_partnerschap" => "ontbinding van het geregistreerd partnerschap",
+                "samenwonend" => "beëindiging van de samenleving",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the complete sentence describing the start of the relationship based on relationship type
+        /// </summary>
+        private string GetRelatieAanvangZin(string? soortRelatie, DateTime? datumAanvangRelatie)
+        {
+            if (string.IsNullOrEmpty(soortRelatie))
+                return "";
+
+            var datum = DataFormatter.FormatDate(datumAanvangRelatie);
+
+            return soortRelatie.ToLowerInvariant() switch
+            {
+                "gehuwd" => $"Wij zijn op {datum} met elkaar getrouwd.",
+                "geregistreerd_partnerschap" => $"Wij zijn op {datum} met elkaar een geregistreerd partnerschap aangegaan.",
+                "samenwonend" => $"Wij hebben vanaf {datum} met elkaar samengewoond.",
+                "lat_relatie" or "lat-relatie" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
+                "ex_partners" or "ex-partners" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
+                "anders" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
+                _ => $"Wij hebben vanaf {datum} een relatie met elkaar gehad."
+            };
+        }
+
+        /// <summary>
+        /// Get the ouderschapsplan purpose sentence based on relationship type and number of children
+        /// </summary>
+        private string GetOuderschapsplanDoelZin(string? soortRelatie, int aantalKinderen)
+        {
+            if (string.IsNullOrEmpty(soortRelatie))
+                return "";
+
+            var kindTekst = aantalKinderen == 1 ? "ons kind" : "onze kinderen";
+
+            var redenTekst = soortRelatie.ToLowerInvariant() switch
+            {
+                "gehuwd" => " omdat we gaan scheiden",
+                "geregistreerd_partnerschap" => " omdat we ons geregistreerd partnerschap willen laten ontbinden",
+                "samenwonend" => " omdat we onze samenleving willen beëindigen",
+                _ => ""
+            };
+
+            return $"In dit ouderschapsplan hebben we afspraken gemaakt over {kindTekst}{redenTekst}.";
         }
 
         /// <summary>

@@ -15,9 +15,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         /// Formats a date with the specified format string using Dutch culture
         /// </summary>
         /// <param name="date">Date to format</param>
-        /// <param name="format">Format string (default: d-MMMM-yyyy)</param>
+        /// <param name="format">Format string (default: d MMMM yyyy)</param>
         /// <returns>Formatted date string in Dutch or empty string if null</returns>
-        public static string FormatDate(DateTime? date, string format = "d-MMMM-yyyy")
+        public static string FormatDate(DateTime? date, string format = "d MMMM yyyy")
         {
             return date?.ToString(format, DutchCulture) ?? string.Empty;
         }
@@ -92,7 +92,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
             // Handle DateTime
             if (value is DateTime dateTime)
-                return dateTime.ToString("d-MMMM-yyyy", DutchCulture);
+                return dateTime.ToString("d MMMM yyyy", DutchCulture);
 
             // Handle bool
             if (value is bool boolValue)
@@ -103,7 +103,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (type == typeof(DateTime?))
             {
                 var nullableDateTime = (DateTime?)value;
-                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("d-MMMM-yyyy", DutchCulture) : string.Empty;
+                return nullableDateTime.HasValue ? nullableDateTime.Value.ToString("d MMMM yyyy", DutchCulture) : string.Empty;
             }
 
             // Handle nullable bool
