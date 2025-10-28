@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using scheidingsdesk_document_generator.Models;
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace scheidingsdesk_document_generator.Services
@@ -108,7 +109,12 @@ namespace scheidingsdesk_document_generator.Services
                     BEGIN
                         SELECT a.id, a.dossier_id, a.netto_besteedbaar_gezinsinkomen,
                                a.kosten_kinderen, a.bijdrage_kosten_kinderen,
-                               a.bijdrage_template, bt.omschrijving AS bijdrage_template_omschrijving
+                               a.bijdrage_template, bt.omschrijving AS bijdrage_template_omschrijving,
+                               a.storting_ouder1_kinderrekening, a.storting_ouder2_kinderrekening,
+                               a.kinderrekening_kostensoorten, a.kinderrekening_maximum_opname,
+                               a.kinderrekening_maximum_opname_bedrag, a.kinderbijslag_storten_op_kinderrekening,
+                               a.kindgebonden_budget_storten_op_kinderrekening, a.bedragen_alle_kinderen_gelijk,
+                               a.alimentatiebedrag_per_kind, a.alimentatiegerechtigde
                         FROM dbo.alimentaties a
                         LEFT JOIN dbo.bijdrage_templates bt ON a.bijdrage_template = bt.id
                         WHERE a.dossier_id = @DossierId;
@@ -303,10 +309,24 @@ namespace scheidingsdesk_document_generator.Services
                             KostenKinderen = reader["kosten_kinderen"] == DBNull.Value ? null : Convert.ToDecimal(reader["kosten_kinderen"]),
                             BijdrageKostenKinderen = reader["bijdrage_kosten_kinderen"] == DBNull.Value ? null : Convert.ToDecimal(reader["bijdrage_kosten_kinderen"]),
                             BijdrageTemplate = reader["bijdrage_template"] == DBNull.Value ? null : (int?)reader["bijdrage_template"],
-                            BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"])
+                            BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"]),
+
+                            // Kinderrekening velden
+                            StortingOuder1Kinderrekening = reader["storting_ouder1_kinderrekening"] == DBNull.Value ? null : Convert.ToDecimal(reader["storting_ouder1_kinderrekening"]),
+                            StortingOuder2Kinderrekening = reader["storting_ouder2_kinderrekening"] == DBNull.Value ? null : Convert.ToDecimal(reader["storting_ouder2_kinderrekening"]),
+                            KinderrekeningKostensoorten = ParseJsonStringArray(reader["kinderrekening_kostensoorten"]),
+                            KinderrekeningMaximumOpname = reader["kinderrekening_maximum_opname"] == DBNull.Value ? null : (bool?)reader["kinderrekening_maximum_opname"],
+                            KinderrekeningMaximumOpnameBedrag = reader["kinderrekening_maximum_opname_bedrag"] == DBNull.Value ? null : Convert.ToDecimal(reader["kinderrekening_maximum_opname_bedrag"]),
+                            KinderbijslagStortenOpKinderrekening = reader["kinderbijslag_storten_op_kinderrekening"] == DBNull.Value ? null : (bool?)reader["kinderbijslag_storten_op_kinderrekening"],
+                            KindgebondenBudgetStortenOpKinderrekening = reader["kindgebonden_budget_storten_op_kinderrekening"] == DBNull.Value ? null : (bool?)reader["kindgebonden_budget_storten_op_kinderrekening"],
+
+                            // Alimentatie settings
+                            BedragenAlleKinderenGelijk = reader["bedragen_alle_kinderen_gelijk"] == DBNull.Value ? null : (bool?)reader["bedragen_alle_kinderen_gelijk"],
+                            AlimentatiebedragPerKind = reader["alimentatiebedrag_per_kind"] == DBNull.Value ? null : Convert.ToDecimal(reader["alimentatiebedrag_per_kind"]),
+                            Alimentatiegerechtigde = reader["alimentatiegerechtigde"] == DBNull.Value ? null : ConvertToString(reader["alimentatiegerechtigde"])
                         };
-                        _logger.LogInformation("Loaded alimentatie: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={Kosten}",
-                            alimentatie.NettoBesteedbaarGezinsinkomen, alimentatie.KostenKinderen);
+                        _logger.LogInformation("Loaded alimentatie: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={Kosten}, Kinderrekening={IsKinderrekening}",
+                            alimentatie.NettoBesteedbaarGezinsinkomen, alimentatie.KostenKinderen, alimentatie.IsKinderrekeningBetaalwijze);
                     }
                     else
                     {
@@ -513,6 +533,30 @@ namespace scheidingsdesk_document_generator.Services
 
             // Default to string conversion
             return value.ToString() ?? string.Empty;
+        }
+
+        /// <summary>
+        /// Parses a JSON array of strings from database value
+        /// </summary>
+        private static List<string> ParseJsonStringArray(object value)
+        {
+            if (value == null || value == DBNull.Value)
+                return new List<string>();
+
+            var jsonString = value.ToString();
+            if (string.IsNullOrWhiteSpace(jsonString))
+                return new List<string>();
+
+            try
+            {
+                var result = JsonSerializer.Deserialize<List<string>>(jsonString);
+                return result ?? new List<string>();
+            }
+            catch (JsonException)
+            {
+                // If JSON parsing fails, return empty list
+                return new List<string>();
+            }
         }
     }
 }

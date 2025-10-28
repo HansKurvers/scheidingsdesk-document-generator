@@ -121,6 +121,28 @@ Bijdragen Per Persoon:
 - [[Partij1EigenAandeel]] - Eigen aandeel van Partij 1 (geformatteerd als Euro bedrag)
 - [[Partij2EigenAandeel]] - Eigen aandeel van Partij 2 (geformatteerd als Euro bedrag)
 
+Kinderrekening Gegevens (nieuw):
+- [[StortingOuder1Kinderrekening]] - Maandelijkse storting ouder 1 op kinderrekening (geformatteerd als Euro bedrag)
+- [[StortingOuder2Kinderrekening]] - Maandelijkse storting ouder 2 op kinderrekening (geformatteerd als Euro bedrag)
+- [[KinderrekeningKostensoorten]] - Lijst van kostensoorten die van kinderrekening mogen worden betaald (geformatteerd met bullets)
+  Voorbeeld output:
+  - Kinderopvang kosten (onder werktijd)
+  - Kleding, schoenen, kapper en persoonlijke verzorging
+  - Schoolgeld, schoolbenodigdheden en andere schoolkosten
+- [[KinderrekeningMaximumOpname]] - Of er een maximum opnamebedrag is (Ja/Nee)
+- [[KinderrekeningMaximumOpnameBedrag]] - Het maximum opnamebedrag (geformatteerd als Euro bedrag)
+- [[KinderbijslagStortenOpKinderrekening]] - Of kinderbijslag op kinderrekening wordt gestort (Ja/Nee)
+- [[KindgebondenBudgetStortenOpKinderrekening]] - Of kindgebonden budget op kinderrekening wordt gestort (Ja/Nee)
+
+Alimentatie Settings (nieuw):
+- [[BedragenAlleKinderenGelijk]] - Of alle kinderen hetzelfde alimentatiebedrag krijgen (Ja/Nee)
+- [[AlimentatiebedragPerKind]] - Het bedrag per kind als alle bedragen gelijk zijn (geformatteerd als Euro bedrag)
+- [[Alimentatiegerechtigde]] - Wie de alimentatiegerechtigde is (naam ouder)
+
+Template Detectie Flags (nieuw):
+- [[IsKinderrekeningBetaalwijze]] - Of de betaalwijze een kinderrekening type is (Ja/Nee)
+- [[IsAlimentatieplichtBetaalwijze]] - Of de betaalwijze een alimentatieplichtige type is (Ja/Nee)
+
 Dynamische Lijst - Financiële Afspraken Alle Kinderen:
 - [[KinderenAlimentatie]] - Genereert automatisch een geformatteerde lijst van alle kinderen met hun complete financiële afspraken
   Voorbeeld output:
@@ -141,7 +163,7 @@ Dynamische Lijst - Financiële Afspraken Alle Kinderen:
     - Kindgebonden budget: Kinderrekening
 
 Opmerking: Alle alimentatie gegevens worden automatisch opgehaald uit de database tabellen:
-- dbo.alimentaties (algemene alimentatie gegevens)
+- dbo.alimentaties (algemene alimentatie gegevens, inclusief nieuwe kinderrekening velden)
 - dbo.bijdrage_kosten_kinderen (bijdragen per persoon)
 - dbo.financiele_afspraken_kinderen (financiële afspraken per kind)
 - dbo.bijdrage_templates (omschrijvingen bijdrage templates)

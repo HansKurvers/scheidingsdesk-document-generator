@@ -55,6 +55,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                 elements.Add(OpenXmlHelper.CreateEmptyParagraph());
             }
 
+            // Add kinderrekening section if applicable
+            if (alimentatie.IsKinderrekeningBetaalwijze)
+            {
+                AddKinderrekeningSection(elements, alimentatie, data.Partij1, data.Partij2);
+            }
+
             // Add per child financial agreements table
             if (alimentatie.FinancieleAfsprakenKinderen.Any() && data.Kinderen.Any())
             {
@@ -64,7 +70,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                     alimentatie.FinancieleAfsprakenKinderen,
                     data.Kinderen,
                     data.Partij1,
-                    data.Partij2);
+                    data.Partij2,
+                    alimentatie);
                 elements.Add(childAgreementsTable);
                 elements.Add(OpenXmlHelper.CreateEmptyParagraph());
             }
@@ -141,17 +148,129 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
             return table;
         }
 
+        private void AddKinderrekeningSection(List<OpenXmlElement> elements, AlimentatieData alimentatie, PersonData? partij1, PersonData? partij2)
+        {
+            elements.Add(OpenXmlHelper.CreateStyledHeading("Kinderrekening informatie"));
+
+            // Stortingen op kinderrekening
+            if (alimentatie.StortingOuder1Kinderrekening.HasValue || alimentatie.StortingOuder2Kinderrekening.HasValue)
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("Stortingen op kinderrekening:", true));
+
+                if (alimentatie.StortingOuder1Kinderrekening.HasValue && partij1 != null)
+                {
+                    elements.Add(OpenXmlHelper.CreateSimpleParagraph($"- {partij1.Roepnaam ?? partij1.Voornamen}: {DataFormatter.FormatCurrency(alimentatie.StortingOuder1Kinderrekening)} per maand"));
+                }
+
+                if (alimentatie.StortingOuder2Kinderrekening.HasValue && partij2 != null)
+                {
+                    elements.Add(OpenXmlHelper.CreateSimpleParagraph($"- {partij2.Roepnaam ?? partij2.Voornamen}: {DataFormatter.FormatCurrency(alimentatie.StortingOuder2Kinderrekening)} per maand"));
+                }
+
+                elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+            }
+
+            // Kostensoorten die van kinderrekening mogen worden betaald
+            if (alimentatie.KinderrekeningKostensoorten.Any())
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("De volgende kosten mogen van de kinderrekening worden betaald:", true));
+
+                foreach (var kostensoort in alimentatie.KinderrekeningKostensoorten)
+                {
+                    elements.Add(OpenXmlHelper.CreateSimpleParagraph($"- {kostensoort}"));
+                }
+
+                elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+            }
+
+            // Maximum opnamebedrag
+            elements.Add(OpenXmlHelper.CreateSimpleParagraph("Maximum opnamebedrag:", true));
+
+            if (alimentatie.KinderrekeningMaximumOpname.GetValueOrDefault())
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Er is een maximum bedrag voor opnames van de kinderrekening zonder overeenstemming"));
+                if (alimentatie.KinderrekeningMaximumOpnameBedrag.HasValue)
+                {
+                    elements.Add(OpenXmlHelper.CreateSimpleParagraph($"- Maximum opnamebedrag: {DataFormatter.FormatCurrency(alimentatie.KinderrekeningMaximumOpnameBedrag)}"));
+                }
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Bij opnames of bestedingen boven dit bedrag is overeenstemming met de andere ouder benodigd"));
+            }
+            else
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Geen maximum opnamebedrag ingesteld"));
+            }
+
+            elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+
+            // Kinderbijslag
+            elements.Add(OpenXmlHelper.CreateSimpleParagraph("Kinderbijslag:", true));
+            if (alimentatie.KinderbijslagStortenOpKinderrekening.GetValueOrDefault())
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Kinderbijslag wordt gestort op de kinderrekening"));
+            }
+            else
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Kinderbijslag wordt NIET op de kinderrekening gestort"));
+            }
+
+            elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+
+            // Kindgebonden budget
+            elements.Add(OpenXmlHelper.CreateSimpleParagraph("Kindgebonden budget:", true));
+
+            if (alimentatie.KindgebondenBudgetStortenOpKinderrekening.GetValueOrDefault())
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Kindgebonden budget wordt gestort op de kinderrekening"));
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- LET OP: Volgens de alimentatienormen is het niet gebruikelijk om het kindgebonden budget op de kinderrekening te storten, daar het bedoeld is voor de ouder die ook de aanvrager van de kinderbijslag is."));
+            }
+            else
+            {
+                elements.Add(OpenXmlHelper.CreateSimpleParagraph("- Kindgebonden budget wordt NIET op de kinderrekening gestort"));
+            }
+
+            elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+        }
+
         private DocumentFormat.OpenXml.Wordprocessing.Table CreateChildAgreementsTable(
             List<FinancieleAfsprakenKinderenData> afspraken,
             List<ChildData> kinderen,
             PersonData? partij1,
-            PersonData? partij2)
+            PersonData? partij2,
+            AlimentatieData alimentatie)
         {
-            var columnWidths = new[] { 2000, 1500, 1500, 1500, 1500 };
+            // Determine columns based on betaalwijze
+            bool isKinderrekening = alimentatie.IsKinderrekeningBetaalwijze;
+            bool showKinderbijslag = !alimentatie.KinderbijslagStortenOpKinderrekening.GetValueOrDefault();
+
+            // Build headers dynamically
+            var headersList = new List<string> { "Kind" };
+
+            // Only show alimentatie bedrag if NOT kinderrekening
+            if (!isKinderrekening)
+            {
+                headersList.Add("Alimentatie");
+            }
+
+            headersList.Add("Hoofdverblijf");
+
+            // Only show kinderbijslag if not stored on kinderrekening
+            if (showKinderbijslag)
+            {
+                headersList.Add("Kinderbijslag");
+            }
+
+            headersList.Add("Zorgkorting %");
+            headersList.Add("Inschrijving");
+            headersList.Add("Kindgebonden budget");
+
+            var headers = headersList.ToArray();
+            var columnCount = headers.Length;
+            var columnWidth = 8000 / columnCount;
+            var columnWidths = Enumerable.Repeat(columnWidth, columnCount).ToArray();
+
             var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.DarkBlue, columnWidths);
 
             // Add header row
-            var headers = new[] { "Kind", "Alimentatie", "Hoofdverblijf", "Kinderbijslag", "Zorgkorting %" };
             var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White);
             table.Append(headerRow);
 
@@ -165,10 +284,24 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                     var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
 
                     row.Append(OpenXmlHelper.CreateStyledCell(kind.VolledigeNaam ?? ""));
-                    row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)));
+
+                    // Only show alimentatie bedrag if NOT kinderrekening
+                    if (!isKinderrekening)
+                    {
+                        row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)));
+                    }
+
                     row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Hoofdverblijf ?? ""));
-                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KinderbijslagOntvanger ?? ""));
+
+                    // Only show kinderbijslag if not stored on kinderrekening
+                    if (showKinderbijslag)
+                    {
+                        row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KinderbijslagOntvanger ?? ""));
+                    }
+
                     row.Append(OpenXmlHelper.CreateStyledCell(afspraak.ZorgkortingPercentage.HasValue ? $"{afspraak.ZorgkortingPercentage:0.##}%" : ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Inschrijving ?? ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KindgebondenBudget ?? ""));
 
                     table.Append(row);
                 }

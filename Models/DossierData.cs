@@ -111,6 +111,24 @@ namespace scheidingsdesk_document_generator.Models
         public string? BijdrageTemplateOmschrijving { get; set; }
 
         /// <summary>
+        /// Kinderrekening velden (voor alle kinderen samen)
+        /// </summary>
+        public decimal? StortingOuder1Kinderrekening { get; set; }
+        public decimal? StortingOuder2Kinderrekening { get; set; }
+        public List<string> KinderrekeningKostensoorten { get; set; } = new List<string>();
+        public bool? KinderrekeningMaximumOpname { get; set; }
+        public decimal? KinderrekeningMaximumOpnameBedrag { get; set; }
+        public bool? KinderbijslagStortenOpKinderrekening { get; set; }
+        public bool? KindgebondenBudgetStortenOpKinderrekening { get; set; }
+
+        /// <summary>
+        /// Alimentatie settings
+        /// </summary>
+        public bool? BedragenAlleKinderenGelijk { get; set; }
+        public decimal? AlimentatiebedragPerKind { get; set; }
+        public string? Alimentatiegerechtigde { get; set; }
+
+        /// <summary>
         /// Child cost contributions per person
         /// </summary>
         public List<BijdrageKostenKinderenData> BijdragenKostenKinderen { get; set; } = new List<BijdrageKostenKinderenData>();
@@ -119,6 +137,18 @@ namespace scheidingsdesk_document_generator.Models
         /// Financial agreements per child
         /// </summary>
         public List<FinancieleAfsprakenKinderenData> FinancieleAfsprakenKinderen { get; set; } = new List<FinancieleAfsprakenKinderenData>();
+
+        /// <summary>
+        /// Detects if the current betaalwijze is a kinderrekening type
+        /// </summary>
+        public bool IsKinderrekeningBetaalwijze =>
+            BijdrageTemplateOmschrijving?.ToLowerInvariant().Contains("kinderrekening") ?? false;
+
+        /// <summary>
+        /// Detects if the current betaalwijze is an alimentatieplichtige type
+        /// </summary>
+        public bool IsAlimentatieplichtBetaalwijze =>
+            BijdrageTemplateOmschrijving?.ToLowerInvariant().Contains("alimentatieplichtige") ?? false;
     }
 
     public class BijdrageKostenKinderenData

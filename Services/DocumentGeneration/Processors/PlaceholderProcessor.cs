@@ -459,6 +459,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         }
 
         /// <summary>
+        /// Formats a list of kostensoorten as a bulleted list
+        /// </summary>
+        private string FormatKostensoortenList(List<string> kostensoorten)
+        {
+            if (kostensoorten == null || !kostensoorten.Any())
+                return "";
+
+            return string.Join("\n", kostensoorten.Select(k => $"- {k}"));
+        }
+
+        /// <summary>
         /// Add alimentatie (alimony) related replacements
         /// </summary>
         private void AddAlimentatieReplacements(
@@ -477,6 +488,20 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["Partij2EigenAandeel"] = "";
             replacements["KinderenAlimentatie"] = "";
 
+            // Initialize new kinderrekening placeholders
+            replacements["StortingOuder1Kinderrekening"] = "";
+            replacements["StortingOuder2Kinderrekening"] = "";
+            replacements["KinderrekeningKostensoorten"] = "";
+            replacements["KinderrekeningMaximumOpname"] = "";
+            replacements["KinderrekeningMaximumOpnameBedrag"] = "";
+            replacements["KinderbijslagStortenOpKinderrekening"] = "";
+            replacements["KindgebondenBudgetStortenOpKinderrekening"] = "";
+            replacements["BedragenAlleKinderenGelijk"] = "";
+            replacements["AlimentatiebedragPerKind"] = "";
+            replacements["Alimentatiegerechtigde"] = "";
+            replacements["IsKinderrekeningBetaalwijze"] = "";
+            replacements["IsAlimentatieplichtBetaalwijze"] = "";
+
             // If no alimentatie data, return early
             if (alimentatie == null)
             {
@@ -490,9 +515,28 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["BijdrageKostenKinderen"] = DataFormatter.FormatCurrency(alimentatie.BijdrageKostenKinderen);
             replacements["BijdrageTemplateOmschrijving"] = alimentatie.BijdrageTemplateOmschrijving ?? "";
 
-            _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}",
+            // Kinderrekening velden
+            replacements["StortingOuder1Kinderrekening"] = DataFormatter.FormatCurrency(alimentatie.StortingOuder1Kinderrekening);
+            replacements["StortingOuder2Kinderrekening"] = DataFormatter.FormatCurrency(alimentatie.StortingOuder2Kinderrekening);
+            replacements["KinderrekeningKostensoorten"] = FormatKostensoortenList(alimentatie.KinderrekeningKostensoorten);
+            replacements["KinderrekeningMaximumOpname"] = DataFormatter.ConvertToString(alimentatie.KinderrekeningMaximumOpname);
+            replacements["KinderrekeningMaximumOpnameBedrag"] = DataFormatter.FormatCurrency(alimentatie.KinderrekeningMaximumOpnameBedrag);
+            replacements["KinderbijslagStortenOpKinderrekening"] = DataFormatter.ConvertToString(alimentatie.KinderbijslagStortenOpKinderrekening);
+            replacements["KindgebondenBudgetStortenOpKinderrekening"] = DataFormatter.ConvertToString(alimentatie.KindgebondenBudgetStortenOpKinderrekening);
+
+            // Alimentatie settings
+            replacements["BedragenAlleKinderenGelijk"] = DataFormatter.ConvertToString(alimentatie.BedragenAlleKinderenGelijk);
+            replacements["AlimentatiebedragPerKind"] = DataFormatter.FormatCurrency(alimentatie.AlimentatiebedragPerKind);
+            replacements["Alimentatiegerechtigde"] = alimentatie.Alimentatiegerechtigde ?? "";
+
+            // Template detection flags
+            replacements["IsKinderrekeningBetaalwijze"] = DataFormatter.ConvertToString(alimentatie.IsKinderrekeningBetaalwijze);
+            replacements["IsAlimentatieplichtBetaalwijze"] = DataFormatter.ConvertToString(alimentatie.IsAlimentatieplichtBetaalwijze);
+
+            _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}, IsKinderrekening={IsKinderrekening}",
                 replacements["NettoBesteedbaarGezinsinkomen"],
-                replacements["KostenKinderen"]);
+                replacements["KostenKinderen"],
+                replacements["IsKinderrekeningBetaalwijze"]);
 
             // Per person contributions (eigen aandeel)
             if (alimentatie.BijdragenKostenKinderen.Any())
