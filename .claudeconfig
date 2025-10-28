@@ -1,0 +1,4 @@
+# .claudeconfig
+- Gebruik altijd Nederlandse taal voor communicatie
+- Bij deployment issues: check eerst welke Azure Function App actief is
+- Alimentatie tabel gebruikt string placeholders, niet int
