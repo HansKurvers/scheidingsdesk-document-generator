@@ -311,22 +311,24 @@ namespace scheidingsdesk_document_generator.Services
                             BijdrageTemplate = reader["bijdrage_template"] == DBNull.Value ? null : (int?)reader["bijdrage_template"],
                             BijdrageTemplateOmschrijving = reader["bijdrage_template_omschrijving"] == DBNull.Value ? null : ConvertToString(reader["bijdrage_template_omschrijving"]),
 
-                            // Kinderrekening velden
-                            StortingOuder1Kinderrekening = reader["storting_ouder1_kinderrekening"] == DBNull.Value ? null : Convert.ToDecimal(reader["storting_ouder1_kinderrekening"]),
-                            StortingOuder2Kinderrekening = reader["storting_ouder2_kinderrekening"] == DBNull.Value ? null : Convert.ToDecimal(reader["storting_ouder2_kinderrekening"]),
-                            KinderrekeningKostensoorten = ParseJsonStringArray(reader["kinderrekening_kostensoorten"]),
-                            KinderrekeningMaximumOpname = reader["kinderrekening_maximum_opname"] == DBNull.Value ? null : (bool?)reader["kinderrekening_maximum_opname"],
-                            KinderrekeningMaximumOpnameBedrag = reader["kinderrekening_maximum_opname_bedrag"] == DBNull.Value ? null : Convert.ToDecimal(reader["kinderrekening_maximum_opname_bedrag"]),
-                            KinderbijslagStortenOpKinderrekening = reader["kinderbijslag_storten_op_kinderrekening"] == DBNull.Value ? null : (bool?)reader["kinderbijslag_storten_op_kinderrekening"],
-                            KindgebondenBudgetStortenOpKinderrekening = reader["kindgebonden_budget_storten_op_kinderrekening"] == DBNull.Value ? null : (bool?)reader["kindgebonden_budget_storten_op_kinderrekening"],
+                            // Kinderrekening velden - safely read (backwards compatible if columns don't exist yet)
+                            StortingOuder1Kinderrekening = SafeReadDecimal(reader, "storting_ouder1_kinderrekening"),
+                            StortingOuder2Kinderrekening = SafeReadDecimal(reader, "storting_ouder2_kinderrekening"),
+                            KinderrekeningKostensoorten = SafeReadJsonArray(reader, "kinderrekening_kostensoorten"),
+                            KinderrekeningMaximumOpname = SafeReadBoolean(reader, "kinderrekening_maximum_opname"),
+                            KinderrekeningMaximumOpnameBedrag = SafeReadDecimal(reader, "kinderrekening_maximum_opname_bedrag"),
+                            KinderbijslagStortenOpKinderrekening = SafeReadBoolean(reader, "kinderbijslag_storten_op_kinderrekening"),
+                            KindgebondenBudgetStortenOpKinderrekening = SafeReadBoolean(reader, "kindgebonden_budget_storten_op_kinderrekening"),
 
-                            // Alimentatie settings
-                            BedragenAlleKinderenGelijk = reader["bedragen_alle_kinderen_gelijk"] == DBNull.Value ? null : (bool?)reader["bedragen_alle_kinderen_gelijk"],
-                            AlimentatiebedragPerKind = reader["alimentatiebedrag_per_kind"] == DBNull.Value ? null : Convert.ToDecimal(reader["alimentatiebedrag_per_kind"]),
-                            Alimentatiegerechtigde = reader["alimentatiegerechtigde"] == DBNull.Value ? null : ConvertToString(reader["alimentatiegerechtigde"])
+                            // Alimentatie settings - safely read (backwards compatible if columns don't exist yet)
+                            BedragenAlleKinderenGelijk = SafeReadBoolean(reader, "bedragen_alle_kinderen_gelijk"),
+                            AlimentatiebedragPerKind = SafeReadDecimal(reader, "alimentatiebedrag_per_kind"),
+                            Alimentatiegerechtigde = SafeReadString(reader, "alimentatiegerechtigde")
                         };
-                        _logger.LogInformation("Loaded alimentatie: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={Kosten}, Kinderrekening={IsKinderrekening}",
-                            alimentatie.NettoBesteedbaarGezinsinkomen, alimentatie.KostenKinderen, alimentatie.IsKinderrekeningBetaalwijze);
+
+                        var hasNewFields = ColumnExists(reader, "storting_ouder1_kinderrekening");
+                        _logger.LogInformation("Loaded alimentatie: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={Kosten}, HasNewKinderrekeningFields={HasNewFields}",
+                            alimentatie.NettoBesteedbaarGezinsinkomen, alimentatie.KostenKinderen, hasNewFields);
                     }
                     else
                     {
@@ -536,6 +538,57 @@ namespace scheidingsdesk_document_generator.Services
         }
 
         /// <summary>
+        /// Checks if a column exists in the data reader
+        /// </summary>
+        private static bool ColumnExists(SqlDataReader reader, string columnName)
+        {
+            try
+            {
+                return reader.GetOrdinal(columnName) >= 0;
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Safely reads a nullable decimal value from the reader, returns null if column doesn't exist
+        /// </summary>
+        private static decimal? SafeReadDecimal(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return null;
+
+            var value = reader[columnName];
+            return value == DBNull.Value ? null : Convert.ToDecimal(value);
+        }
+
+        /// <summary>
+        /// Safely reads a nullable boolean value from the reader, returns null if column doesn't exist
+        /// </summary>
+        private static bool? SafeReadBoolean(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return null;
+
+            var value = reader[columnName];
+            return value == DBNull.Value ? null : (bool?)value;
+        }
+
+        /// <summary>
+        /// Safely reads a nullable string value from the reader, returns null if column doesn't exist
+        /// </summary>
+        private static string? SafeReadString(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return null;
+
+            var value = reader[columnName];
+            return value == DBNull.Value ? null : ConvertToString(value);
+        }
+
+        /// <summary>
         /// Parses a JSON array of strings from database value
         /// </summary>
         private static List<string> ParseJsonStringArray(object value)
@@ -557,6 +610,17 @@ namespace scheidingsdesk_document_generator.Services
                 // If JSON parsing fails, return empty list
                 return new List<string>();
             }
+        }
+
+        /// <summary>
+        /// Safely reads a JSON array from the reader, returns empty list if column doesn't exist
+        /// </summary>
+        private static List<string> SafeReadJsonArray(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return new List<string>();
+
+            return ParseJsonStringArray(reader[columnName]);
         }
     }
 }
