@@ -61,6 +61,7 @@ Individuele Kind Gegevens (vervang # met 1, 2, 3, etc.):
 - [[Kind1Roepnaam]] - Kind 1 roepnaam
 - [[Kind1Achternaam]] - Kind 1 achternaam
 - [[Kind1Geboortedatum]] - Kind 1 geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
+- [[Kind1Geboorteplaats]] - Kind 1 geboorteplaats
 - [[Kind1Leeftijd]] - Kind 1 leeftijd
 - [[Kind1Geslacht]] - Kind 1 geslacht
 

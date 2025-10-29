@@ -298,6 +298,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements[$"{prefix}Roepnaam"] = child.Roepnaam ?? child.Voornamen?.Split(' ').FirstOrDefault() ?? "";
                 replacements[$"{prefix}Achternaam"] = child.Achternaam ?? "";
                 replacements[$"{prefix}Geboortedatum"] = DataFormatter.FormatDate(child.GeboorteDatum);
+                replacements[$"{prefix}Geboorteplaats"] = child.GeboortePlaats ?? "";
                 replacements[$"{prefix}Leeftijd"] = child.Leeftijd?.ToString() ?? "";
                 replacements[$"{prefix}Geslacht"] = child.Geslacht ?? "";
             }

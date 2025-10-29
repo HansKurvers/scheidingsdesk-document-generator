@@ -32,11 +32,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
 
             foreach (var kind in data.Kinderen)
             {
-                // Format: "• Roepnaam (volledige naam), geboren op datum, leeftijd jaar"
+                // Format: "- Roepnaam (volledige naam), geboren op datum te plaats, leeftijd jaar"
                 var roepnaam = kind.Roepnaam ?? kind.Voornamen?.Split(' ')[0] ?? kind.Achternaam;
                 var geboortedatum = DataFormatter.FormatDate(kind.GeboorteDatum);
 
-                var text = $"• {roepnaam} ({kind.VolledigeNaam}), geboren op {geboortedatum}";
+                var text = $"- {roepnaam} ({kind.VolledigeNaam}), geboren op {geboortedatum}";
+
+                if (!string.IsNullOrEmpty(kind.GeboortePlaats))
+                {
+                    text += $" te {kind.GeboortePlaats}";
+                }
 
                 if (kind.Leeftijd.HasValue)
                 {
