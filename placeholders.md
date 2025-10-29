@@ -17,7 +17,7 @@ Partij 1 Informatie:
 - [[Partij1Email]] - E-mailadres
 - [[Partij1Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij1VolledigAdres]] - Volledig adres (straat, postcode, plaats)
-- [[Partij1Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
+- [[Partij1Benaming]] - Contextafhankelijke benaming (roepnaam of "de vader"/"de moeder" bij anoniem)
 
 Partij 2 Informatie:
 
@@ -36,7 +36,7 @@ Partij 2 Informatie:
 - [[Partij2Email]] - E-mailadres
 - [[Partij2Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij2VolledigAdres]] - Volledig adres
-- [[Partij2Benaming]] - Contextafhankelijke benaming (roepnaam of "de man"/"de vrouw" bij anoniem)
+- [[Partij2Benaming]] - Contextafhankelijke benaming (roepnaam of "de vader"/"de moeder" bij anoniem)
 
 Dossier Informatie:
 
@@ -243,7 +243,7 @@ Bij niet-anoniem dossier wordt dit bijvoorbeeld:
 "Jan en Maria zijn overeengekomen dat hun kinderen afwisselend bij beide ouders verblijven."
 
 Bij anoniem dossier wordt dit bijvoorbeeld:
-"De man en de vrouw zijn overeengekomen dat hun kinderen afwisselend bij beide ouders verblijven."
+"De vader en de moeder zijn overeengekomen dat hun kinderen afwisselend bij beide ouders verblijven."
 
 Technische Werking Partij Benaming:
 
@@ -252,5 +252,5 @@ Technische Werking Partij Benaming:
   [[Partij2Benaming]] → Roepnaam van Partij 2 (bijv. "Maria")
 
 - Als IsAnoniem = true (anoniem):
-  [[Partij1Benaming]] → "de man" (geslacht = M), "de vrouw" (geslacht = V), of "de persoon" (onbekend)
-  [[Partij2Benaming]] → "de man" (geslacht = M), "de vrouw" (geslacht = V), of "de persoon" (onbekend)
+  [[Partij1Benaming]] → "de vader" (geslacht = M), "de moeder" (geslacht = V), of "de persoon" (onbekend)
+  [[Partij2Benaming]] → "de vader" (geslacht = M), "de moeder" (geslacht = V), of "de persoon" (onbekend)

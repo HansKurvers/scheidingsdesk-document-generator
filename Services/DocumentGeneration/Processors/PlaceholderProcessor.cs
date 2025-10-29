@@ -223,14 +223,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         {
             if (person == null) return "";
 
-            // If anonymous, use generic gender-based designation
+            // If anonymous, use parental role-based designation
             if (isAnoniem == true)
             {
                 var geslacht = person.Geslacht?.Trim().ToLowerInvariant();
                 return geslacht switch
                 {
-                    "m" or "man" => "de man",
-                    "v" or "vrouw" => "de vrouw",
+                    "m" or "man" => "de vader",
+                    "v" or "vrouw" => "de moeder",
                     _ => "de persoon" // Fallback for unknown gender
                 };
             }
