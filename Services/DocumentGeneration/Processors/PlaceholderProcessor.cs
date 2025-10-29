@@ -332,13 +332,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         {
             replacements["SoortRelatie"] = info.SoortRelatie ?? "";
             replacements["DatumAanvangRelatie"] = DataFormatter.FormatDate(info.DatumAanvangRelatie);
+            replacements["PlaatsRelatie"] = info.PlaatsRelatie ?? "";
             replacements["BetrokkenheidKind"] = info.BetrokkenheidKind ?? "";
             replacements["Kiesplan"] = info.Kiesplan ?? "";
 
             // Derived placeholders: Map SoortRelatie to the appropriate terms
             replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
             replacements["SoortRelatieVerbreking"] = GetRelatieVerbreking(info.SoortRelatie);
-            replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie);
+            replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
             // Party choices - use display names
@@ -419,22 +420,23 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// <summary>
         /// Get the complete sentence describing the start of the relationship based on relationship type
         /// </summary>
-        private string GetRelatieAanvangZin(string? soortRelatie, DateTime? datumAanvangRelatie)
+        private string GetRelatieAanvangZin(string? soortRelatie, DateTime? datumAanvangRelatie, string? plaatsRelatie)
         {
             if (string.IsNullOrEmpty(soortRelatie))
                 return "";
 
             var datum = DataFormatter.FormatDate(datumAanvangRelatie);
+            var plaats = !string.IsNullOrEmpty(plaatsRelatie) ? $" te {plaatsRelatie}" : "";
 
             return soortRelatie.ToLowerInvariant() switch
             {
-                "gehuwd" => $"Wij zijn op {datum} met elkaar getrouwd.",
-                "geregistreerd_partnerschap" => $"Wij zijn op {datum} met elkaar een geregistreerd partnerschap aangegaan.",
-                "samenwonend" => $"Wij hebben vanaf {datum} met elkaar samengewoond.",
-                "lat_relatie" or "lat-relatie" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
-                "ex_partners" or "ex-partners" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
-                "anders" => $"Wij hebben vanaf {datum} een relatie met elkaar gehad.",
-                _ => $"Wij hebben vanaf {datum} een relatie met elkaar gehad."
+                "gehuwd" => $"Wij zijn op {datum}{plaats} met elkaar gehuwd.",
+                "geregistreerd_partnerschap" => $"Wij zijn op {datum}{plaats} met elkaar een geregistreerd partnerschap aangegaan.",
+                "samenwonend" => "Wij hebben een affectieve relatie gehad.",
+                "lat_relatie" or "lat-relatie" => "Wij hebben een affectieve relatie gehad.",
+                "ex_partners" or "ex-partners" => "Wij hebben een affectieve relatie gehad.",
+                "anders" => "Wij hebben een affectieve relatie gehad.",
+                _ => "Wij hebben een affectieve relatie gehad."
             };
         }
 

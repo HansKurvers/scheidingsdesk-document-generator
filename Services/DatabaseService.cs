@@ -162,7 +162,7 @@ namespace scheidingsdesk_document_generator.Services
                     IF EXISTS (SELECT * FROM sys.tables WHERE name = 'ouderschapsplan_info' AND schema_id = SCHEMA_ID('dbo'))
                     BEGIN
                         SELECT opi.id, opi.dossier_id, opi.partij_1_persoon_id, opi.partij_2_persoon_id,
-                               opi.soort_relatie, opi.datum_aanvang_relatie, opi.soort_relatie_verbreking,
+                               opi.soort_relatie, opi.datum_aanvang_relatie, opi.plaats_relatie, opi.soort_relatie_verbreking,
                                opi.betrokkenheid_kind, opi.kiesplan,
                                opi.gezag_partij, opi.wa_op_naam_van_partij, opi.keuze_devices,
                                opi.zorgverzekering_op_naam_van_partij, opi.kinderbijslag_partij,
@@ -427,6 +427,7 @@ namespace scheidingsdesk_document_generator.Services
                             Partij2PersoonId = (int)reader["partij_2_persoon_id"],
                             SoortRelatie = reader["soort_relatie"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie"]),
                             DatumAanvangRelatie = reader["datum_aanvang_relatie"] == DBNull.Value ? null : (DateTime?)reader["datum_aanvang_relatie"],
+                            PlaatsRelatie = reader["plaats_relatie"] == DBNull.Value ? null : ConvertToString(reader["plaats_relatie"]),
                             SoortRelatieVerbreking = reader["soort_relatie_verbreking"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie_verbreking"]),
                             BetrokkenheidKind = reader["betrokkenheid_kind"] == DBNull.Value ? null : ConvertToString(reader["betrokkenheid_kind"]),
                             Kiesplan = reader["kiesplan"] == DBNull.Value ? null : ConvertToString(reader["kiesplan"]),

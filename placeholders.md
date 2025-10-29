@@ -72,6 +72,7 @@ Ouderschapsplan Informatie:
 Relatie & Juridisch:
 - [[SoortRelatie]] - Soort relatie (bijv. "gehuwd", "geregistreerd_partnerschap", "samenwonend")
 - [[DatumAanvangRelatie]] - Datum aanvang huwelijk/relatie (d MMMM yyyy, bijv. "15 januari 2024")
+- [[PlaatsRelatie]] - Plaats van huwelijk of registratie partnerschap
 - [[SoortRelatieVoorwaarden]] - Afgeleide placeholder: voorwaarden behorend bij de relatie
   * "gehuwd" → "huwelijkse voorwaarden"
   * "geregistreerd_partnerschap" → "partnerschapsvoorwaarden"
@@ -82,10 +83,9 @@ Relatie & Juridisch:
   * "geregistreerd_partnerschap" → "ontbinding van het geregistreerd partnerschap"
   * "samenwonend" → "beëindiging van de samenleving"
 - [[RelatieAanvangZin]] - Afgeleide placeholder: volledige zin over aanvang relatie
-  * "gehuwd" → "Wij zijn op [datum] met elkaar getrouwd."
-  * "geregistreerd_partnerschap" → "Wij zijn op [datum] met elkaar een geregistreerd partnerschap aangegaan."
-  * "samenwonend" → "Wij hebben vanaf [datum] met elkaar samengewoond."
-  * "lat_relatie" / "ex_partners" / "anders" → "Wij hebben vanaf [datum] een relatie met elkaar gehad."
+  * "gehuwd" → "Wij zijn op [datum] te [plaats] met elkaar gehuwd."
+  * "geregistreerd_partnerschap" → "Wij zijn op [datum] te [plaats] met elkaar een geregistreerd partnerschap aangegaan."
+  * "samenwonend" / "lat_relatie" / "ex_partners" / "anders" → "Wij hebben een affectieve relatie gehad."
 - [[OuderschapsplanDoelZin]] - Afgeleide placeholder: zin over het doel van het ouderschapsplan
   * "gehuwd" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we gaan scheiden."
   * "geregistreerd_partnerschap" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we ons geregistreerd partnerschap willen laten ontbinden."
