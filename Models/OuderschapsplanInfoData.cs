@@ -20,10 +20,16 @@ namespace scheidingsdesk_document_generator.Models
         
         // Party choices (1 = partij_1, 2 = partij_2, 3 = kinderrekening for kinderbijslag)
         public int? GezagPartij { get; set; }
+        public int? GezagTermijnWeken { get; set; }
         public int? WaOpNaamVanPartij { get; set; }
         public string? KeuzeDevices { get; set; }
         public int? ZorgverzekeringOpNaamVanPartij { get; set; }
         public int? KinderbijslagPartij { get; set; }
+
+        // Woonplaats (residence) information
+        public int? WoonplaatsOptie { get; set; }
+        public string? WoonplaatsPartij1 { get; set; }
+        public string? WoonplaatsPartij2 { get; set; }
         
         // JSON fields for BRP and KGB data
         public string? BrpPartij1 { get; set; }
@@ -43,13 +49,17 @@ namespace scheidingsdesk_document_generator.Models
         public DateTime UpdatedAt { get; set; }
         
         /// <summary>
-        /// Gets the display name for the party that has gezag (custody)
+        /// Gets the display name for the gezag arrangement
+        /// Values: 1-5 representing different parental authority arrangements
         /// </summary>
         public string GezagPartijNaam => GezagPartij switch
         {
-            1 => "Partij 1",
-            2 => "Partij 2",
-            _ => "Onbekend"
+            1 => "Gezamenlijk gezag",
+            2 => "Alleen gezag - Partij 1",
+            3 => "Alleen gezag - Partij 2",
+            4 => "Alleen gezag - Partij 1 (tijdelijk)",
+            5 => "Alleen gezag - Partij 2 (tijdelijk)",
+            _ => "Niet ingesteld"
         };
         
         /// <summary>

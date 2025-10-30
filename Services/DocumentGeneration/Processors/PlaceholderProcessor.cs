@@ -342,8 +342,20 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
+            // Gezag (parental authority) placeholders
+            replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
+            replacements["GezagPartij"] = info.GezagPartij?.ToString() ?? "";
+            replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";
+
+            // Woonplaats (residence) placeholders
+            replacements["WoonplaatsRegeling"] = GetWoonplaatsRegeling(info.WoonplaatsOptie, info.WoonplaatsPartij1, info.WoonplaatsPartij2, partij1, partij2);
+            replacements["WoonplaatsOptie"] = info.WoonplaatsOptie?.ToString() ?? "";
+            replacements["WoonplaatsPartij1"] = info.WoonplaatsPartij1 ?? "";
+            replacements["WoonplaatsPartij2"] = info.WoonplaatsPartij2 ?? "";
+            replacements["HuidigeWoonplaatsPartij1"] = partij1?.Plaats ?? "";
+            replacements["HuidigeWoonplaatsPartij2"] = partij2?.Plaats ?? "";
+
             // Party choices - use display names
-            replacements["GezagPartij"] = GetPartijNaam(info.GezagPartij, partij1, partij2);
             replacements["WaOpNaamVan"] = GetPartijNaam(info.WaOpNaamVanPartij, partij1, partij2);
             replacements["ZorgverzekeringOpNaamVan"] = GetPartijNaam(info.ZorgverzekeringOpNaamVanPartij, partij1, partij2);
             replacements["KinderbijslagOntvanger"] = GetKinderbijslagOntvanger(info.KinderbijslagPartij, partij1, partij2);
@@ -459,6 +471,69 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             };
 
             return $"In dit ouderschapsplan hebben we afspraken gemaakt over {kindTekst}{redenTekst}.";
+        }
+
+        /// <summary>
+        /// Get the gezag (parental authority) arrangement sentence based on gezagPartij value
+        /// </summary>
+        private string GetGezagRegeling(
+            int? gezagPartij,
+            int? gezagTermijnWeken,
+            PersonData? partij1,
+            PersonData? partij2,
+            List<ChildData> kinderen)
+        {
+            if (!gezagPartij.HasValue || kinderen.Count == 0)
+                return "";
+
+            var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1";
+            var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2";
+
+            // Determine if singular or plural for children
+            var kinderenTekst = kinderen.Count == 1
+                ? kinderen[0].Roepnaam ?? kinderen[0].Voornamen ?? "het kind"
+                : DutchLanguageHelper.FormatList(kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
+
+            var weken = gezagTermijnWeken ?? 2;
+
+            return gezagPartij.Value switch
+            {
+                1 => $"{partij1Naam} en {partij2Naam} hebben samen het ouderlijk gezag over {kinderenTekst}.",
+                2 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
+                3 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
+                4 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
+                5 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the woonplaats (residence) arrangement sentence based on woonplaatsOptie value
+        /// </summary>
+        private string GetWoonplaatsRegeling(
+            int? woonplaatsOptie,
+            string? woonplaatsPartij1,
+            string? woonplaatsPartij2,
+            PersonData? partij1,
+            PersonData? partij2)
+        {
+            if (!woonplaatsOptie.HasValue)
+                return "";
+
+            var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1";
+            var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2";
+            var huidigeWoonplaatsPartij1 = partij1?.Plaats ?? "onbekend";
+            var huidigeWoonplaatsPartij2 = partij2?.Plaats ?? "onbekend";
+
+            return woonplaatsOptie.Value switch
+            {
+                1 => $"De woonplaatsen van partijen blijven hetzelfde. {partij1Naam} blijft wonen in {huidigeWoonplaatsPartij1} en {partij2Naam} blijft wonen in {huidigeWoonplaatsPartij2}.",
+                2 => $"{partij1Naam} gaat verhuizen naar {woonplaatsPartij1 ?? "een nieuwe woonplaats"}. {partij2Naam} blijft wonen in {huidigeWoonplaatsPartij2}.",
+                3 => $"{partij1Naam} blijft wonen in {huidigeWoonplaatsPartij1}. {partij2Naam} gaat verhuizen naar {woonplaatsPartij2 ?? "een nieuwe woonplaats"}.",
+                4 => $"{partij1Naam} gaat verhuizen naar {woonplaatsPartij1 ?? "een nieuwe woonplaats"} en {partij2Naam} gaat verhuizen naar {woonplaatsPartij2 ?? "een nieuwe woonplaats"}.",
+                5 => "Het is nog onduidelijk waar de ouders gaan wonen.",
+                _ => ""
+            };
         }
 
         /// <summary>

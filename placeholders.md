@@ -93,8 +93,30 @@ Relatie & Juridisch:
   * "lat_relatie" / "ex_partners" / "anders" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen]."
 - [[BetrokkenheidKind]] - Betrokkenheid kind
 - [[Kiesplan]] - Kiesplan
-- [[GezagPartij]] - Partij met gezag (geeft roepnaam terug)
 - [[ParentingCoordinator]] - Parenting coordinator informatie
+
+Ouderlijk Gezag (Parental Authority):
+- [[GezagRegeling]] - Volledige zin over ouderlijk gezag op basis van gekozen optie
+  * Optie 1: "[Partij1] en [Partij2] hebben samen het ouderlijk gezag over [kinderen]."
+  * Optie 2: "[Partij1] heeft alleen het ouderlijk gezag over [kinderen]. Dit blijft zo."
+  * Optie 3: "[Partij2] heeft alleen het ouderlijk gezag over [kinderen]. Dit blijft zo."
+  * Optie 4: "[Partij1] heeft alleen het ouderlijk gezag over [kinderen]. Partijen spreken af dat zij binnen [X] weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen."
+  * Optie 5: "[Partij2] heeft alleen het ouderlijk gezag over [kinderen]. Partijen spreken af dat zij binnen [X] weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen."
+- [[GezagPartij]] - Nummer van gekozen gezagsoptie (1-5)
+- [[GezagTermijnWeken]] - Aantal weken termijn (alleen bij optie 4 of 5)
+
+Woonplaats (Residence Arrangements):
+- [[WoonplaatsRegeling]] - Volledige zin over woonplaatsregeling op basis van gekozen optie
+  * Optie 1: "De woonplaatsen van partijen blijven hetzelfde. [Partij1] blijft wonen in [huidige plaats 1] en [Partij2] blijft wonen in [huidige plaats 2]."
+  * Optie 2: "[Partij1] gaat verhuizen naar [nieuwe plaats 1]. [Partij2] blijft wonen in [huidige plaats 2]."
+  * Optie 3: "[Partij1] blijft wonen in [huidige plaats 1]. [Partij2] gaat verhuizen naar [nieuwe plaats 2]."
+  * Optie 4: "[Partij1] gaat verhuizen naar [nieuwe plaats 1] en [Partij2] gaat verhuizen naar [nieuwe plaats 2]."
+  * Optie 5: "Het is nog onduidelijk waar de ouders gaan wonen."
+- [[WoonplaatsOptie]] - Nummer van gekozen woonplaatsoptie (1-5)
+- [[WoonplaatsPartij1]] - Nieuwe woonplaats van partij 1 (alleen bij optie 2 of 4)
+- [[WoonplaatsPartij2]] - Nieuwe woonplaats van partij 2 (alleen bij optie 3 of 4)
+- [[HuidigeWoonplaatsPartij1]] - Huidige woonplaats van partij 1 (uit personen.plaats)
+- [[HuidigeWoonplaatsPartij2]] - Huidige woonplaats van partij 2 (uit personen.plaats)
 
 Zorg & Verblijf:
 - [[Hoofdverblijf]] - Hoofdverblijfplaats
