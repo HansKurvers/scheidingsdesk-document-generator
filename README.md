@@ -655,100 +655,247 @@ Als je nieuwe code leest, volg de flow:
 
 ## Template Placeholders
 
-De Word template ondersteunt de volgende placeholders (meerdere formaten worden herkend):
+De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]]`, `{...}`, `<<...>>`, `[...]`
+
+### Placeholder Features
+
+- **Case-insensitive**: `[[Partij1Naam]]` = `[[partij1naam]]` = `[[PARTIJ1NAAM]]`
+- **Automatische formatting**:
+  - Datums: "15 januari 2024" (Nederlandse lange datum)
+  - Bedragen: "€ 350,00" (Nederlands formaat)
+  - Lijsten: "Jan, Maria en Piet" (met "en" tussen laatste items)
+  - Adressen: "Straat 12, 1234AB Plaats"
+- **Anonimiteit ondersteuning**: Bij `IsAnoniem = true` worden namen vervangen door "de vader/moeder/persoon"
+- **Dynamische grammatica**: Automatisch enkelvoud/meervoud op basis van aantal minderjarige kinderen
+
+---
 
 ### Dossier Informatie
 
-- `[[DossierNummer]]` - Dossier nummer
-- `[[DossierDatum]]` - Aanmaak datum (dd-MM-yyyy)
-- `[[HuidigeDatum]]` - Huidige datum (dd MMMM yyyy, Nederlands)
-- `[[IsAnoniem]]` - Ja/Nee
+```
+[[DossierNummer]]      - Dossiernummer
+[[DossierDatum]]       - Aanmaak datum (dd-MM-yyyy)
+[[HuidigeDatum]]       - Huidige datum (dd MMMM yyyy, Nederlands)
+[[IsAnoniem]]          - Ja/Nee
+```
 
-### Partij Gegevens
+### Partij Gegevens (Partij1 & Partij2)
 
-**Partij 1:**
-- `[[Partij1Naam]]` - Volledige naam
-- `[[Partij1Voornaam]]` - Voornaam/voornamen
-- `[[Partij1Roepnaam]]` - Roepnaam
-- `[[Partij1Achternaam]]` - Achternaam
-- `[[Partij1Adres]]` - Adres
-- `[[Partij1Postcode]]` - Postcode
-- `[[Partij1Plaats]]` - Plaats
-- `[[Partij1Geboorteplaats]]` - Geboorteplaats
-- `[[Partij1VolledigAdres]]` - Adres, Postcode Plaats
-- `[[Partij1Geboortedatum]]` - Geboortedatum (dd-MM-yyyy)
-- `[[Partij1Telefoon]]` - Telefoonnummer
-- `[[Partij1Email]]` - Email adres
-
-**Partij 2:** Zelfde structuur met `Partij2` prefix
+```
+[[Partij1Naam]] / [[Partij2Naam]]                                    - Volledige naam
+[[Partij1Voornaam]] / [[Partij2Voornaam]]                            - Voornaam/voornamen
+[[Partij1Roepnaam]] / [[Partij2Roepnaam]]                            - Roepnaam
+[[Partij1Achternaam]] / [[Partij2Achternaam]]                        - Achternaam
+[[Partij1Tussenvoegsel]] / [[Partij2Tussenvoegsel]]                  - Tussenvoegsel (de, van, van der, etc.)
+[[Partij1VolledigeNaamMetTussenvoegsel]] / [[Partij2VolledigeNaamMetTussenvoegsel]]
+[[Partij1VolledigeAchternaam]] / [[Partij2VolledigeAchternaam]]      - Achternaam met tussenvoegsel
+[[Partij1Adres]] / [[Partij2Adres]]                                  - Straat + huisnummer
+[[Partij1Postcode]] / [[Partij2Postcode]]                            - Postcode
+[[Partij1Plaats]] / [[Partij2Plaats]]                                - Woonplaats
+[[Partij1Geboorteplaats]] / [[Partij2Geboorteplaats]]                - Geboorteplaats
+[[Partij1VolledigAdres]] / [[Partij2VolledigAdres]]                  - Volledig adres
+[[Partij1Geboortedatum]] / [[Partij2Geboortedatum]]                  - Geboortedatum (dd-MM-yyyy)
+[[Partij1Telefoon]] / [[Partij2Telefoon]]                            - Telefoonnummer
+[[Partij1Email]] / [[Partij2Email]]                                  - Email adres
+[[Partij1Benaming]] / [[Partij2Benaming]]                            - Context-afhankelijk (roepnaam of "de vader/moeder/persoon")
+```
 
 ### Kind Gegevens
 
-**Per kind (1-based index):**
-- `[[Kind1Naam]]` - Volledige naam
-- `[[Kind1Voornaam]]` - Voornaam/voornamen
-- `[[Kind1Roepnaam]]` - Roepnaam
-- `[[Kind1Achternaam]]` - Achternaam
-- `[[Kind1Geboortedatum]]` - Geboortedatum (dd-MM-yyyy)
-- `[[Kind1Leeftijd]]` - Leeftijd in jaren
-- `[[Kind1Geslacht]]` - Geslacht (M/V)
+**Individueel (Kind1, Kind2, Kind3, etc.):**
+```
+[[Kind1Naam]] / [[Kind2Naam]] / [[Kind3Naam]] etc.                  - Volledige naam
+[[Kind1Voornaam]] / [[Kind2Voornaam]]                                - Voornaam/voornamen
+[[Kind1Roepnaam]] / [[Kind2Roepnaam]]                                - Roepnaam
+[[Kind1Achternaam]] / [[Kind2Achternaam]]                            - Achternaam
+[[Kind1Geboortedatum]] / [[Kind2Geboortedatum]]                      - Geboortedatum (dd-MM-yyyy)
+[[Kind1Geboorteplaats]] / [[Kind2Geboorteplaats]]                    - Geboorteplaats
+[[Kind1Leeftijd]] / [[Kind2Leeftijd]]                                - Leeftijd in jaren
+[[Kind1Geslacht]] / [[Kind2Geslacht]]                                - Geslacht (M/V)
+```
 
-**Aggregaten:**
-- `[[AantalKinderen]]` - Totaal aantal kinderen
-- `[[AantalMinderjarigeKinderen]]` - Aantal kinderen < 18 jaar
-- `[[KinderenNamen]]` - Lijst van voornamen (met "en")
-- `[[KinderenRoepnamen]]` - Lijst van roepnamen (met "en")
-- `[[RoepnamenMinderjarigeKinderen]]` - Lijst van roepnamen minderjarigen
-- `[[KinderenVolledigeNamen]]` - Lijst van volledige namen (met "en")
+**Samenvattend:**
+```
+[[AantalKinderen]]                     - Totaal aantal kinderen
+[[AantalMinderjarigeKinderen]]         - Aantal kinderen < 18 jaar
+[[KinderenNamen]]                      - Alle namen (bijv. "Jan, Maria en Piet")
+[[KinderenRoepnamen]]                  - Alle roepnamen (met "en")
+[[KinderenVolledigeNamen]]             - Volledige namen (met "en")
+[[RoepnamenMinderjarigeKinderen]]      - Roepnamen alleen minderjarigen
+```
 
-### Ouderschapsplan Specifieke Info
+### Relatie Informatie
 
-- `[[SoortRelatie]]` - Type relatie (Gehuwd, Samenwonend, etc.)
-- `[[SoortRelatieVerbreking]]` - Type verbreking
-- `[[BetrokkenheidKind]]` - Betrokkenheid van het kind
-- `[[Kiesplan]]` - Gekozen plan type
-- `[[GezagPartij]]` - Wie heeft gezag (roepnaam)
-- `[[WaOpNaamVan]]` - WA verzekering op naam van (roepnaam)
-- `[[ZorgverzekeringOpNaamVan]]` - Zorgverzekering op naam van (roepnaam)
-- `[[KinderbijslagOntvanger]]` - Wie ontvangt kinderbijslag (roepnaam of "Kinderrekening")
-- `[[KeuzeDevices]]` - Afspraken over devices
-- `[[Hoofdverblijf]]` - Hoofdverblijf regeling
-- `[[Zorgverdeling]]` - Verdeling van zorg
-- `[[OpvangKinderen]]` - Opvang regelingen
-- `[[ParentingCoordinator]]` - Parenting coordinator info
+```
+[[SoortRelatie]]                       - Type relatie (Gehuwd, Geregistreerd partnerschap, etc.)
+[[DatumAanvangRelatie]]                - Startdatum relatie
+[[PlaatsRelatie]]                      - Plaats waar relatie is aangegaan
+[[SoortRelatieVoorwaarden]]            - Juridische voorwaarden (automatisch gegenereerd)
+[[SoortRelatieVerbreking]]             - Type verbreking (automatisch gegenereerd)
+[[RelatieAanvangZin]]                  - Volledige zin over relatie (automatisch gegenereerd)
+[[OuderschapsplanDoelZin]]             - Doel ouderschapsplan zin (automatisch gegenereerd)
+```
 
-### Grammatica Placeholders
+### Gezag (Ouderlijk Gezag)
 
-Deze worden automatisch vervangen op basis van aantal minderjarige kinderen en geslacht:
+```
+[[GezagPartij]]                        - Gezag optie (1-5)
+[[GezagTermijnWeken]]                  - Aantal weken (bij voorlopig gezag)
+[[GezagRegeling]]                      - Volledige gezagszin (automatisch gegenereerd)
+```
 
-- `[[ons kind/onze kinderen]]` → "ons kind" of "onze kinderen"
-- `[[heeft/hebben]]` → "heeft" of "hebben"
-- `[[is/zijn]]` → "is" of "zijn"
-- `[[verblijft/verblijven]]` → "verblijft" of "verblijven"
-- `[[kan/kunnen]]` → "kan" of "kunnen"
-- `[[zal/zullen]]` → "zal" of "zullen"
-- `[[moet/moeten]]` → "moet" of "moeten"
-- `[[wordt/worden]]` → "wordt" of "worden"
-- `[[blijft/blijven]]` → "blijft" of "blijven"
-- `[[gaat/gaan]]` → "gaat" of "gaan"
-- `[[komt/komen]]` → "komt" of "komen"
-- `[[hem/haar/hen]]` → "hem", "haar" of "hen" (gebaseerd op geslacht)
-- `[[hij/zij/ze]]` → "hij", "zij" of "ze" (gebaseerd op geslacht)
+**Gezag Opties:**
+- 1: Beiden hebben gezag
+- 2: Partij 1 heeft gezag
+- 3: Partij 2 heeft gezag
+- 4: Voorlopig gezag voor X weken
+- 5: Anders
 
-**Hoe werkt dit?** De `GrammarRulesBuilder` analyseert de kinderen data en bouwt automatisch de juiste vervoegingen. Als je 1 kind hebt wordt het enkelvoud gebruikt, bij meerdere kinderen meervoud.
+### Woonplaats Regelingen
+
+```
+[[WoonplaatsOptie]]                    - Woonplaats optie (1-5)
+[[WoonplaatsPartij1]]                  - Nieuwe woonplaats partij 1
+[[WoonplaatsPartij2]]                  - Nieuwe woonplaats partij 2
+[[HuidigeWoonplaatsPartij1]]           - Huidige woonplaats partij 1
+[[HuidigeWoonplaatsPartij2]]           - Huidige woonplaats partij 2
+[[WoonplaatsRegeling]]                 - Volledige woonplaatszin (automatisch gegenereerd)
+```
+
+**Woonplaats Opties:**
+- 1: Blijven zoals het is
+- 2: Beide verhuizen naar nieuwe plaats
+- 3: Partij 1 verhuist
+- 4: Partij 2 verhuist
+- 5: Anders
+
+### Zorg & Verblijf
+
+```
+[[Hoofdverblijf]]                      - Hoofdverblijfplaats kind(eren)
+[[Zorgverdeling]]                      - Zorgverdeling beschrijving
+[[OpvangKinderen]]                     - Opvang regeling
+[[BetrokkenheidKind]]                  - Betrokkenheid bij beslissingen
+[[Kiesplan]]                           - Kiesplan beschrijving
+[[ParentingCoordinator]]               - Parenting coordinator informatie
+[[KeuzeDevices]]                       - Afspraken over devices
+[[BankrekeningnummersKind]]            - Bankrekeningnummers
+```
+
+### Financieel - Algemeen
+
+```
+[[NettoBesteedbaarGezinsinkomen]]      - Netto gezinsinkomen (€ formaat)
+[[KostenKinderen]]                     - Totale kosten kinderen (€ formaat)
+[[BijdrageKostenKinderen]]             - Bijdrage aan kosten (€ formaat)
+[[BijdrageTemplateOmschrijving]]       - Template beschrijving
+[[Partij1EigenAandeel]]                - Eigen aandeel partij 1 (€ formaat)
+[[Partij2EigenAandeel]]                - Eigen aandeel partij 2 (€ formaat)
+```
+
+### Financieel - Verzekeringen & Toeslagen
+
+```
+[[WaOpNaamVan]]                        - WA verzekering op naam van (roepnaam)
+[[ZorgverzekeringOpNaamVan]]           - Zorgverzekering op naam van (roepnaam)
+[[KinderbijslagOntvanger]]             - Wie ontvangt kinderbijslag (roepnaam of "Kinderrekening")
+```
+
+### Kinderrekening
+
+```
+[[StortingOuder1Kinderrekening]]                          - Maandelijkse storting ouder 1 (€ formaat)
+[[StortingOuder2Kinderrekening]]                          - Maandelijkse storting ouder 2 (€ formaat)
+[[KinderrekeningKostensoorten]]                           - Toegestane kostensoorten (lijst)
+[[KinderrekeningMaximumOpname]]                           - Ja/Nee maximum opname
+[[KinderrekeningMaximumOpnameBedrag]]                     - Maximum opname bedrag (€ formaat)
+[[KinderbijslagStortenOpKinderrekening]]                  - Ja/Nee
+[[KindgebondenBudgetStortenOpKinderrekening]]             - Ja/Nee
+```
+
+### Alimentatie
+
+```
+[[BedragenAlleKinderenGelijk]]         - Ja/Nee alle bedragen gelijk
+[[AlimentatiebedragPerKind]]           - Bedrag per kind (€ formaat)
+[[Alimentatiegerechtigde]]             - Wie ontvangt alimentatie (roepnaam)
+[[IsKinderrekeningBetaalwijze]]        - Betaling via kinderrekening (Ja/Nee)
+[[IsAlimentatieplichtBetaalwijze]]     - Betaling via alimentatieplicht (Ja/Nee)
+[[KinderenAlimentatie]]                - Lijst van kinderen met alimentatie
+```
+
+### Grammatica Regels (Automatisch Enkelvoud/Meervoud)
+
+Deze placeholders worden **automatisch** aangepast op basis van het aantal minderjarige kinderen:
+
+```
+[[ons kind/onze kinderen]]             - "ons kind" (1) of "onze kinderen" (2+)
+[[heeft/hebben]]                       - Werkwoord hebben
+[[is/zijn]]                            - Werkwoord zijn
+[[verblijft/verblijven]]               - Werkwoord verblijven
+[[kan/kunnen]]                         - Werkwoord kunnen
+[[zal/zullen]]                         - Werkwoord zullen
+[[moet/moeten]]                        - Werkwoord moeten
+[[wordt/worden]]                       - Werkwoord worden
+[[blijft/blijven]]                     - Werkwoord blijven
+[[gaat/gaan]]                          - Werkwoord gaan
+[[komt/komen]]                         - Werkwoord komen
+[[hem/haar/hen]]                       - Lijdend voorwerp (gender-specifiek bij 1 kind)
+[[hij/zij/ze]]                         - Onderwerp (gender-specifiek bij 1 kind)
+```
+
+**Hoe werkt dit?**
+- Bij **0 kinderen**: standaard enkelvoud
+- Bij **1 kind**: enkelvoud + gender-specifieke voornaamwoorden (op basis van geslacht)
+- Bij **2+ kinderen**: altijd meervoud
+
+**Voorbeeld:**
+- 1 jongen: "[[ons kind/onze kinderen]] [[heeft/hebben]]" → "ons kind heeft"
+- 2 kinderen: "[[ons kind/onze kinderen]] [[heeft/hebben]]" → "onze kinderen hebben"
 
 ### Dynamische Tabellen
 
-Deze placeholders worden vervangen door dynamisch gegenereerde tabellen:
+Deze placeholders genereren complete tabellen en **moeten op een eigen regel staan**:
 
-- `[[TABEL_OMGANG]]` - Genereert omgangstabellen per week regeling uit database
-- `[[TABEL_ZORG]]` - Genereert zorgtabellen per categorie uit database (inclusief vakanties, feestdagen, bijzondere dagen, beslissingen, etc.)
-- `[[LIJST_KINDEREN]]` - Genereert opsomming van kinderen met details
+```
+[[TABEL_ALIMENTATIE]]                  - Genereert alimentatie tabel
+[[TABEL_OMGANG]]                       - Genereert omgangsregeling tabel per week
+[[TABEL_ZORG]]                         - Genereert zorgtabellen (incl. vakanties, feestdagen, etc.)
+[[LIJST_KINDEREN]]                     - Genereert bullet list met kinderen
+```
 
-**Let op:** Deze placeholders moeten op een eigen paragraph staan (niet inline in een zin).
+**Let op:**
+- Plaats deze placeholders **alleen** op een eigen paragraph (niet inline in een zin)
+- `[[TABEL_ZORG]]` omvat alle zorgcategorieën inclusief vakanties en feestdagen
+- Er zijn geen aparte `[[TABEL_VAKANTIES]]` of `[[TABEL_FEESTDAGEN]]` placeholders nodig
 
-**Belangrijke opmerking over Vakanties & Feestdagen:**
-Vakanties en feestdagen worden automatisch gegenereerd als onderdeel van `[[TABEL_ZORG]]`. In de database zitten deze als zorg categorieën met namen zoals "Vakanties", "Feestdagen", etc. Er zijn geen aparte placeholders `[[TABEL_VAKANTIES]]` of `[[TABEL_FEESTDAGEN]]` nodig.
+---
+
+### Best Practices voor Template Gebruik
+
+1. **Gebruik dubbele vierkante haken**: `[[Partij1Naam]]` (meest leesbaar)
+2. **Grammatica regels**: Toon beide vormen: `[[ons kind/onze kinderen]]`
+3. **Tabel placeholders**: Plaats op eigen regel, niet inline
+4. **Anonimiteit**: Gebruik `[[Partij1Benaming]]` voor automatische anonimiteit handling
+5. **Afgeleide placeholders**: Gebruik placeholders zoals `[[RelatieAanvangZin]]` voor complete zinnen
+6. **Consistentie**: Zorg dat enkelvoud/meervoud regels consistent zijn door het hele document
+
+### Veelvoorkomende Problemen
+
+**Placeholder wordt niet vervangen?**
+- Check spelling (case-insensitive, maar spelling moet kloppen)
+- Verifieer dat data bestaat in database
+- Controleer of je een ondersteund formaat gebruikt (`[[...]]`, `{...}`, etc.)
+
+**Grammatica regel werkt niet?**
+- Zorg dat kindgegevens inclusief geboortedatum aanwezig zijn
+- Check dat leeftijd correct berekend wordt (< 18 jaar = minderjarig)
+- Gebruik beide vormen in de placeholder: `[[heeft/hebben]]`
+
+**Tabel genereert niet?**
+- Zet placeholder op een eigen regel
+- Verifieer dat data aanwezig is (omgang/zorg data in database)
+- Check logs voor specifieke fouten
 
 ## Deployment
 

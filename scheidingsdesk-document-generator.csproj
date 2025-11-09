@@ -40,4 +40,9 @@
   <ItemGroup>
     <Using Include="System.Threading.ExecutionContext" Alias="ExecutionContext" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="LocalTest\**" />
+    <EmbeddedResource Remove="LocalTest\**" />
+    <None Remove="LocalTest\**" />
+  </ItemGroup>
 </Project>

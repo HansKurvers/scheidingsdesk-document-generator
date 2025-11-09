@@ -33,7 +33,7 @@ namespace Scheidingsdesk
 
             try
             {
-                byte[] fileContent = null;
+                byte[]? fileContent = null;
                 string fileName = "document.docx";
 
                 // Check if it's multipart form data
