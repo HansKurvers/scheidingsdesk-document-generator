@@ -170,6 +170,7 @@ namespace scheidingsdesk_document_generator.Services
                                opi.brp_partij_1, opi.brp_partij_2, opi.kgb_partij_1, opi.kgb_partij_2,
                                opi.hoofdverblijf, opi.zorgverdeling, opi.opvang_kinderen,
                                opi.bankrekeningnummers_op_naam_van_kind, opi.parenting_coordinator,
+                               opi.gezag_zin, opi.relatie_aanvang_zin, opi.ouderschapsplan_doel_zin,
                                opi.created_at, opi.updated_at
                         FROM dbo.ouderschapsplan_info opi
                         WHERE opi.dossier_id = @DossierId;
@@ -450,6 +451,9 @@ namespace scheidingsdesk_document_generator.Services
                             OpvangKinderen = reader["opvang_kinderen"] == DBNull.Value ? null : ConvertToString(reader["opvang_kinderen"]),
                             BankrekeningnummersOpNaamVanKind = reader["bankrekeningnummers_op_naam_van_kind"] == DBNull.Value ? null : ConvertToString(reader["bankrekeningnummers_op_naam_van_kind"]),
                             ParentingCoordinator = reader["parenting_coordinator"] == DBNull.Value ? null : ConvertToString(reader["parenting_coordinator"]),
+                            GezagZin = reader["gezag_zin"] == DBNull.Value ? null : ConvertToString(reader["gezag_zin"]),
+                            RelatieAanvangZin = reader["relatie_aanvang_zin"] == DBNull.Value ? null : ConvertToString(reader["relatie_aanvang_zin"]),
+                            OuderschapsplanDoelZin = reader["ouderschapsplan_doel_zin"] == DBNull.Value ? null : ConvertToString(reader["ouderschapsplan_doel_zin"]),
                             CreatedAt = (DateTime)reader["created_at"],
                             UpdatedAt = (DateTime)reader["updated_at"]
                         };

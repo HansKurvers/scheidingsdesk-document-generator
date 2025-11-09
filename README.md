@@ -667,6 +667,10 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
   - Adressen: "Straat 12, 1234AB Plaats"
 - **Anonimiteit ondersteuning**: Bij `IsAnoniem = true` worden namen vervangen door "de vader/moeder/persoon"
 - **Dynamische grammatica**: Automatisch enkelvoud/meervoud op basis van aantal minderjarige kinderen
+- **API-gegenereerde zinnen**: Sommige placeholders worden automatisch door de backend API gegenereerd met correcte Nederlandse grammatica:
+  - `[[GezagZin]]` / `[[GezagRegeling]]` - Complete zin over ouderlijk gezag
+  - `[[RelatieAanvangZin]]` - Complete zin over aanvang relatie
+  - `[[OuderschapsplanDoelZin]]` - Complete doelzin voor het ouderschapsplan
 
 ---
 
@@ -732,16 +736,26 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[PlaatsRelatie]]                      - Plaats waar relatie is aangegaan
 [[SoortRelatieVoorwaarden]]            - Juridische voorwaarden (automatisch gegenereerd)
 [[SoortRelatieVerbreking]]             - Type verbreking (automatisch gegenereerd)
-[[RelatieAanvangZin]]                  - Volledige zin over relatie (automatisch gegenereerd)
-[[OuderschapsplanDoelZin]]             - Doel ouderschapsplan zin (automatisch gegenereerd)
+[[RelatieAanvangZin]]                  - Volledige zin over relatie (automatisch gegenereerd door API)
+[[OuderschapsplanDoelZin]]             - Doel ouderschapsplan zin (automatisch gegenereerd door API)
 ```
+
+**Voorbeelden van RelatieAanvangZin:**
+- "Wij zijn op 15 mei 2015 te Amsterdam met elkaar gehuwd."
+- "Wij zijn op 22 maart 2018 met elkaar een geregistreerd partnerschap aangegaan."
+- "Wij hebben een affectieve relatie gehad."
+
+**Voorbeelden van OuderschapsplanDoelZin:**
+- "In dit ouderschapsplan hebben we afspraken gemaakt over onze kinderen omdat we gaan scheiden." (bij huwelijk)
+- "In dit ouderschapsplan hebben we afspraken gemaakt over onze kinderen omdat we uit elkaar gaan." (bij samenwonen)
 
 ### Gezag (Ouderlijk Gezag)
 
 ```
 [[GezagPartij]]                        - Gezag optie (1-5)
 [[GezagTermijnWeken]]                  - Aantal weken (bij voorlopig gezag)
-[[GezagRegeling]]                      - Volledige gezagszin (automatisch gegenereerd)
+[[GezagRegeling]]                      - Volledige gezagszin (automatisch gegenereerd door API)
+[[GezagZin]]                           - Alias voor GezagRegeling
 ```
 
 **Gezag Opties:**
@@ -750,6 +764,11 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 - 3: Partij 2 heeft gezag
 - 4: Voorlopig gezag voor X weken
 - 5: Anders
+
+**Voorbeelden van GezagZin/GezagRegeling:**
+- "De ouders oefenen gezamenlijk het ouderlijk gezag uit over de minderjarige kinderen."
+- "Jan de Vries oefent alleen het ouderlijk gezag uit over de minderjarige kinderen."
+- "Maria Jansen oefent voorlopig alleen het ouderlijk gezag uit over de minderjarige kinderen. De ouders zullen binnen 12 weken een regeling treffen om het gezamenlijk ouderlijk gezag te regelen."
 
 ### Woonplaats Regelingen
 

@@ -43,7 +43,12 @@ namespace scheidingsdesk_document_generator.Models
         public string? OpvangKinderen { get; set; }
         public string? BankrekeningnummersOpNaamVanKind { get; set; }
         public string? ParentingCoordinator { get; set; }
-        
+
+        // Computed fields from API (automatically generated sentences)
+        public string? GezagZin { get; set; }
+        public string? RelatieAanvangZin { get; set; }
+        public string? OuderschapsplanDoelZin { get; set; }
+
         // Timestamps
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

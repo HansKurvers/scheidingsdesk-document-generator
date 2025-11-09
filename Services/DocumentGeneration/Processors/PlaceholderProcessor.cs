@@ -339,11 +339,25 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Derived placeholders: Map SoortRelatie to the appropriate terms
             replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
             replacements["SoortRelatieVerbreking"] = GetRelatieVerbreking(info.SoortRelatie);
-            replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
-            replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
+
+            // Use API-provided sentences if available, otherwise generate them (backwards compatibility)
+            replacements["RelatieAanvangZin"] = !string.IsNullOrEmpty(info.RelatieAanvangZin)
+                ? info.RelatieAanvangZin
+                : GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
+
+            replacements["OuderschapsplanDoelZin"] = !string.IsNullOrEmpty(info.OuderschapsplanDoelZin)
+                ? info.OuderschapsplanDoelZin
+                : GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
             // Gezag (parental authority) placeholders
-            replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
+            // Use API-provided sentence if available, otherwise generate it (backwards compatibility)
+            replacements["GezagRegeling"] = !string.IsNullOrEmpty(info.GezagZin)
+                ? info.GezagZin
+                : GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
+
+            // Also add GezagZin placeholder for direct access
+            replacements["GezagZin"] = replacements["GezagRegeling"];
+
             replacements["GezagPartij"] = info.GezagPartij?.ToString() ?? "";
             replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";
 
