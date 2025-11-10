@@ -341,13 +341,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["SoortRelatieVerbreking"] = GetRelatieVerbreking(info.SoortRelatie);
 
             // Use API-provided sentences if available, otherwise generate them (backwards compatibility)
-            replacements["RelatieAanvangZin"] = !string.IsNullOrEmpty(info.RelatieAanvangZin)
-                ? info.RelatieAanvangZin
+            var hasApiRelatieAanvang = !string.IsNullOrEmpty(info.RelatieAanvangZin);
+            replacements["RelatieAanvangZin"] = hasApiRelatieAanvang
+                ? info.RelatieAanvangZin!
                 : GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
+            _logger.LogDebug("RelatieAanvangZin - Using API: {UseApi}, Value: {Value}", hasApiRelatieAanvang, replacements["RelatieAanvangZin"]);
 
-            replacements["OuderschapsplanDoelZin"] = !string.IsNullOrEmpty(info.OuderschapsplanDoelZin)
-                ? info.OuderschapsplanDoelZin
+            var hasApiOuderschapsplan = !string.IsNullOrEmpty(info.OuderschapsplanDoelZin);
+            replacements["OuderschapsplanDoelZin"] = hasApiOuderschapsplan
+                ? info.OuderschapsplanDoelZin!
                 : GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
+            _logger.LogDebug("OuderschapsplanDoelZin - Using API: {UseApi}, Value: {Value}", hasApiOuderschapsplan, replacements["OuderschapsplanDoelZin"]);
 
             // Gezag (parental authority) placeholders
             // Use API-provided sentence if available, otherwise generate it (backwards compatibility)

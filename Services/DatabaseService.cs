@@ -161,16 +161,8 @@ namespace scheidingsdesk_document_generator.Services
                     -- Result set 10: Ouderschapsplan info - Optional
                     IF EXISTS (SELECT * FROM sys.tables WHERE name = 'ouderschapsplan_info' AND schema_id = SCHEMA_ID('dbo'))
                     BEGIN
-                        SELECT opi.id, opi.dossier_id, opi.partij_1_persoon_id, opi.partij_2_persoon_id,
-                               opi.soort_relatie, opi.datum_aanvang_relatie, opi.plaats_relatie, opi.soort_relatie_verbreking,
-                               opi.betrokkenheid_kind, opi.kiesplan,
-                               opi.gezag_partij, opi.gezag_termijn_weken, opi.wa_op_naam_van_partij, opi.keuze_devices,
-                               opi.zorgverzekering_op_naam_van_partij, opi.kinderbijslag_partij,
-                               opi.woonplaats_optie, opi.woonplaats_partij1, opi.woonplaats_partij2,
-                               opi.brp_partij_1, opi.brp_partij_2, opi.kgb_partij_1, opi.kgb_partij_2,
-                               opi.hoofdverblijf, opi.zorgverdeling, opi.opvang_kinderen,
-                               opi.bankrekeningnummers_op_naam_van_kind, opi.parenting_coordinator,
-                               opi.created_at, opi.updated_at
+                        -- Select all columns dynamically to support both old and new schemas
+                        SELECT opi.*
                         FROM dbo.ouderschapsplan_info opi
                         WHERE opi.dossier_id = @DossierId;
                     END
@@ -450,6 +442,12 @@ namespace scheidingsdesk_document_generator.Services
                             OpvangKinderen = reader["opvang_kinderen"] == DBNull.Value ? null : ConvertToString(reader["opvang_kinderen"]),
                             BankrekeningnummersOpNaamVanKind = reader["bankrekeningnummers_op_naam_van_kind"] == DBNull.Value ? null : ConvertToString(reader["bankrekeningnummers_op_naam_van_kind"]),
                             ParentingCoordinator = reader["parenting_coordinator"] == DBNull.Value ? null : ConvertToString(reader["parenting_coordinator"]),
+                            
+                            // Try to read API-generated fields if they exist in the database
+                            GezagZin = SafeReadString(reader, "gezag_zin"),
+                            RelatieAanvangZin = SafeReadString(reader, "relatie_aanvang_zin"),
+                            OuderschapsplanDoelZin = SafeReadString(reader, "ouderschapsplan_doel_zin"),
+                            
                             CreatedAt = (DateTime)reader["created_at"],
                             UpdatedAt = (DateTime)reader["updated_at"]
                         };
