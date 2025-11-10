@@ -68,10 +68,21 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements["RelatieAanvangZin"] = "Wij hebben een relatie met elkaar gehad.";
                 replacements["OuderschapsplanDoelZin"] = $"In dit ouderschapsplan hebben we afspraken gemaakt over {(data.Kinderen.Count == 1 ? "ons kind" : "onze kinderen")}.";
                 
-                // Generate default gezag text with actual children names if available
-                var defaultGezagText = data.Kinderen.Count > 0
-                    ? $"De ouders hebben gezamenlijk gezag over {(data.Kinderen.Count == 1 ? data.Kinderen[0].Roepnaam ?? data.Kinderen[0].Voornamen ?? "het kind" : "de kinderen")}."
-                    : "De ouders hebben gezamenlijk gezag over de kinderen.";
+                // Generate default gezag text with actual children names
+                string kinderenNamen;
+                if (data.Kinderen.Count == 0)
+                {
+                    kinderenNamen = "de kinderen";
+                }
+                else if (data.Kinderen.Count == 1)
+                {
+                    kinderenNamen = data.Kinderen[0].Roepnaam ?? data.Kinderen[0].Voornamen ?? "het kind";
+                }
+                else
+                {
+                    kinderenNamen = DutchLanguageHelper.FormatList(data.Kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
+                }
+                var defaultGezagText = $"De ouders hebben gezamenlijk gezag over {kinderenNamen}.";
                 replacements["GezagZin"] = defaultGezagText;
                 replacements["GezagRegeling"] = defaultGezagText;
             }
@@ -511,7 +522,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             {
                 var defaultKinderenTekst = kinderen.Count == 1
                     ? kinderen[0].Roepnaam ?? kinderen[0].Voornamen ?? "het kind"
-                    : "de kinderen";
+                    : DutchLanguageHelper.FormatList(kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
                 return $"De ouders hebben gezamenlijk gezag over {defaultKinderenTekst}.";
             }
 
