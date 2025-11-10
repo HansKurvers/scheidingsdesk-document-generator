@@ -85,6 +85,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 var defaultGezagText = $"De ouders hebben gezamenlijk gezag over {kinderenNamen}.";
                 replacements["GezagZin"] = defaultGezagText;
                 replacements["GezagRegeling"] = defaultGezagText;
+                
+                // Add default woonplaats text
+                replacements["WoonplaatsRegeling"] = "Het is nog onduidelijk waar de ouders zullen gaan wonen nadat zij uit elkaar gaan.";
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
@@ -375,7 +378,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";
 
             // Woonplaats (residence) placeholders
-            replacements["WoonplaatsRegeling"] = GetWoonplaatsRegeling(info.WoonplaatsOptie, info.WoonplaatsPartij1, info.WoonplaatsPartij2, partij1, partij2);
+            replacements["WoonplaatsRegeling"] = GetWoonplaatsRegeling(info.WoonplaatsOptie, info.WoonplaatsPartij1, info.WoonplaatsPartij2, partij1, partij2, info.SoortRelatie);
             replacements["WoonplaatsOptie"] = info.WoonplaatsOptie?.ToString() ?? "";
             replacements["WoonplaatsPartij1"] = info.WoonplaatsPartij1 ?? "";
             replacements["WoonplaatsPartij2"] = info.WoonplaatsPartij2 ?? "";
@@ -555,15 +558,22 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             string? woonplaatsPartij1,
             string? woonplaatsPartij2,
             PersonData? partij1,
-            PersonData? partij2)
+            PersonData? partij2,
+            string? soortRelatie = null)
         {
-            if (!woonplaatsOptie.HasValue)
-                return "";
-
             var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1";
             var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2";
             var huidigeWoonplaatsPartij1 = partij1?.Plaats ?? "onbekend";
             var huidigeWoonplaatsPartij2 = partij2?.Plaats ?? "onbekend";
+            
+            // Get relationship termination text for option 5 and fallback
+            var relatieVerbreking = GetRelatieVerbreking(soortRelatie);
+
+            // Default to option 5 if not set
+            if (!woonplaatsOptie.HasValue)
+            {
+                return $"Het is nog onduidelijk waar de ouders zullen gaan wonen nadat zij {relatieVerbreking}.";
+            }
 
             return woonplaatsOptie.Value switch
             {
@@ -571,8 +581,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 2 => $"{partij1Naam} gaat verhuizen naar {woonplaatsPartij1 ?? "een nieuwe woonplaats"}. {partij2Naam} blijft wonen in {huidigeWoonplaatsPartij2}.",
                 3 => $"{partij1Naam} blijft wonen in {huidigeWoonplaatsPartij1}. {partij2Naam} gaat verhuizen naar {woonplaatsPartij2 ?? "een nieuwe woonplaats"}.",
                 4 => $"{partij1Naam} gaat verhuizen naar {woonplaatsPartij1 ?? "een nieuwe woonplaats"} en {partij2Naam} gaat verhuizen naar {woonplaatsPartij2 ?? "een nieuwe woonplaats"}.",
-                5 => "Het is nog onduidelijk waar de ouders gaan wonen.",
-                _ => ""
+                5 => $"Het is nog onduidelijk waar de ouders zullen gaan wonen nadat zij {relatieVerbreking}.",
+                _ => $"Het is nog onduidelijk waar de ouders zullen gaan wonen nadat zij {relatieVerbreking}."
             };
         }
 
