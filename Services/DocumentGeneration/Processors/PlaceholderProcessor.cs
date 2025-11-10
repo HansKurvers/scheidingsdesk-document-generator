@@ -453,7 +453,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         private string GetRelatieAanvangZin(string? soortRelatie, DateTime? datumAanvangRelatie, string? plaatsRelatie)
         {
             if (string.IsNullOrEmpty(soortRelatie))
-                return "";
+            {
+                _logger.LogWarning("SoortRelatie is empty, cannot generate RelatieAanvangZin");
+                return "Wij hebben een relatie met elkaar gehad.";
+            }
 
             var datum = DataFormatter.FormatDate(datumAanvangRelatie);
             var plaats = !string.IsNullOrEmpty(plaatsRelatie) ? $" te {plaatsRelatie}" : "";
@@ -475,10 +478,13 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// </summary>
         private string GetOuderschapsplanDoelZin(string? soortRelatie, int aantalKinderen)
         {
-            if (string.IsNullOrEmpty(soortRelatie))
-                return "";
-
             var kindTekst = aantalKinderen == 1 ? "ons kind" : "onze kinderen";
+            
+            if (string.IsNullOrEmpty(soortRelatie))
+            {
+                _logger.LogWarning("SoortRelatie is empty, using default OuderschapsplanDoelZin");
+                return $"In dit ouderschapsplan hebben we afspraken gemaakt over {kindTekst}.";
+            }
 
             var redenTekst = soortRelatie.ToLowerInvariant() switch
             {
