@@ -60,12 +60,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add ouderschapsplan info if available
             if (data.OuderschapsplanInfo != null)
             {
-                _logger.LogWarning("OuderschapsplanInfo is available for dossier {DossierId}", data.Id);
                 AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen);
             }
             else
             {
-                _logger.LogWarning("OuderschapsplanInfo is NULL for dossier {DossierId} - adding default placeholders", data.Id);
                 // Add default values for required placeholders
                 replacements["RelatieAanvangZin"] = "Wij hebben een relatie met elkaar gehad.";
                 replacements["OuderschapsplanDoelZin"] = $"In dit ouderschapsplan hebben we afspraken gemaakt over {(data.Kinderen.Count == 1 ? "ons kind" : "onze kinderen")}.";
@@ -173,17 +171,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     fullText.Contains($"[[{key}]]") || fullText.Contains($"{{{key}}}") ||
                     fullText.Contains($"<<{key}>>") || fullText.Contains($"[{key}]")).ToList();
 
-                // Log all replaced placeholders for debugging
-                if (replacedKeys.Any())
+                // Log replaced placeholders for debugging (only alimentatie-related)
+                if (replacedKeys.Any(k => k.Contains("Alimentatie") || k.Contains("Eigen") || k.Contains("Kosten") || k.Contains("Gezins")))
                 {
-                    _logger.LogInformation("Replaced placeholders: {Keys}", string.Join(", ", replacedKeys));
-                    
-                    // Special logging for problematic placeholders
-                    if (replacedKeys.Any(k => k == "RelatieAanvangZin" || k == "OuderschapsplanDoelZin" || k == "GezagZin"))
-                    {
-                        _logger.LogWarning("Replaced sentence placeholders: {Keys} in paragraph", 
-                            string.Join(", ", replacedKeys.Where(k => k == "RelatieAanvangZin" || k == "OuderschapsplanDoelZin" || k == "GezagZin")));
-                    }
+                    _logger.LogInformation("Replaced alimentatie placeholders: {Keys}", string.Join(", ", replacedKeys));
                 }
 
                 // Clear existing text elements (keep first one)
@@ -358,12 +349,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // Generate relationship and parenting plan sentences dynamically
             replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
-            _logger.LogWarning("Generated RelatieAanvangZin: SoortRelatie='{SoortRelatie}', Value='{Value}'", 
-                info.SoortRelatie ?? "NULL", replacements["RelatieAanvangZin"]);
-
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
-            _logger.LogWarning("Generated OuderschapsplanDoelZin: SoortRelatie='{SoortRelatie}', KinderenCount={Count}, Value='{Value}'", 
-                info.SoortRelatie ?? "NULL", kinderen.Count, replacements["OuderschapsplanDoelZin"]);
 
             // Generate gezag (parental authority) sentence dynamically
             replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
@@ -461,7 +447,6 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         {
             if (string.IsNullOrEmpty(soortRelatie))
             {
-                _logger.LogWarning("SoortRelatie is empty, cannot generate RelatieAanvangZin");
                 return "Wij hebben een relatie met elkaar gehad.";
             }
 
@@ -489,7 +474,6 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             
             if (string.IsNullOrEmpty(soortRelatie))
             {
-                _logger.LogWarning("SoortRelatie is empty, using default OuderschapsplanDoelZin");
                 return $"In dit ouderschapsplan hebben we afspraken gemaakt over {kindTekst}.";
             }
 
