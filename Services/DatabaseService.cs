@@ -414,42 +414,42 @@ namespace scheidingsdesk_document_generator.Services
                     {
                         ouderschapsplanInfo = new OuderschapsplanInfoData
                         {
-                            Id = (int)reader["id"],
-                            DossierId = (int)reader["dossier_id"],
-                            Partij1PersoonId = (int)reader["partij_1_persoon_id"],
-                            Partij2PersoonId = (int)reader["partij_2_persoon_id"],
-                            SoortRelatie = reader["soort_relatie"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie"]),
-                            DatumAanvangRelatie = reader["datum_aanvang_relatie"] == DBNull.Value ? null : (DateTime?)reader["datum_aanvang_relatie"],
-                            PlaatsRelatie = reader["plaats_relatie"] == DBNull.Value ? null : ConvertToString(reader["plaats_relatie"]),
-                            SoortRelatieVerbreking = reader["soort_relatie_verbreking"] == DBNull.Value ? null : ConvertToString(reader["soort_relatie_verbreking"]),
-                            BetrokkenheidKind = reader["betrokkenheid_kind"] == DBNull.Value ? null : ConvertToString(reader["betrokkenheid_kind"]),
-                            Kiesplan = reader["kiesplan"] == DBNull.Value ? null : ConvertToString(reader["kiesplan"]),
-                            GezagPartij = reader["gezag_partij"] == DBNull.Value ? null : (int?)reader["gezag_partij"],
-                            GezagTermijnWeken = reader["gezag_termijn_weken"] == DBNull.Value ? null : (int?)reader["gezag_termijn_weken"],
-                            WaOpNaamVanPartij = reader["wa_op_naam_van_partij"] == DBNull.Value ? null : (int?)reader["wa_op_naam_van_partij"],
-                            KeuzeDevices = reader["keuze_devices"] == DBNull.Value ? null : ConvertToString(reader["keuze_devices"]),
-                            ZorgverzekeringOpNaamVanPartij = reader["zorgverzekering_op_naam_van_partij"] == DBNull.Value ? null : (int?)reader["zorgverzekering_op_naam_van_partij"],
-                            KinderbijslagPartij = reader["kinderbijslag_partij"] == DBNull.Value ? null : (int?)reader["kinderbijslag_partij"],
-                            WoonplaatsOptie = reader["woonplaats_optie"] == DBNull.Value ? null : (int?)reader["woonplaats_optie"],
-                            WoonplaatsPartij1 = reader["woonplaats_partij1"] == DBNull.Value ? null : ConvertToString(reader["woonplaats_partij1"]),
-                            WoonplaatsPartij2 = reader["woonplaats_partij2"] == DBNull.Value ? null : ConvertToString(reader["woonplaats_partij2"]),
-                            BrpPartij1 = reader["brp_partij_1"] == DBNull.Value ? null : ConvertToString(reader["brp_partij_1"]),
-                            BrpPartij2 = reader["brp_partij_2"] == DBNull.Value ? null : ConvertToString(reader["brp_partij_2"]),
-                            KgbPartij1 = reader["kgb_partij_1"] == DBNull.Value ? null : ConvertToString(reader["kgb_partij_1"]),
-                            KgbPartij2 = reader["kgb_partij_2"] == DBNull.Value ? null : ConvertToString(reader["kgb_partij_2"]),
-                            Hoofdverblijf = reader["hoofdverblijf"] == DBNull.Value ? null : ConvertToString(reader["hoofdverblijf"]),
-                            Zorgverdeling = reader["zorgverdeling"] == DBNull.Value ? null : ConvertToString(reader["zorgverdeling"]),
-                            OpvangKinderen = reader["opvang_kinderen"] == DBNull.Value ? null : ConvertToString(reader["opvang_kinderen"]),
-                            BankrekeningnummersOpNaamVanKind = reader["bankrekeningnummers_op_naam_van_kind"] == DBNull.Value ? null : ConvertToString(reader["bankrekeningnummers_op_naam_van_kind"]),
-                            ParentingCoordinator = reader["parenting_coordinator"] == DBNull.Value ? null : ConvertToString(reader["parenting_coordinator"]),
+                            Id = SafeReadInt(reader, "id") ?? 0,
+                            DossierId = SafeReadInt(reader, "dossier_id") ?? 0,
+                            Partij1PersoonId = SafeReadInt(reader, "partij_1_persoon_id") ?? 0,
+                            Partij2PersoonId = SafeReadInt(reader, "partij_2_persoon_id") ?? 0,
+                            SoortRelatie = SafeReadString(reader, "soort_relatie"),
+                            DatumAanvangRelatie = SafeReadDateTime(reader, "datum_aanvang_relatie"),
+                            PlaatsRelatie = SafeReadString(reader, "plaats_relatie"),
+                            SoortRelatieVerbreking = SafeReadString(reader, "soort_relatie_verbreking"),
+                            BetrokkenheidKind = SafeReadString(reader, "betrokkenheid_kind"),
+                            Kiesplan = SafeReadString(reader, "kiesplan"),
+                            GezagPartij = SafeReadInt(reader, "gezag_partij"),
+                            GezagTermijnWeken = SafeReadInt(reader, "gezag_termijn_weken"),
+                            WaOpNaamVanPartij = SafeReadInt(reader, "wa_op_naam_van_partij"),
+                            KeuzeDevices = SafeReadString(reader, "keuze_devices"),
+                            ZorgverzekeringOpNaamVanPartij = SafeReadInt(reader, "zorgverzekering_op_naam_van_partij"),
+                            KinderbijslagPartij = SafeReadInt(reader, "kinderbijslag_partij"),
+                            WoonplaatsOptie = SafeReadInt(reader, "woonplaats_optie"),
+                            WoonplaatsPartij1 = SafeReadString(reader, "woonplaats_partij1"),
+                            WoonplaatsPartij2 = SafeReadString(reader, "woonplaats_partij2"),
+                            BrpPartij1 = SafeReadString(reader, "brp_partij_1"),
+                            BrpPartij2 = SafeReadString(reader, "brp_partij_2"),
+                            KgbPartij1 = SafeReadString(reader, "kgb_partij_1"),
+                            KgbPartij2 = SafeReadString(reader, "kgb_partij_2"),
+                            Hoofdverblijf = SafeReadString(reader, "hoofdverblijf"),
+                            Zorgverdeling = SafeReadString(reader, "zorgverdeling"),
+                            OpvangKinderen = SafeReadString(reader, "opvang_kinderen"),
+                            BankrekeningnummersOpNaamVanKind = SafeReadString(reader, "bankrekeningnummers_op_naam_van_kind"),
+                            ParentingCoordinator = SafeReadString(reader, "parenting_coordinator"),
                             
                             // Try to read API-generated fields if they exist in the database
                             GezagZin = SafeReadString(reader, "gezag_zin"),
                             RelatieAanvangZin = SafeReadString(reader, "relatie_aanvang_zin"),
                             OuderschapsplanDoelZin = SafeReadString(reader, "ouderschapsplan_doel_zin"),
                             
-                            CreatedAt = (DateTime)reader["created_at"],
-                            UpdatedAt = (DateTime)reader["updated_at"]
+                            CreatedAt = SafeReadDateTime(reader, "created_at") ?? DateTime.Now,
+                            UpdatedAt = SafeReadDateTime(reader, "updated_at") ?? DateTime.Now
                         };
                     }
                 }
@@ -590,6 +590,30 @@ namespace scheidingsdesk_document_generator.Services
 
             var value = reader[columnName];
             return value == DBNull.Value ? null : ConvertToString(value);
+        }
+
+        /// <summary>
+        /// Safely reads a nullable integer value from the reader, returns null if column doesn't exist
+        /// </summary>
+        private static int? SafeReadInt(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return null;
+
+            var value = reader[columnName];
+            return value == DBNull.Value ? null : (int?)value;
+        }
+
+        /// <summary>
+        /// Safely reads a nullable DateTime value from the reader, returns null if column doesn't exist
+        /// </summary>
+        private static DateTime? SafeReadDateTime(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return null;
+
+            var value = reader[columnName];
+            return value == DBNull.Value ? null : (DateTime?)value;
         }
 
         /// <summary>
