@@ -340,27 +340,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
             replacements["SoortRelatieVerbreking"] = GetRelatieVerbreking(info.SoortRelatie);
 
-            // Use API-provided sentences if available, otherwise generate them (backwards compatibility)
-            var hasApiRelatieAanvang = !string.IsNullOrEmpty(info.RelatieAanvangZin);
-            replacements["RelatieAanvangZin"] = hasApiRelatieAanvang
-                ? info.RelatieAanvangZin!
-                : GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
-            _logger.LogDebug("RelatieAanvangZin - Using API: {UseApi}, Value: {Value}", hasApiRelatieAanvang, replacements["RelatieAanvangZin"]);
+            // Generate relationship and parenting plan sentences dynamically
+            replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
+            _logger.LogDebug("Generated RelatieAanvangZin: {Value}", replacements["RelatieAanvangZin"]);
 
-            var hasApiOuderschapsplan = !string.IsNullOrEmpty(info.OuderschapsplanDoelZin);
-            replacements["OuderschapsplanDoelZin"] = hasApiOuderschapsplan
-                ? info.OuderschapsplanDoelZin!
-                : GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
-            _logger.LogDebug("OuderschapsplanDoelZin - Using API: {UseApi}, Value: {Value}", hasApiOuderschapsplan, replacements["OuderschapsplanDoelZin"]);
+            replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
+            _logger.LogDebug("Generated OuderschapsplanDoelZin: {Value}", replacements["OuderschapsplanDoelZin"]);
 
-            // Gezag (parental authority) placeholders
-            // Use API-provided sentence if available, otherwise generate it (backwards compatibility)
-            replacements["GezagRegeling"] = !string.IsNullOrEmpty(info.GezagZin)
-                ? info.GezagZin
-                : GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
-
-            // Also add GezagZin placeholder for direct access
-            replacements["GezagZin"] = replacements["GezagRegeling"];
+            // Generate gezag (parental authority) sentence dynamically
+            replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
+            replacements["GezagZin"] = replacements["GezagRegeling"];  // Alias for backward compatibility
 
             replacements["GezagPartij"] = info.GezagPartij?.ToString() ?? "";
             replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";

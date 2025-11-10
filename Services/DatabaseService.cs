@@ -443,10 +443,8 @@ namespace scheidingsdesk_document_generator.Services
                             BankrekeningnummersOpNaamVanKind = SafeReadString(reader, "bankrekeningnummers_op_naam_van_kind"),
                             ParentingCoordinator = SafeReadString(reader, "parenting_coordinator"),
                             
-                            // Try to read API-generated fields if they exist in the database
-                            GezagZin = SafeReadString(reader, "gezag_zin"),
-                            RelatieAanvangZin = SafeReadString(reader, "relatie_aanvang_zin"),
-                            OuderschapsplanDoelZin = SafeReadString(reader, "ouderschapsplan_doel_zin"),
+                            // Note: GezagZin, RelatieAanvangZin and OuderschapsplanDoelZin 
+                            // are generated dynamically and not stored in database
                             
                             CreatedAt = SafeReadDateTime(reader, "created_at") ?? DateTime.Now,
                             UpdatedAt = SafeReadDateTime(reader, "updated_at") ?? DateTime.Now

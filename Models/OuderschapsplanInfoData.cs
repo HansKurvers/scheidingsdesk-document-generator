@@ -44,10 +44,8 @@ namespace scheidingsdesk_document_generator.Models
         public string? BankrekeningnummersOpNaamVanKind { get; set; }
         public string? ParentingCoordinator { get; set; }
 
-        // Computed fields from API (automatically generated sentences)
-        public string? GezagZin { get; set; }
-        public string? RelatieAanvangZin { get; set; }
-        public string? OuderschapsplanDoelZin { get; set; }
+        // Note: GezagZin, RelatieAanvangZin and OuderschapsplanDoelZin are generated 
+        // dynamically in PlaceholderProcessor and not stored in database
 
         // Timestamps
         public DateTime CreatedAt { get; set; }
