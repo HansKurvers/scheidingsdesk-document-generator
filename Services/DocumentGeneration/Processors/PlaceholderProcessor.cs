@@ -391,7 +391,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KinderbijslagOntvanger"] = GetKinderbijslagOntvanger(info.KinderbijslagPartij, partij1, partij2);
 
             replacements["KeuzeDevices"] = info.KeuzeDevices ?? "";
-            replacements["Hoofdverblijf"] = info.Hoofdverblijf ?? "";
+            replacements["Hoofdverblijf"] = GetHoofdverblijfText(info.Hoofdverblijf, partij1, partij2, kinderen);
             replacements["Zorgverdeling"] = info.Zorgverdeling ?? "";
             replacements["OpvangKinderen"] = info.OpvangKinderen ?? "";
             replacements["BankrekeningnummersKind"] = info.BankrekeningnummersOpNaamVanKind ?? "";
@@ -595,6 +595,54 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 return "";
 
             return string.Join("\n", kostensoorten.Select(k => $"- {k}"));
+        }
+
+        /// <summary>
+        /// Get the hoofdverblijf (primary residence) text based on the stored person ID
+        /// </summary>
+        private string GetHoofdverblijfText(string? hoofdverblijf, PersonData? partij1, PersonData? partij2, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(hoofdverblijf))
+                return "";
+
+            // Try to parse the hoofdverblijf as a person ID
+            if (int.TryParse(hoofdverblijf, out int personId))
+            {
+                // Check if it matches partij1
+                if (partij1 != null && partij1.Id == personId)
+                {
+                    var partij1Naam = partij1.Roepnaam ?? partij1.Voornamen ?? "Partij 1";
+                    var kinderenTekst = GetKinderenTekst(kinderen);
+                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij1Naam}.";
+                }
+                // Check if it matches partij2
+                else if (partij2 != null && partij2.Id == personId)
+                {
+                    var partij2Naam = partij2.Roepnaam ?? partij2.Voornamen ?? "Partij 2";
+                    var kinderenTekst = GetKinderenTekst(kinderen);
+                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij2Naam}.";
+                }
+            }
+
+            // If not a valid person ID or doesn't match, return the raw value
+            return hoofdverblijf;
+        }
+
+        /// <summary>
+        /// Get appropriate text for children based on count and names
+        /// </summary>
+        private string GetKinderenTekst(List<ChildData> kinderen)
+        {
+            if (kinderen.Count == 0)
+                return "De kinderen";
+
+            if (kinderen.Count == 1)
+            {
+                return kinderen[0].Roepnaam ?? kinderen[0].Voornamen ?? "Het kind";
+            }
+
+            var roepnamen = kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList();
+            return DutchLanguageHelper.FormatList(roepnamen);
         }
 
         /// <summary>
