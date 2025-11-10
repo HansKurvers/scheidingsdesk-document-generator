@@ -67,8 +67,13 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 // Add default values for required placeholders
                 replacements["RelatieAanvangZin"] = "Wij hebben een relatie met elkaar gehad.";
                 replacements["OuderschapsplanDoelZin"] = $"In dit ouderschapsplan hebben we afspraken gemaakt over {(data.Kinderen.Count == 1 ? "ons kind" : "onze kinderen")}.";
-                replacements["GezagZin"] = "De ouders hebben gezamenlijk gezag over de kinderen.";
-                replacements["GezagRegeling"] = replacements["GezagZin"];
+                
+                // Generate default gezag text with actual children names if available
+                var defaultGezagText = data.Kinderen.Count > 0
+                    ? $"De ouders hebben gezamenlijk gezag over {(data.Kinderen.Count == 1 ? data.Kinderen[0].Roepnaam ?? data.Kinderen[0].Voornamen ?? "het kind" : "de kinderen")}."
+                    : "De ouders hebben gezamenlijk gezag over de kinderen.";
+                replacements["GezagZin"] = defaultGezagText;
+                replacements["GezagRegeling"] = defaultGezagText;
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
@@ -498,8 +503,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             PersonData? partij2,
             List<ChildData> kinderen)
         {
-            if (!gezagPartij.HasValue || kinderen.Count == 0)
+            if (kinderen.Count == 0)
                 return "";
+                
+            // Default to shared custody if gezag_partij is not set
+            if (!gezagPartij.HasValue)
+            {
+                var defaultKinderenTekst = kinderen.Count == 1
+                    ? kinderen[0].Roepnaam ?? kinderen[0].Voornamen ?? "het kind"
+                    : "de kinderen";
+                return $"De ouders hebben gezamenlijk gezag over {defaultKinderenTekst}.";
+            }
 
             var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Partij 1";
             var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Partij 2";
