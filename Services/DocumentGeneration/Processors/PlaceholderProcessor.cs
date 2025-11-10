@@ -60,7 +60,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add ouderschapsplan info if available
             if (data.OuderschapsplanInfo != null)
             {
+                _logger.LogWarning("OuderschapsplanInfo is available for dossier {DossierId}", data.Id);
                 AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen);
+            }
+            else
+            {
+                _logger.LogWarning("OuderschapsplanInfo is NULL for dossier {DossierId} - adding default placeholders", data.Id);
+                // Add default values for required placeholders
+                replacements["RelatieAanvangZin"] = "Wij hebben een relatie met elkaar gehad.";
+                replacements["OuderschapsplanDoelZin"] = $"In dit ouderschapsplan hebben we afspraken gemaakt over {(data.Kinderen.Count == 1 ? "ons kind" : "onze kinderen")}.";
+                replacements["GezagZin"] = "De ouders hebben gezamenlijk gezag over de kinderen.";
+                replacements["GezagRegeling"] = replacements["GezagZin"];
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
@@ -163,11 +173,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     fullText.Contains($"[[{key}]]") || fullText.Contains($"{{{key}}}") ||
                     fullText.Contains($"<<{key}>>") || fullText.Contains($"[{key}]")).ToList();
 
-                if (replacedKeys.Any(k => k.Contains("Alimentatie") || k.Contains("Eigen") || k.Contains("Kosten") || k.Contains("Gezins")))
+                // Log all replaced placeholders for debugging
+                if (replacedKeys.Any())
                 {
-                    _logger.LogInformation("Replaced alimentatie placeholders: {Keys}", string.Join(", ", replacedKeys));
-                    _logger.LogDebug("Original text: {Original}", fullText.Substring(0, Math.Min(200, fullText.Length)));
-                    _logger.LogDebug("New text: {New}", newText.Substring(0, Math.Min(200, newText.Length)));
+                    _logger.LogInformation("Replaced placeholders: {Keys}", string.Join(", ", replacedKeys));
+                    
+                    // Special logging for problematic placeholders
+                    if (replacedKeys.Any(k => k == "RelatieAanvangZin" || k == "OuderschapsplanDoelZin" || k == "GezagZin"))
+                    {
+                        _logger.LogWarning("Replaced sentence placeholders: {Keys} in paragraph", 
+                            string.Join(", ", replacedKeys.Where(k => k == "RelatieAanvangZin" || k == "OuderschapsplanDoelZin" || k == "GezagZin")));
+                    }
                 }
 
                 // Clear existing text elements (keep first one)
@@ -342,10 +358,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // Generate relationship and parenting plan sentences dynamically
             replacements["RelatieAanvangZin"] = GetRelatieAanvangZin(info.SoortRelatie, info.DatumAanvangRelatie, info.PlaatsRelatie);
-            _logger.LogDebug("Generated RelatieAanvangZin: {Value}", replacements["RelatieAanvangZin"]);
+            _logger.LogWarning("Generated RelatieAanvangZin: SoortRelatie='{SoortRelatie}', Value='{Value}'", 
+                info.SoortRelatie ?? "NULL", replacements["RelatieAanvangZin"]);
 
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
-            _logger.LogDebug("Generated OuderschapsplanDoelZin: {Value}", replacements["OuderschapsplanDoelZin"]);
+            _logger.LogWarning("Generated OuderschapsplanDoelZin: SoortRelatie='{SoortRelatie}', KinderenCount={Count}, Value='{Value}'", 
+                info.SoortRelatie ?? "NULL", kinderen.Count, replacements["OuderschapsplanDoelZin"]);
 
             // Generate gezag (parental authority) sentence dynamically
             replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
