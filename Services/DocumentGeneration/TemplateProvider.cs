@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -30,10 +31,23 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
             }
 
             // Check for placeholder in URL
-            if (templateUrl.Contains("[SAS_TOKEN_HERE]"))
+            if (templateUrl.Contains("[SAS_TOKEN_HERE]") || templateUrl.Contains("JOUW-STORAGE-ACCOUNT") || templateUrl.Contains("JOUW-SAS-TOKEN"))
             {
-                _logger.LogError("Template URL contains placeholder. Please configure a valid SAS token.");
-                throw new InvalidOperationException("Template storage not properly configured. Please add SAS token to TemplateStorageUrl setting.");
+                _logger.LogWarning("Template URL contains placeholder. Using local template for development.");
+                
+                // Use local template for development
+                var localTemplatePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Ouderschapsplan", "Ouderschapsplan NIEUW.docx");
+                
+                if (File.Exists(localTemplatePath))
+                {
+                    _logger.LogInformation($"Using local template from: {localTemplatePath}");
+                    return await File.ReadAllBytesAsync(localTemplatePath);
+                }
+                else
+                {
+                    _logger.LogError($"Local template not found at: {localTemplatePath}");
+                    throw new InvalidOperationException("Template storage not properly configured and local template not found.");
+                }
             }
 
             // URL encode spaces

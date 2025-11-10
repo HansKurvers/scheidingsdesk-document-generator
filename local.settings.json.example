@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "TemplateStorageUrl": "https://your-storage-account.blob.core.windows.net/templates/ouderschapsplan-template.docx?sp=r&st=2024-01-01T00:00:00Z&se=2025-01-01T00:00:00Z&spr=https&sv=2021-06-08&sr=b&sig=YOUR-SAS-TOKEN-HERE"
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=YOUR-SERVER;Database=YOUR-DATABASE;User Id=YOUR-USER;Password=YOUR-PASSWORD;TrustServerCertificate=true"
+  },
+  "Host": {
+    "CORS": "*"
+  }
+}
