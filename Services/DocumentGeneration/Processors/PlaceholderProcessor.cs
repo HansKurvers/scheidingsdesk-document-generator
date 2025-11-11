@@ -375,11 +375,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
             // Generate gezag (parental authority) sentence dynamically
+            _logger.LogInformation("About to generate GezagRegeling with info.GezagPartij={GezagPartij}, info.GezagTermijnWeken={GezagTermijnWeken}",
+                info.GezagPartij, info.GezagTermijnWeken);
             replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
             replacements["GezagZin"] = replacements["GezagRegeling"];  // Alias for backward compatibility
 
             replacements["GezagPartij"] = info.GezagPartij?.ToString() ?? "";
             replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";
+            _logger.LogInformation("GezagPartij placeholder value: {GezagPartij}", replacements["GezagPartij"]);
 
             // Woonplaats (residence) placeholders
             replacements["WoonplaatsRegeling"] = GetWoonplaatsRegeling(info.WoonplaatsOptie, info.WoonplaatsPartij1, info.WoonplaatsPartij2, partij1, partij2, info.SoortRelatie);
@@ -521,12 +524,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             PersonData? partij2,
             List<ChildData> kinderen)
         {
+            _logger.LogInformation("GetGezagRegeling called with gezagPartij={GezagPartij}, gezagTermijnWeken={GezagTermijnWeken}",
+                gezagPartij, gezagTermijnWeken);
+
             if (kinderen.Count == 0)
                 return "";
-                
+
             // Default to shared custody if gezag_partij is not set
             if (!gezagPartij.HasValue)
             {
+                _logger.LogWarning("GezagPartij is null, using fallback text");
                 var defaultKinderenTekst = kinderen.Count == 1
                     ? kinderen[0].Roepnaam ?? kinderen[0].Voornamen ?? "het kind"
                     : DutchLanguageHelper.FormatList(kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
@@ -543,7 +550,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             var weken = gezagTermijnWeken ?? 2;
 
-            return gezagPartij.Value switch
+            var result = gezagPartij.Value switch
             {
                 1 => $"{partij1Naam} en {partij2Naam} hebben samen het ouderlijk gezag over {kinderenTekst}. Na de scheiding blijft dit zo.",
                 2 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
@@ -552,6 +559,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 5 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
                 _ => ""
             };
+
+            _logger.LogInformation("GetGezagRegeling returning: {Result}", result);
+            return result;
         }
 
         /// <summary>

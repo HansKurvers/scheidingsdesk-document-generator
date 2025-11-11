@@ -450,6 +450,9 @@ namespace scheidingsdesk_document_generator.Services
                             CreatedAt = SafeReadDateTime(reader, "created_at") ?? DateTime.Now,
                             UpdatedAt = SafeReadDateTime(reader, "updated_at") ?? DateTime.Now
                         };
+
+                        _logger.LogInformation("Loaded OuderschapsplanInfo: GezagPartij={GezagPartij}, GezagTermijnWeken={GezagTermijnWeken}",
+                            ouderschapsplanInfo.GezagPartij, ouderschapsplanInfo.GezagTermijnWeken);
                     }
                 }
                 catch (Exception ex)
