@@ -635,6 +635,7 @@ namespace scheidingsdesk_document_generator.Services
 
         /// <summary>
         /// Safely reads a nullable integer value from the reader, returns null if column doesn't exist
+        /// Handles both INT and TINYINT (byte) database types
         /// </summary>
         private static int? SafeReadInt(SqlDataReader reader, string columnName)
         {
@@ -642,7 +643,18 @@ namespace scheidingsdesk_document_generator.Services
                 return null;
 
             var value = reader[columnName];
-            return value == DBNull.Value ? null : (int?)value;
+            if (value == DBNull.Value)
+                return null;
+
+            // Handle both INT (int) and TINYINT (byte) types
+            return value switch
+            {
+                int intValue => intValue,
+                byte byteValue => (int)byteValue,
+                short shortValue => (int)shortValue,
+                long longValue => (int)longValue,
+                _ => Convert.ToInt32(value)
+            };
         }
 
         /// <summary>
