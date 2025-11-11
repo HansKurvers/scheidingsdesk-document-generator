@@ -545,7 +545,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             return gezagPartij.Value switch
             {
-                1 => $"{partij1Naam} en {partij2Naam} hebben samen het ouderlijk gezag over {kinderenTekst}.",
+                1 => $"{partij1Naam} en {partij2Naam} hebben samen het ouderlijk gezag over {kinderenTekst}. Na de scheiding blijft dit zo.",
                 2 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
                 3 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
                 4 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
@@ -679,6 +679,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["BedragenAlleKinderenGelijk"] = "";
             replacements["AlimentatiebedragPerKind"] = "";
             replacements["Alimentatiegerechtigde"] = "";
+            replacements["ZorgkortingPercentageAlleKinderen"] = "";
             replacements["IsKinderrekeningBetaalwijze"] = "";
             replacements["IsAlimentatieplichtBetaalwijze"] = "";
 
@@ -708,6 +709,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["BedragenAlleKinderenGelijk"] = DataFormatter.ConvertToString(alimentatie.BedragenAlleKinderenGelijk);
             replacements["AlimentatiebedragPerKind"] = DataFormatter.FormatCurrency(alimentatie.AlimentatiebedragPerKind);
             replacements["Alimentatiegerechtigde"] = alimentatie.Alimentatiegerechtigde ?? "";
+            replacements["ZorgkortingPercentageAlleKinderen"] = alimentatie.ZorgkortingPercentageAlleKinderen.HasValue ? $"{alimentatie.ZorgkortingPercentageAlleKinderen:0.##}%" : "";
 
             // Template detection flags
             replacements["IsKinderrekeningBetaalwijze"] = DataFormatter.ConvertToString(alimentatie.IsKinderrekeningBetaalwijze);

@@ -127,6 +127,7 @@ namespace scheidingsdesk_document_generator.Models
         public bool? BedragenAlleKinderenGelijk { get; set; }
         public decimal? AlimentatiebedragPerKind { get; set; }
         public string? Alimentatiegerechtigde { get; set; }
+        public decimal? ZorgkortingPercentageAlleKinderen { get; set; }
 
         /// <summary>
         /// Child cost contributions per person
