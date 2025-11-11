@@ -27,16 +27,20 @@ namespace scheidingsdesk_document_generator.Services
         /// <summary>
         /// Retrieves complete dossier data including parties, children, visitation and care arrangements
         /// </summary>
-        /// <param name="dossierId">The ID of the dossier to retrieve</param>
+        /// <param name="dossierId">The ID or dossier nummer to retrieve</param>
         /// <returns>Complete dossier data or null if not found</returns>
         public async Task<DossierData?> GetDossierDataAsync(int dossierId)
         {
             try
             {
-                _logger.LogInformation("Retrieving dossier data for dossier ID: {DossierId}", dossierId);
+                _logger.LogInformation("Retrieving dossier data for dossier ID/Nummer: {DossierId}", dossierId);
 
                 using var connection = new SqlConnection(_connectionString);
                 await connection.OpenAsync();
+
+                // First, resolve the actual dossier ID (in case a dossier nummer was provided)
+                int actualDossierId = await ResolveDossierIdAsync(connection, dossierId);
+                _logger.LogInformation("Resolved dossier ID: {ActualDossierId} (input was: {InputDossierId})", actualDossierId, dossierId);
 
                 // Create a single command with multiple result sets
                 const string query = @"
@@ -172,7 +176,7 @@ namespace scheidingsdesk_document_generator.Services
                     END";
 
                 using var command = new SqlCommand(query, connection);
-                command.Parameters.AddWithValue("@DossierId", dossierId);
+                command.Parameters.AddWithValue("@DossierId", actualDossierId);
 
                 using var reader = await command.ExecuteReaderAsync();
                 
@@ -450,9 +454,6 @@ namespace scheidingsdesk_document_generator.Services
                             CreatedAt = SafeReadDateTime(reader, "created_at") ?? DateTime.Now,
                             UpdatedAt = SafeReadDateTime(reader, "updated_at") ?? DateTime.Now
                         };
-
-                        _logger.LogInformation("Loaded OuderschapsplanInfo: GezagPartij={GezagPartij}, GezagTermijnWeken={GezagTermijnWeken}",
-                            ouderschapsplanInfo.GezagPartij, ouderschapsplanInfo.GezagTermijnWeken);
                     }
                 }
                 catch (Exception ex)
@@ -580,6 +581,44 @@ namespace scheidingsdesk_document_generator.Services
 
             var value = reader[columnName];
             return value == DBNull.Value ? null : (bool?)value;
+        }
+
+        /// <summary>
+        /// Resolves a dossier ID or nummer to the actual dossier ID
+        /// If the input is already a valid dossier ID, returns it
+        /// If the input is a dossier nummer (string numeric), looks up the actual ID
+        /// </summary>
+        private async Task<int> ResolveDossierIdAsync(SqlConnection connection, int inputId)
+        {
+            // First, try to find a dossier with this ID
+            const string checkIdQuery = "SELECT id FROM dbo.dossiers WHERE id = @InputId";
+            using var checkIdCommand = new SqlCommand(checkIdQuery, connection);
+            checkIdCommand.Parameters.AddWithValue("@InputId", inputId);
+
+            var resultById = await checkIdCommand.ExecuteScalarAsync();
+            if (resultById != null)
+            {
+                _logger.LogInformation("Found dossier by ID: {DossierId}", inputId);
+                return inputId;
+            }
+
+            // If not found by ID, try to find by dossier_nummer
+            _logger.LogInformation("Dossier ID {InputId} not found, trying dossier_nummer lookup", inputId);
+            const string checkNummerQuery = "SELECT id FROM dbo.dossiers WHERE dossier_nummer = @DossierNummer";
+            using var checkNummerCommand = new SqlCommand(checkNummerQuery, connection);
+            checkNummerCommand.Parameters.AddWithValue("@DossierNummer", inputId.ToString());
+
+            var resultByNummer = await checkNummerCommand.ExecuteScalarAsync();
+            if (resultByNummer != null)
+            {
+                int actualId = Convert.ToInt32(resultByNummer);
+                _logger.LogInformation("Found dossier by nummer {DossierNummer}: actual ID is {ActualId}", inputId, actualId);
+                return actualId;
+            }
+
+            // If still not found, return the original input (will fail later with proper error)
+            _logger.LogWarning("Dossier not found by ID or nummer: {InputId}", inputId);
+            return inputId;
         }
 
         /// <summary>
