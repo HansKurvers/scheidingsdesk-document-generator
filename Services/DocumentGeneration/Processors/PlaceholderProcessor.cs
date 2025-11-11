@@ -60,7 +60,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add ouderschapsplan info if available
             if (data.OuderschapsplanInfo != null)
             {
-                AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen);
+                AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen, data);
             }
             else
             {
@@ -88,6 +88,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 
                 // Add default woonplaats text
                 replacements["WoonplaatsRegeling"] = "Het is nog onduidelijk waar de ouders zullen gaan wonen nadat zij uit elkaar gaan.";
+                
+                // Add default hoofdverblijf text
+                replacements["Hoofdverblijf"] = "";
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
@@ -354,7 +357,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             OuderschapsplanInfoData info,
             PersonData? partij1,
             PersonData? partij2,
-            List<ChildData> kinderen)
+            List<ChildData> kinderen,
+            DossierData data)
         {
             replacements["SoortRelatie"] = info.SoortRelatie ?? "";
             replacements["DatumAanvangRelatie"] = DataFormatter.FormatDate(info.DatumAanvangRelatie);
@@ -391,7 +395,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KinderbijslagOntvanger"] = GetKinderbijslagOntvanger(info.KinderbijslagPartij, partij1, partij2);
 
             replacements["KeuzeDevices"] = info.KeuzeDevices ?? "";
-            replacements["Hoofdverblijf"] = GetHoofdverblijfText(info.Hoofdverblijf, partij1, partij2, kinderen);
+            replacements["Hoofdverblijf"] = GetHoofdverblijfText(info.Hoofdverblijf, partij1, partij2, kinderen, data.IsAnoniem);
             replacements["Zorgverdeling"] = info.Zorgverdeling ?? "";
             replacements["OpvangKinderen"] = info.OpvangKinderen ?? "";
             replacements["BankrekeningnummersKind"] = info.BankrekeningnummersOpNaamVanKind ?? "";
@@ -600,7 +604,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// <summary>
         /// Get the hoofdverblijf (primary residence) text based on the stored person ID
         /// </summary>
-        private string GetHoofdverblijfText(string? hoofdverblijf, PersonData? partij1, PersonData? partij2, List<ChildData> kinderen)
+        private string GetHoofdverblijfText(string? hoofdverblijf, PersonData? partij1, PersonData? partij2, List<ChildData> kinderen, bool? isAnoniem)
         {
             if (string.IsNullOrEmpty(hoofdverblijf))
                 return "";
@@ -611,16 +615,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 // Check if it matches partij1
                 if (partij1 != null && partij1.Id == personId)
                 {
-                    var partij1Naam = partij1.Roepnaam ?? partij1.Voornamen ?? "Partij 1";
+                    var partij1Benaming = GetPartijBenaming(partij1, isAnoniem);
                     var kinderenTekst = GetKinderenTekst(kinderen);
-                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij1Naam}.";
+                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij1Benaming}.";
                 }
                 // Check if it matches partij2
                 else if (partij2 != null && partij2.Id == personId)
                 {
-                    var partij2Naam = partij2.Roepnaam ?? partij2.Voornamen ?? "Partij 2";
+                    var partij2Benaming = GetPartijBenaming(partij2, isAnoniem);
                     var kinderenTekst = GetKinderenTekst(kinderen);
-                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij2Naam}.";
+                    return $"{kinderenTekst} {(kinderen.Count == 1 ? "heeft" : "hebben")} {(kinderen.Count == 1 ? "het" : "hun")} hoofdverblijf bij {partij2Benaming}.";
                 }
             }
 
