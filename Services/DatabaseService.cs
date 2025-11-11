@@ -40,7 +40,6 @@ namespace scheidingsdesk_document_generator.Services
 
                 // First, resolve the actual dossier ID (in case a dossier nummer was provided)
                 int actualDossierId = await ResolveDossierIdAsync(connection, dossierId);
-                _logger.LogInformation("Resolved dossier ID: {ActualDossierId} (input was: {InputDossierId})", actualDossierId, dossierId);
 
                 // Create a single command with multiple result sets
                 const string query = @"
@@ -598,12 +597,11 @@ namespace scheidingsdesk_document_generator.Services
             var resultById = await checkIdCommand.ExecuteScalarAsync();
             if (resultById != null)
             {
-                _logger.LogInformation("Found dossier by ID: {DossierId}", inputId);
+                // Found by ID - this is the normal case, no need to log
                 return inputId;
             }
 
             // If not found by ID, try to find by dossier_nummer
-            _logger.LogInformation("Dossier ID {InputId} not found, trying dossier_nummer lookup", inputId);
             const string checkNummerQuery = "SELECT id FROM dbo.dossiers WHERE dossier_nummer = @DossierNummer";
             using var checkNummerCommand = new SqlCommand(checkNummerQuery, connection);
             checkNummerCommand.Parameters.AddWithValue("@DossierNummer", inputId.ToString());
@@ -612,7 +610,7 @@ namespace scheidingsdesk_document_generator.Services
             if (resultByNummer != null)
             {
                 int actualId = Convert.ToInt32(resultByNummer);
-                _logger.LogInformation("Found dossier by nummer {DossierNummer}: actual ID is {ActualId}", inputId, actualId);
+                _logger.LogInformation("Resolved dossier nummer {DossierNummer} to ID {ActualId}", inputId, actualId);
                 return actualId;
             }
 

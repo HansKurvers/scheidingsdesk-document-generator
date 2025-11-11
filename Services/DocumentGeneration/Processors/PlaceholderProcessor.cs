@@ -60,13 +60,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add ouderschapsplan info if available
             if (data.OuderschapsplanInfo != null)
             {
-                _logger.LogInformation("OuderschapsplanInfo found - GezagPartij: {GezagPartij}", data.OuderschapsplanInfo.GezagPartij);
                 AddOuderschapsplanInfoReplacements(replacements, data.OuderschapsplanInfo, data.Partij1, data.Partij2, data.Kinderen, data);
             }
             else
             {
-                _logger.LogWarning("OuderschapsplanInfo is NULL - using fallback text for GezagRegeling");
-
                 // Add default values for required placeholders
                 replacements["RelatieAanvangZin"] = "Wij hebben een relatie met elkaar gehad.";
                 replacements["OuderschapsplanDoelZin"] = $"In dit ouderschapsplan hebben we afspraken gemaakt over {(data.Kinderen.Count == 1 ? "ons kind" : "onze kinderen")}.";
@@ -378,11 +375,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["OuderschapsplanDoelZin"] = GetOuderschapsplanDoelZin(info.SoortRelatie, kinderen.Count);
 
             // Generate gezag (parental authority) sentence dynamically
-            _logger.LogInformation("Generating GezagRegeling - GezagPartij: {GezagPartij}, Partij1: {Partij1}, Partij2: {Partij2}",
-                info.GezagPartij, partij1?.Roepnaam, partij2?.Roepnaam);
             replacements["GezagRegeling"] = GetGezagRegeling(info.GezagPartij, info.GezagTermijnWeken, partij1, partij2, kinderen);
             replacements["GezagZin"] = replacements["GezagRegeling"];  // Alias for backward compatibility
-            _logger.LogInformation("GezagRegeling generated: {GezagRegeling}", replacements["GezagRegeling"]);
 
             replacements["GezagPartij"] = info.GezagPartij?.ToString() ?? "";
             replacements["GezagTermijnWeken"] = info.GezagTermijnWeken?.ToString() ?? "";
