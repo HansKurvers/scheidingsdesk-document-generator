@@ -174,4 +174,13 @@ namespace scheidingsdesk_document_generator.Models
         public string? Inschrijving { get; set; }
         public string? KindgebondenBudget { get; set; }
     }
+
+    public class RegelingTemplate
+    {
+        public int Id { get; set; }
+        public string TemplateNaam { get; set; } = string.Empty;
+        public string TemplateTekst { get; set; } = string.Empty;
+        public bool MeervoudKinderen { get; set; }
+        public string Type { get; set; } = string.Empty;
+    }
 }

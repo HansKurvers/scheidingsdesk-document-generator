@@ -30,6 +30,9 @@ var host = new HostBuilder()
         // Register database service
         services.AddScoped<DatabaseService>();
 
+        // Register template service
+        services.AddScoped<IRegelingenTemplateService, RegelingenTemplateService>();
+
         // Register document generation services
         services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
         services.AddScoped<ITemplateProvider, TemplateProvider>();

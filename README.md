@@ -43,12 +43,17 @@ De Scheidingsdesk Document Generator is een serverless applicatie gebouwd met Az
    - Verwerkt placeholder teksten
    - Zorgt voor correcte tekstopmaak
 
-3. **Grammatica Regels**
+3. **Template Management** (Nieuw in v2.1.0)
+   - **Get Template Types** (`/api/template-types`) - Haalt beschikbare template types op
+   - **Get Templates by Type** (`/api/templates/{type}`) - Haalt templates op voor een specifiek type
+   - Ondersteunt types: Feestdag, Vakantie, Algemeen, Bijzondere dag
+
+4. **Grammatica Regels**
    - Automatische aanpassing van enkelvoud/meervoud op basis van aantal kinderen
    - Geslachtsspecifieke voornaamwoorden (hij/zij/hen)
    - Nederlandse taalregels voor lijsten ("en" tussen laatste twee items)
 
-4. **Dynamische Tabellen**
+5. **Dynamische Tabellen**
    - Omgangstabellen per week regeling met dagindeling
    - Zorgtabellen per categorie
    - Vakantieregelingen (voorjaar, mei, zomer, herfst, kerst)

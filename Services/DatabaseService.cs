@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using scheidingsdesk_document_generator.Models;
+using scheidingsdesk_document_generator.Constants;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -700,6 +701,117 @@ namespace scheidingsdesk_document_generator.Services
                 return new List<string>();
 
             return ParseJsonStringArray(reader[columnName]);
+        }
+
+        /// <summary>
+        /// Gets available template types from the database
+        /// </summary>
+        /// <returns>List of available template types</returns>
+        public async Task<List<string>> GetAvailableTemplateTypesAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving available template types");
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                // Query distinct types from regelingen_templates table
+                const string query = @"
+                    SELECT DISTINCT type 
+                    FROM dbo.regelingen_templates 
+                    WHERE type IS NOT NULL 
+                    ORDER BY type";
+
+                using var command = new SqlCommand(query, connection);
+                using var reader = await command.ExecuteReaderAsync();
+                
+                var templateTypes = new List<string>();
+                while (await reader.ReadAsync())
+                {
+                    var type = ConvertToString(reader["type"]);
+                    if (!string.IsNullOrWhiteSpace(type))
+                    {
+                        templateTypes.Add(type);
+                    }
+                }
+
+                // If no types found in database, return default types
+                if (templateTypes.Count == 0)
+                {
+                    templateTypes.AddRange(TemplateTypes.DefaultTypes);
+                    _logger.LogWarning("No template types found in database, using default types");
+                }
+
+                _logger.LogInformation($"Retrieved {templateTypes.Count} template types: {string.Join(", ", templateTypes)}");
+                return templateTypes;
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "Database error while retrieving template types");
+                // Return default types on error
+                return new List<string>(TemplateTypes.DefaultTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while retrieving template types");
+                // Return default types on error
+                return new List<string>(TemplateTypes.DefaultTypes);
+            }
+        }
+
+        /// <summary>
+        /// Gets templates by type from the database
+        /// </summary>
+        /// <param name="templateType">The type of templates to retrieve (e.g., "Feestdag", "Vakantie", "Algemeen", "Bijzondere dag")</param>
+        /// <returns>List of templates for the specified type</returns>
+        public async Task<List<RegelingTemplate>> GetTemplatesByTypeAsync(string templateType)
+        {
+            try
+            {
+                _logger.LogInformation($"Retrieving templates for type: {templateType}");
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                // Query templates by type
+                const string query = @"
+                    SELECT id, template_naam, template_tekst, meervoud_kinderen, type
+                    FROM dbo.regelingen_templates 
+                    WHERE type = @TemplateType
+                    ORDER BY template_naam";
+
+                using var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@TemplateType", templateType);
+                
+                using var reader = await command.ExecuteReaderAsync();
+                
+                var templates = new List<RegelingTemplate>();
+                while (await reader.ReadAsync())
+                {
+                    templates.Add(new RegelingTemplate
+                    {
+                        Id = (int)reader["id"],
+                        TemplateNaam = ConvertToString(reader["template_naam"]),
+                        TemplateTekst = ConvertToString(reader["template_tekst"]),
+                        MeervoudKinderen = (bool)reader["meervoud_kinderen"],
+                        Type = ConvertToString(reader["type"])
+                    });
+                }
+
+                _logger.LogInformation($"Retrieved {templates.Count} templates for type: {templateType}");
+                return templates;
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, $"Database error while retrieving templates for type: {templateType}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Unexpected error while retrieving templates for type: {templateType}");
+                throw;
+            }
         }
     }
 }

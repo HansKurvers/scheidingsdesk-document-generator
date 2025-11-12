@@ -1,5 +1,9 @@
 Tekst Placeholders (Gebruik elk formaat: [[Variable]], {Variable}, [Variable], <<Variable>>)
 
+NIEUWE PLACEHOLDER SYSTEEM VOOR TEMPLATES:
+- {KIND} - Gebruikt enkelvoud vorm als er 1 kind is, anders meervoud (bijv. "Emma" of "Emma en Luuk")
+- {KINDEREN} - Altijd meervoud vorm van de kindernamen (bijv. "Emma en Luuk")
+
 Partij 1 Informatie:
 
 - [[Partij1Naam]] - Volledige naam
