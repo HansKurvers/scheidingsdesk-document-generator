@@ -15,6 +15,7 @@ Partij 1 Informatie:
 - [[Partij1Tussenvoegsel]] - Tussenvoegsel (van, de, etc.)
 - [[Partij1VolledigeNaamMetTussenvoegsel]] - Voornamen + tussenvoegsel + achternaam (bijv. "Jan Peter de Vries")
 - [[Partij1VolledigeAchternaam]] - Tussenvoegsel + achternaam (bijv. "de Vries")
+- [[Partij1VoorlettersAchternaam]] - Voorletters + tussenvoegsel + achternaam (bijv. "J.P. de Vries")
 - [[Partij1Adres]] - Straatnaam en huisnummer
 - [[Partij1Postcode]] - Postcode
 - [[Partij1Plaats]] - Woonplaats
@@ -34,6 +35,7 @@ Partij 2 Informatie:
 - [[Partij2Tussenvoegsel]] - Tussenvoegsel
 - [[Partij2VolledigeNaamMetTussenvoegsel]] - Voornamen + tussenvoegsel + achternaam (bijv. "Maria van der Berg")
 - [[Partij2VolledigeAchternaam]] - Tussenvoegsel + achternaam (bijv. "van der Berg")
+- [[Partij2VoorlettersAchternaam]] - Voorletters + tussenvoegsel + achternaam (bijv. "M. van der Berg")
 - [[Partij2Adres]] - Straatnaam en huisnummer
 - [[Partij2Postcode]] - Postcode
 - [[Partij2Plaats]] - Woonplaats

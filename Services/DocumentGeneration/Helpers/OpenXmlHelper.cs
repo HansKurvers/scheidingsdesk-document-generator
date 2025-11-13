@@ -17,13 +17,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         /// <param name="bgColor">Background color (hex without #, e.g., "2E74B5")</param>
         /// <param name="textColor">Text color (hex without #, e.g., "FFFFFF")</param>
         /// <param name="alignment">Text alignment (default: Center)</param>
+        /// <param name="fontSize">Font size in half-points (e.g., "20" = 10pt, "18" = 9pt)</param>
         /// <returns>Configured TableCell</returns>
         public static TableCell CreateStyledCell(
             string text,
             bool isBold = false,
             string? bgColor = null,
             string? textColor = null,
-            JustificationValues? alignment = null)
+            JustificationValues? alignment = null,
+            string? fontSize = null)
         {
             var cell = new TableCell();
 
@@ -54,6 +56,11 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             if (!string.IsNullOrEmpty(textColor))
             {
                 runProps.Append(new Color() { Val = textColor });
+            }
+
+            if (!string.IsNullOrEmpty(fontSize))
+            {
+                runProps.Append(new FontSize() { Val = fontSize });
             }
 
             if (runProps.HasChildren)
@@ -170,14 +177,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         /// <param name="headerTexts">Array of header text values</param>
         /// <param name="bgColor">Background color for headers</param>
         /// <param name="textColor">Text color for headers</param>
+        /// <param name="fontSize">Font size in half-points (e.g., "20" = 10pt, "18" = 9pt)</param>
         /// <returns>Configured TableRow</returns>
-        public static TableRow CreateHeaderRow(string[] headerTexts, string bgColor = "2E74B5", string textColor = "FFFFFF")
+        public static TableRow CreateHeaderRow(string[] headerTexts, string bgColor = "2E74B5", string textColor = "FFFFFF", string? fontSize = null)
         {
             var row = new TableRow();
 
             foreach (var headerText in headerTexts)
             {
-                var cell = CreateStyledCell(headerText, isBold: true, bgColor: bgColor, textColor: textColor);
+                var cell = CreateStyledCell(headerText, isBold: true, bgColor: bgColor, textColor: textColor, fontSize: fontSize);
                 row.Append(cell);
             }
 

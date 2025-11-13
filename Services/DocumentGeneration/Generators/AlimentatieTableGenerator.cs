@@ -85,41 +85,41 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
             var columnWidths = new[] { 3500, 2500 };
             var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.DarkBlue, columnWidths);
 
-            // Add header row
+            // Add header row with smaller font size
             var headers = new[] { "Omschrijving", "Bedrag" };
-            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White);
+            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White, fontSize: "18");
             table.Append(headerRow);
 
             // Add data rows
             if (alimentatie.NettoBesteedbaarGezinsinkomen.HasValue)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell("Netto besteedbaar gezinsinkomen"));
-                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.NettoBesteedbaarGezinsinkomen)));
+                row.Append(OpenXmlHelper.CreateStyledCell("Netto besteedbaar gezinsinkomen", fontSize: "18"));
+                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.NettoBesteedbaarGezinsinkomen), fontSize: "18"));
                 table.Append(row);
             }
 
             if (alimentatie.KostenKinderen.HasValue)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell("Kosten kinderen"));
-                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.KostenKinderen)));
+                row.Append(OpenXmlHelper.CreateStyledCell("Kosten kinderen", fontSize: "18"));
+                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.KostenKinderen), fontSize: "18"));
                 table.Append(row);
             }
 
             if (alimentatie.BijdrageKostenKinderen.HasValue)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell("Bijdrage kosten kinderen"));
-                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.BijdrageKostenKinderen)));
+                row.Append(OpenXmlHelper.CreateStyledCell("Bijdrage kosten kinderen", fontSize: "18"));
+                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(alimentatie.BijdrageKostenKinderen), fontSize: "18"));
                 table.Append(row);
             }
 
             if (!string.IsNullOrEmpty(alimentatie.BijdrageTemplateOmschrijving))
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell("Bijdrage template"));
-                row.Append(OpenXmlHelper.CreateStyledCell(alimentatie.BijdrageTemplateOmschrijving));
+                row.Append(OpenXmlHelper.CreateStyledCell("Bijdrage template", fontSize: "18"));
+                row.Append(OpenXmlHelper.CreateStyledCell(alimentatie.BijdrageTemplateOmschrijving, fontSize: "18"));
                 table.Append(row);
             }
 
@@ -131,17 +131,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
             var columnWidths = new[] { 3500, 2500 };
             var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.DarkBlue, columnWidths);
 
-            // Add header row
+            // Add header row with smaller font size
             var headers = new[] { "Partij", "Eigen aandeel" };
-            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White);
+            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White, fontSize: "18");
             table.Append(headerRow);
 
             // Add data rows
             foreach (var bijdrage in bijdragen)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell(bijdrage.PersoonNaam ?? "Onbekend"));
-                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(bijdrage.EigenAandeel)));
+                row.Append(OpenXmlHelper.CreateStyledCell(bijdrage.PersoonNaam ?? "Onbekend", fontSize: "18"));
+                row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(bijdrage.EigenAandeel), fontSize: "18"));
                 table.Append(row);
             }
 
@@ -270,8 +270,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
 
             var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.DarkBlue, columnWidths);
 
-            // Add header row
-            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White);
+            // Add header row with smaller font size
+            var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White, fontSize: "18");
             table.Append(headerRow);
 
             // Add data rows - iterate through children to maintain order
@@ -283,25 +283,25 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                 {
                     var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
 
-                    row.Append(OpenXmlHelper.CreateStyledCell(kind.VolledigeNaam ?? ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(kind.Roepnaam ?? kind.Voornamen ?? "", fontSize: "18"));
 
                     // Only show alimentatie bedrag if NOT kinderrekening
                     if (!isKinderrekening)
                     {
-                        row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag)));
+                        row.Append(OpenXmlHelper.CreateStyledCell(DataFormatter.FormatCurrency(afspraak.AlimentatieBedrag), fontSize: "18"));
                     }
 
-                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Hoofdverblijf ?? ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Hoofdverblijf ?? "", fontSize: "18"));
 
                     // Only show kinderbijslag if not stored on kinderrekening
                     if (showKinderbijslag)
                     {
-                        row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KinderbijslagOntvanger ?? ""));
+                        row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KinderbijslagOntvanger ?? "", fontSize: "18"));
                     }
 
-                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.ZorgkortingPercentage.HasValue ? $"{afspraak.ZorgkortingPercentage:0.##}%" : ""));
-                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Inschrijving ?? ""));
-                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KindgebondenBudget ?? ""));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.ZorgkortingPercentage.HasValue ? $"{afspraak.ZorgkortingPercentage:0.##}%" : "", fontSize: "18"));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Inschrijving ?? "", fontSize: "18"));
+                    row.Append(OpenXmlHelper.CreateStyledCell(afspraak.KindgebondenBudget ?? "", fontSize: "18"));
 
                     table.Append(row);
                 }

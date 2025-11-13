@@ -243,6 +243,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // Benaming placeholder (contextual party designation)
             replacements[$"{prefix}Benaming"] = GetPartijBenaming(person, isAnoniem);
+
+            // Voorletters + tussenvoegsel + achternaam
+            replacements[$"{prefix}VoorlettersAchternaam"] = GetVoorlettersAchternaam(person);
         }
 
         /// <summary>
@@ -800,6 +803,40 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements["KinderenAlimentatie"] = string.Join("\n\n", kinderenAlimentatieList);
                 _logger.LogDebug("Added KinderenAlimentatie with {Count} children", kinderenAlimentatieList.Count);
             }
+        }
+
+        /// <summary>
+        /// Gets voorletters + tussenvoegsel + achternaam
+        /// Example: "J.P. de Vries" (for Jan Peter de Vries)
+        /// </summary>
+        private static string GetVoorlettersAchternaam(PersonData? person)
+        {
+            if (person == null) return "";
+
+            var parts = new List<string>();
+
+            // Use voorletters if available, otherwise create from voornamen
+            if (!string.IsNullOrWhiteSpace(person.Voorletters))
+            {
+                parts.Add(person.Voorletters.Trim());
+            }
+            else if (!string.IsNullOrWhiteSpace(person.Voornamen))
+            {
+                // Create voorletters from voornamen if not available
+                var voorletters = string.Join(".", person.Voornamen
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(n => n.FirstOrDefault())
+                    .Where(c => c != default(char))) + ".";
+                parts.Add(voorletters);
+            }
+
+            if (!string.IsNullOrWhiteSpace(person.Tussenvoegsel))
+                parts.Add(person.Tussenvoegsel.Trim());
+
+            if (!string.IsNullOrWhiteSpace(person.Achternaam))
+                parts.Add(person.Achternaam.Trim());
+
+            return string.Join(" ", parts);
         }
 
         /// <summary>
