@@ -31,12 +31,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                 return elements;
             }
 
-            // Group by category
-            var groupedByCategory = data.Zorg.GroupBy(z => z.ZorgCategorieNaam).OrderBy(g => g.Key);
+            // Separate overige afspraken (situatieId 15) from other categories
+            var overigeAfspraken = data.Zorg.Where(z => z.ZorgSituatieId == 15).ToList();
+            var regularZorg = data.Zorg.Where(z => z.ZorgSituatieId != 15).ToList();
+
+            // First, handle regular zorg categories (grouped)
+            var groupedByCategory = regularZorg.GroupBy(z => z.ZorgCategorieNaam).OrderBy(g => g.Key);
 
             foreach (var categoryGroup in groupedByCategory)
             {
-                var categoryName = categoryGroup.Key ?? "Overige afspraken";
+                var categoryName = categoryGroup.Key ?? "Afspraken";
 
                 // Add heading for this category
                 elements.Add(OpenXmlHelper.CreateStyledHeading(categoryName));
@@ -49,7 +53,31 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                 elements.Add(OpenXmlHelper.CreateEmptyParagraph());
             }
 
-            _logger.LogInformation($"[{correlationId}] Generated {groupedByCategory.Count()} zorg tables");
+            // Then, handle overige afspraken separately (each gets its own section)
+            if (overigeAfspraken.Any())
+            {
+                // Add main heading for overige afspraken
+                elements.Add(OpenXmlHelper.CreateStyledHeading("Overige afspraken"));
+
+                foreach (var overigeAfspraak in overigeAfspraken)
+                {
+                    // Use SituatieAnders as section title if available
+                    if (!string.IsNullOrWhiteSpace(overigeAfspraak.SituatieAnders))
+                    {
+                        elements.Add(OpenXmlHelper.CreateStyledSubHeading(overigeAfspraak.SituatieAnders));
+                    }
+
+                    // Create a single-row table for this afspraak
+                    var table = CreateSingleAfspraakTable(overigeAfspraak);
+                    elements.Add(table);
+
+                    // Add spacing
+                    elements.Add(OpenXmlHelper.CreateEmptyParagraph());
+                }
+            }
+
+            var totalTables = groupedByCategory.Count() + (overigeAfspraken.Any() ? 1 : 0);
+            _logger.LogInformation($"[{correlationId}] Generated {totalTables} zorg sections with {overigeAfspraken.Count} overige afspraken");
             return elements;
         }
 
@@ -72,6 +100,20 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
                 row.Append(OpenXmlHelper.CreateStyledCell(zorg.Overeenkomst ?? ""));
                 table.Append(row);
             }
+
+            return table;
+        }
+
+        private DocumentFormat.OpenXml.Wordprocessing.Table CreateSingleAfspraakTable(ZorgData afspraak)
+        {
+            // Create table with 1 column (full width)
+            var columnWidths = new[] { 6000 };
+            var table = OpenXmlHelper.CreateStyledTable(OpenXmlHelper.Colors.DarkBlue, columnWidths);
+
+            // Add single row with the overeenkomst text
+            var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
+            row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Overeenkomst ?? ""));
+            table.Append(row);
 
             return table;
         }

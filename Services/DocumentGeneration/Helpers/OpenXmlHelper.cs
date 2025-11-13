@@ -88,6 +88,26 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
         }
 
         /// <summary>
+        /// Creates a styled sub-heading (smaller than main heading)
+        /// </summary>
+        /// <param name="text">Text content for the sub-heading</param>
+        /// <param name="fontSize">Font size in half-points (default: 20 = 10pt)</param>
+        /// <returns>Configured Paragraph</returns>
+        public static Paragraph CreateStyledSubHeading(string text, string fontSize = "20")
+        {
+            var heading = new Paragraph();
+            var headingRun = new Run();
+            var headingRunProps = new RunProperties();
+            headingRunProps.Append(new Bold());
+            headingRunProps.Append(new FontSize() { Val = fontSize });
+            headingRunProps.Append(new Color() { Val = Colors.DarkBlue }); // Add color for distinction
+            headingRun.Append(headingRunProps);
+            headingRun.Append(new Text(text));
+            heading.Append(headingRun);
+            return heading;
+        }
+
+        /// <summary>
         /// Creates a standard table with modern borders
         /// </summary>
         /// <param name="borderColor">Border color (hex without #)</param>
