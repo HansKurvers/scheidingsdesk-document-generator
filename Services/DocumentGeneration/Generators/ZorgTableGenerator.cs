@@ -64,8 +64,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
             var headerRow = OpenXmlHelper.CreateHeaderRow(headers, OpenXmlHelper.Colors.DarkBlue, OpenXmlHelper.Colors.White);
             table.Append(headerRow);
 
+            // Sort data: overige afspraken (situatieId 15) go to the bottom
+            var sortedData = categoryData
+                .OrderBy(z => z.ZorgSituatieId == 15 ? 1 : 0)  // Overige afspraken last
+                .ThenBy(z => z.ZorgSituatieId)  // Then by situation ID
+                .ToList();
+
             // Add data rows
-            foreach (var zorg in categoryData)
+            foreach (var zorg in sortedData)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
                 row.Append(OpenXmlHelper.CreateStyledCell(zorg.EffectieveSituatie, alignment: DocumentFormat.OpenXml.Wordprocessing.JustificationValues.Left));
