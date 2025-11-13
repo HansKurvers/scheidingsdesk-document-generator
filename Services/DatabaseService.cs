@@ -118,7 +118,10 @@ namespace scheidingsdesk_document_generator.Services
                                a.kinderrekening_kostensoorten, a.kinderrekening_maximum_opname,
                                a.kinderrekening_maximum_opname_bedrag, a.kinderbijslag_storten_op_kinderrekening,
                                a.kindgebonden_budget_storten_op_kinderrekening, a.bedragen_alle_kinderen_gelijk,
-                               a.alimentatiebedrag_per_kind, a.alimentatiegerechtigde, a.zorgkorting_percentage_alle_kinderen
+                               a.alimentatiebedrag_per_kind, a.alimentatiegerechtigde, a.zorgkorting_percentage_alle_kinderen,
+                               a.afspraken_alle_kinderen_gelijk, a.hoofdverblijf_alle_kinderen,
+                               a.inschrijving_alle_kinderen, a.kinderbijslag_ontvanger_alle_kinderen,
+                               a.kindgebonden_budget_alle_kinderen
                         FROM dbo.alimentaties a
                         LEFT JOIN dbo.bijdrage_templates bt ON a.bijdrage_template = bt.id
                         WHERE a.dossier_id = @DossierId;
@@ -321,7 +324,14 @@ namespace scheidingsdesk_document_generator.Services
                             BedragenAlleKinderenGelijk = SafeReadBoolean(reader, "bedragen_alle_kinderen_gelijk"),
                             AlimentatiebedragPerKind = SafeReadDecimal(reader, "alimentatiebedrag_per_kind"),
                             Alimentatiegerechtigde = SafeReadString(reader, "alimentatiegerechtigde"),
-                            ZorgkortingPercentageAlleKinderen = SafeReadDecimal(reader, "zorgkorting_percentage_alle_kinderen")
+                            ZorgkortingPercentageAlleKinderen = SafeReadDecimal(reader, "zorgkorting_percentage_alle_kinderen"),
+
+                            // Sync settings for all children - safely read (backwards compatible if columns don't exist yet)
+                            AfsprakenAlleKinderenGelijk = SafeReadBoolean(reader, "afspraken_alle_kinderen_gelijk"),
+                            HoofdverblijfAlleKinderen = SafeReadString(reader, "hoofdverblijf_alle_kinderen"),
+                            InschrijvingAlleKinderen = SafeReadString(reader, "inschrijving_alle_kinderen"),
+                            KinderbijslagOntvangerAlleKinderen = SafeReadString(reader, "kinderbijslag_ontvanger_alle_kinderen"),
+                            KindgebondenBudgetAlleKinderen = SafeReadString(reader, "kindgebonden_budget_alle_kinderen")
                         };
 
                         var hasNewFields = ColumnExists(reader, "storting_ouder1_kinderrekening");

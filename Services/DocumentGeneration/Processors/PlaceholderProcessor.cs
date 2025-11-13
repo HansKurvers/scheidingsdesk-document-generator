@@ -683,6 +683,13 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["IsKinderrekeningBetaalwijze"] = "";
             replacements["IsAlimentatieplichtBetaalwijze"] = "";
 
+            // Initialize new sync settings placeholders
+            replacements["AfsprakenAlleKinderenGelijk"] = "";
+            replacements["HoofdverblijfAlleKinderen"] = "";
+            replacements["InschrijvingAlleKinderen"] = "";
+            replacements["KinderbijslagOntvangerAlleKinderen"] = "";
+            replacements["KindgebondenBudgetAlleKinderen"] = "";
+
             // If no alimentatie data, return early
             if (alimentatie == null)
             {
@@ -714,6 +721,13 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Template detection flags
             replacements["IsKinderrekeningBetaalwijze"] = DataFormatter.ConvertToString(alimentatie.IsKinderrekeningBetaalwijze);
             replacements["IsAlimentatieplichtBetaalwijze"] = DataFormatter.ConvertToString(alimentatie.IsAlimentatieplichtBetaalwijze);
+
+            // Sync settings for all children
+            replacements["AfsprakenAlleKinderenGelijk"] = DataFormatter.ConvertToString(alimentatie.AfsprakenAlleKinderenGelijk);
+            replacements["HoofdverblijfAlleKinderen"] = GetPartyName(alimentatie.HoofdverblijfAlleKinderen, partij1, partij2);
+            replacements["InschrijvingAlleKinderen"] = GetPartyName(alimentatie.InschrijvingAlleKinderen, partij1, partij2);
+            replacements["KinderbijslagOntvangerAlleKinderen"] = GetPartyNameOrKinderrekening(alimentatie.KinderbijslagOntvangerAlleKinderen, partij1, partij2);
+            replacements["KindgebondenBudgetAlleKinderen"] = GetPartyNameOrKinderrekening(alimentatie.KindgebondenBudgetAlleKinderen, partij1, partij2);
 
             _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}, IsKinderrekening={IsKinderrekening}",
                 replacements["NettoBesteedbaarGezinsinkomen"],
@@ -786,6 +800,39 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements["KinderenAlimentatie"] = string.Join("\n\n", kinderenAlimentatieList);
                 _logger.LogDebug("Added KinderenAlimentatie with {Count} children", kinderenAlimentatieList.Count);
             }
+        }
+
+        /// <summary>
+        /// Gets the party name (roepnaam) based on the party identifier
+        /// </summary>
+        private string GetPartyName(string? partyIdentifier, PersonData? partij1, PersonData? partij2)
+        {
+            if (string.IsNullOrEmpty(partyIdentifier))
+                return "";
+
+            return partyIdentifier.ToLower() switch
+            {
+                "partij1" => partij1?.Roepnaam ?? "",
+                "partij2" => partij2?.Roepnaam ?? "",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Gets the party name (roepnaam) or "Kinderrekening" based on the party identifier
+        /// </summary>
+        private string GetPartyNameOrKinderrekening(string? partyIdentifier, PersonData? partij1, PersonData? partij2)
+        {
+            if (string.IsNullOrEmpty(partyIdentifier))
+                return "";
+
+            return partyIdentifier.ToLower() switch
+            {
+                "partij1" => partij1?.Roepnaam ?? "",
+                "partij2" => partij2?.Roepnaam ?? "",
+                "kinderrekening" => "Kinderrekening",
+                _ => ""
+            };
         }
 
         #endregion

@@ -168,6 +168,13 @@ Alimentatie Settings (nieuw):
 - [[AlimentatiebedragPerKind]] - Het bedrag per kind als alle bedragen gelijk zijn (geformatteerd als Euro bedrag)
 - [[Alimentatiegerechtigde]] - Wie de alimentatiegerechtigde is (naam ouder)
 
+Synchronisatie Settings Alle Kinderen (nieuw):
+- [[AfsprakenAlleKinderenGelijk]] - Of alle kinderen dezelfde afspraken hebben (Ja/Nee)
+- [[HoofdverblijfAlleKinderen]] - Hoofdverblijf voor alle kinderen (roepnaam van de ouder)
+- [[InschrijvingAlleKinderen]] - Inschrijving voor alle kinderen (roepnaam van de ouder)
+- [[KinderbijslagOntvangerAlleKinderen]] - Kinderbijslag ontvanger voor alle kinderen (roepnaam van de ouder of "Kinderrekening")
+- [[KindgebondenBudgetAlleKinderen]] - Kindgebonden budget ontvanger voor alle kinderen (roepnaam van de ouder of "Kinderrekening")
+
 Template Detectie Flags (nieuw):
 - [[IsKinderrekeningBetaalwijze]] - Of de betaalwijze een kinderrekening type is (Ja/Nee)
 - [[IsAlimentatieplichtBetaalwijze]] - Of de betaalwijze een alimentatieplichtige type is (Ja/Nee)

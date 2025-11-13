@@ -130,6 +130,15 @@ namespace scheidingsdesk_document_generator.Models
         public decimal? ZorgkortingPercentageAlleKinderen { get; set; }
 
         /// <summary>
+        /// Sync settings for all children
+        /// </summary>
+        public bool? AfsprakenAlleKinderenGelijk { get; set; }
+        public string? HoofdverblijfAlleKinderen { get; set; }
+        public string? InschrijvingAlleKinderen { get; set; }
+        public string? KinderbijslagOntvangerAlleKinderen { get; set; }
+        public string? KindgebondenBudgetAlleKinderen { get; set; }
+
+        /// <summary>
         /// Child cost contributions per person
         /// </summary>
         public List<BijdrageKostenKinderenData> BijdragenKostenKinderen { get; set; } = new List<BijdrageKostenKinderenData>();
