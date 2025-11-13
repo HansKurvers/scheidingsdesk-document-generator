@@ -4,6 +4,8 @@ NIEUWE PLACEHOLDER SYSTEEM VOOR TEMPLATES:
 - {KIND} - Gebruikt enkelvoud vorm als er 1 kind is, anders meervoud (bijv. "Emma" of "Emma en Luuk")
 - {KINDEREN} - Altijd meervoud vorm van de kindernamen (bijv. "Emma en Luuk")
 
+Let op: Deze {KIND} en {KINDEREN} placeholders worden ook herhaald verderop in de documentatie onder "Template-Specifieke Placeholders"
+
 Partij 1 Informatie:
 
 - [[Partij1Naam]] - Volledige naam
@@ -210,15 +212,47 @@ Opmerking: Gebruik de volledige vorm in je template (bijv. [[heeft/hebben]], nie
 - [[blijft/blijven]] - "blijven" (meervoud) of "blijft" (enkelvoud)
 - [[gaat/gaan]] - "gaan" (meervoud) of "gaat" (enkelvoud)
 - [[komt/komen]] - "komen" (meervoud) of "komt" (enkelvoud)
+- [[zou/zouden]] - "zouden" (meervoud) of "zou" (enkelvoud)
+- [[wil/willen]] - "willen" (meervoud) of "wil" (enkelvoud)
+- [[mag/mogen]] - "mogen" (meervoud) of "mag" (enkelvoud)
+- [[doet/doen]] - "doen" (meervoud) of "doet" (enkelvoud)
+- [[krijgt/krijgen]] - "krijgen" (meervoud) of "krijgt" (enkelvoud)
+- [[neemt/nemen]] - "nemen" (meervoud) of "neemt" (enkelvoud)
+- [[brengt/brengen]] - "brengen" (meervoud) of "brengt" (enkelvoud)
+- [[haalt/halen]] - "halen" (meervoud) of "haalt" (enkelvoud)
 - [[hem/haar/hen]] - "hen" (meervoud), "hem" (mannelijk), "haar" (vrouwelijk)
 - [[hij/zij/ze]] - "ze" (meervoud), "hij" (mannelijk), "zij" (vrouwelijk)
+- [[zijn/haar/hun]] - "hun" (meervoud), "zijn" (mannelijk), "haar" (vrouwelijk)
+- [[diens/dier/hun]] - "hun" (meervoud), "diens" (mannelijk), "dier" (vrouwelijk)
 
 Tabel Placeholders (Plaats op een eigen regel in het document):
 
 - [[TABEL_ALIMENTATIE]] - Genereert alimentatie/financiële afspraken tabel
 - [[TABEL_OMGANG]] - Genereert omgangsregeling tabel
 - [[TABEL_ZORG]] - Genereert zorgafspraken tabel
+- [[TABEL_FEESTDAGEN]] - Genereert feestdagen tabel
+- [[TABEL_VAKANTIES]] - Genereert vakanties tabel
 - [[LIJST_KINDEREN]] - Genereert geformatteerde lijst van kinderen met details
+
+Template-Specifieke Placeholders (Voor gebruik in bijzondere dag/feestdag/vakantie templates):
+
+- {KIND} - Gebruikt enkelvoud vorm als er 1 kind is, anders meervoud (bijv. "Emma" of "Emma en Luuk")
+- {KINDEREN} - Altijd meervoud vorm van de kindernamen (bijv. "Emma en Luuk")
+- {BIJZONDERE_DAG} - Naam van de bijzondere dag
+- {FEESTDAG} - Naam van de feestdag
+- {VAKANTIE} - Naam van de vakantie
+- {DATUM} - Datum placeholder voor templates
+- {JAAR} - Jaar placeholder voor templates
+- {PARTIJ1} - Partij 1 naam in template context
+- {PARTIJ2} - Partij 2 naam in template context
+
+Placeholder Aliassen:
+
+- [[GezagZin]] - Alias voor [[GezagRegeling]]
+
+Overige Placeholders:
+
+- [[ZorgkortingPercentageAlleKinderen]] - Zorgkortingspercentage dat voor alle kinderen geldt
 
 Aanvullende Beschikbare Velden (met punt notatie):
 
