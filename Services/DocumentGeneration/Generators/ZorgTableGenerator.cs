@@ -96,8 +96,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
             foreach (var zorg in categoryData)
             {
                 var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-                row.Append(OpenXmlHelper.CreateStyledCell(zorg.EffectieveSituatie));
-                row.Append(OpenXmlHelper.CreateStyledCell(zorg.Overeenkomst ?? ""));
+                row.Append(OpenXmlHelper.CreateStyledCell(zorg.EffectieveSituatie, alignment: DocumentFormat.OpenXml.Wordprocessing.JustificationValues.Left));
+                row.Append(OpenXmlHelper.CreateStyledCell(zorg.Overeenkomst ?? "", alignment: DocumentFormat.OpenXml.Wordprocessing.JustificationValues.Left));
                 table.Append(row);
             }
 
@@ -112,7 +112,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Generato
 
             // Add single row with the overeenkomst text
             var row = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
-            row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Overeenkomst ?? ""));
+            row.Append(OpenXmlHelper.CreateStyledCell(afspraak.Overeenkomst ?? "", alignment: DocumentFormat.OpenXml.Wordprocessing.JustificationValues.Left));
             table.Append(row);
 
             return table;
