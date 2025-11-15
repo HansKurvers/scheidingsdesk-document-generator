@@ -20,6 +20,14 @@
             "maxConcurrentRequests": 100,
             "customHeaders": {
                 "X-Content-Type-Options": "nosniff"
+            },
+            "cors": {
+                "allowedOrigins": [
+                    "https://app.scheidingsdesk.nl",
+                    "http://localhost:5173",
+                    "http://localhost:3000"
+                ],
+                "supportCredentials": false
             }
         }
     },
