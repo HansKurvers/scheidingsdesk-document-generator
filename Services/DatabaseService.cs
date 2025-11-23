@@ -182,13 +182,25 @@ namespace scheidingsdesk_document_generator.Services
                     IF EXISTS (SELECT * FROM sys.tables WHERE name = 'communicatie_afspraken' AND schema_id = SCHEMA_ID('dbo'))
                     BEGIN
                         SELECT ca.id, ca.dossier_id, ca.villa_pinedo_kinderen, ca.kinderen_betrokkenheid,
-                               ca.kies_methode, ca.omgang_tekst_of_schema, ca.opvang, ca.informatie_uitwisseling,
+                               ca.kies_methode, ca.opvang, ca.informatie_uitwisseling,
                                ca.bijlage_beslissingen, ca.social_media, ca.mobiel_tablet, ca.id_bewijzen,
                                ca.aansprakelijkheidsverzekering, ca.ziektekostenverzekering, ca.toestemming_reizen,
                                ca.jongmeerderjarige, ca.studiekosten, ca.bankrekening_kinderen, ca.evaluatie,
-                               ca.parenting_coordinator, ca.mediation_clausule, ca.aangemaakt_op, ca.gewijzigd_op
+                               ca.parenting_coordinator, ca.mediation_clausule
                         FROM dbo.communicatie_afspraken ca
                         WHERE ca.dossier_id = @DossierId;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 12: Omgangsregeling - Optional (moved from communicatie_afspraken)
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'omgangsregeling' AND schema_id = SCHEMA_ID('dbo'))
+                    BEGIN
+                        SELECT omg.id, omg.dossier_id, omg.omgang_tekst_of_schema, omg.omgang_beschrijving
+                        FROM dbo.omgangsregeling omg
+                        WHERE omg.dossier_id = @DossierId;
                     END
                     ELSE
                     BEGIN
@@ -503,7 +515,6 @@ namespace scheidingsdesk_document_generator.Services
                             VillaPinedoKinderen = SafeReadString(reader, "villa_pinedo_kinderen"),
                             KinderenBetrokkenheid = SafeReadString(reader, "kinderen_betrokkenheid"),
                             KiesMethode = SafeReadString(reader, "kies_methode"),
-                            OmgangTekstOfSchema = SafeReadString(reader, "omgang_tekst_of_schema"),
                             Opvang = SafeReadString(reader, "opvang"),
                             InformatieUitwisseling = SafeReadString(reader, "informatie_uitwisseling"),
                             BijlageBeslissingen = SafeReadString(reader, "bijlage_beslissingen"),
@@ -518,9 +529,7 @@ namespace scheidingsdesk_document_generator.Services
                             BankrekeningKinderen = SafeReadString(reader, "bankrekening_kinderen"),
                             Evaluatie = SafeReadString(reader, "evaluatie"),
                             ParentingCoordinator = SafeReadString(reader, "parenting_coordinator"),
-                            MediationClausule = SafeReadString(reader, "mediation_clausule"),
-                            AangemaaktOp = SafeReadDateTime(reader, "aangemaakt_op"),
-                            GewijzigdOp = SafeReadDateTime(reader, "gewijzigd_op")
+                            MediationClausule = SafeReadString(reader, "mediation_clausule")
                         };
                         _logger.LogInformation("Loaded CommunicatieAfspraken for dossier {DossierId}", dossierId);
                     }
@@ -530,6 +539,35 @@ namespace scheidingsdesk_document_generator.Services
                     _logger.LogWarning(ex, "Communicatie afspraken table may not exist yet, skipping");
                 }
                 dossier.CommunicatieAfspraken = communicatieAfspraken;
+
+                // Result set 12: Omgangsregeling - Read omgang_tekst_of_schema from separate table
+                await reader.NextResultAsync();
+                try
+                {
+                    if (reader.FieldCount > 0 && await reader.ReadAsync())
+                    {
+                        // Create communicatieAfspraken if it doesn't exist yet
+                        if (communicatieAfspraken == null)
+                        {
+                            communicatieAfspraken = new CommunicatieAfsprakenData
+                            {
+                                DossierId = actualDossierId
+                            };
+                        }
+
+                        // Populate omgang fields from omgangsregeling table
+                        communicatieAfspraken.OmgangTekstOfSchema = SafeReadString(reader, "omgang_tekst_of_schema");
+
+                        // Update dossier reference
+                        dossier.CommunicatieAfspraken = communicatieAfspraken;
+
+                        _logger.LogInformation("Loaded Omgangsregeling data for dossier {DossierId}", dossierId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Omgangsregeling table may not exist yet, skipping");
+                }
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;
