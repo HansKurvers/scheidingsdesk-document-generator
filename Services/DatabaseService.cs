@@ -176,6 +176,23 @@ namespace scheidingsdesk_document_generator.Services
                     ELSE
                     BEGIN
                         SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 11: Communicatie Afspraken - Optional
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'communicatie_afspraken' AND schema_id = SCHEMA_ID('dbo'))
+                    BEGIN
+                        SELECT ca.id, ca.dossier_id, ca.villa_pinedo_kinderen, ca.kinderen_betrokkenheid,
+                               ca.kies_methode, ca.omgang_tekst_of_schema, ca.opvang, ca.informatie_uitwisseling,
+                               ca.bijlage_beslissingen, ca.social_media, ca.mobiel_tablet, ca.id_bewijzen,
+                               ca.aansprakelijkheidsverzekering, ca.ziektekostenverzekering, ca.toestemming_reizen,
+                               ca.jongmeerderjarige, ca.studiekosten, ca.bankrekening_kinderen, ca.evaluatie,
+                               ca.parenting_coordinator, ca.mediation_clausule, ca.aangemaakt_op, ca.gewijzigd_op
+                        FROM dbo.communicatie_afspraken ca
+                        WHERE ca.dossier_id = @DossierId;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
                     END";
 
                 using var command = new SqlCommand(query, connection);
@@ -471,6 +488,48 @@ namespace scheidingsdesk_document_generator.Services
                     _logger.LogWarning(ex, "Ouderschapsplan info table may not exist yet, skipping");
                 }
                 dossier.OuderschapsplanInfo = ouderschapsplanInfo;
+
+                // Result set 11: Communicatie Afspraken (Optional)
+                await reader.NextResultAsync();
+                CommunicatieAfsprakenData? communicatieAfspraken = null;
+                try
+                {
+                    if (reader.FieldCount > 0 && await reader.ReadAsync())
+                    {
+                        communicatieAfspraken = new CommunicatieAfsprakenData
+                        {
+                            Id = SafeReadInt(reader, "id") ?? 0,
+                            DossierId = SafeReadInt(reader, "dossier_id") ?? 0,
+                            VillaPinedoKinderen = SafeReadString(reader, "villa_pinedo_kinderen"),
+                            KinderenBetrokkenheid = SafeReadString(reader, "kinderen_betrokkenheid"),
+                            KiesMethode = SafeReadString(reader, "kies_methode"),
+                            OmgangTekstOfSchema = SafeReadString(reader, "omgang_tekst_of_schema"),
+                            Opvang = SafeReadString(reader, "opvang"),
+                            InformatieUitwisseling = SafeReadString(reader, "informatie_uitwisseling"),
+                            BijlageBeslissingen = SafeReadString(reader, "bijlage_beslissingen"),
+                            SocialMedia = SafeReadString(reader, "social_media"),
+                            MobielTablet = SafeReadString(reader, "mobiel_tablet"),
+                            IdBewijzen = SafeReadString(reader, "id_bewijzen"),
+                            Aansprakelijkheidsverzekering = SafeReadString(reader, "aansprakelijkheidsverzekering"),
+                            Ziektekostenverzekering = SafeReadString(reader, "ziektekostenverzekering"),
+                            ToestemmingReizen = SafeReadString(reader, "toestemming_reizen"),
+                            Jongmeerderjarige = SafeReadString(reader, "jongmeerderjarige"),
+                            Studiekosten = SafeReadString(reader, "studiekosten"),
+                            BankrekeningKinderen = SafeReadString(reader, "bankrekening_kinderen"),
+                            Evaluatie = SafeReadString(reader, "evaluatie"),
+                            ParentingCoordinator = SafeReadString(reader, "parenting_coordinator"),
+                            MediationClausule = SafeReadString(reader, "mediation_clausule"),
+                            AangemaaktOp = SafeReadDateTime(reader, "aangemaakt_op"),
+                            GewijzigdOp = SafeReadDateTime(reader, "gewijzigd_op")
+                        };
+                        _logger.LogInformation("Loaded CommunicatieAfspraken for dossier {DossierId}", dossierId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Communicatie afspraken table may not exist yet, skipping");
+                }
+                dossier.CommunicatieAfspraken = communicatieAfspraken;
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;

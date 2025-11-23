@@ -96,6 +96,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add alimentatie data (always add placeholders, even if empty)
             AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
 
+            // Add communicatie afspraken data (always add placeholders, even if empty)
+            AddCommunicatieAfsprakenReplacements(replacements, data.CommunicatieAfspraken, data.Partij1, data.Partij2, data.Kinderen);
+
             return replacements;
         }
 
@@ -870,6 +873,304 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 "kinderrekening" => "Kinderrekening",
                 _ => ""
             };
+        }
+
+        /// <summary>
+        /// Add communicatie afspraken (communication agreements) related replacements
+        /// </summary>
+        private void AddCommunicatieAfsprakenReplacements(
+            Dictionary<string, string> replacements,
+            CommunicatieAfsprakenData? communicatieAfspraken,
+            PersonData? partij1,
+            PersonData? partij2,
+            List<ChildData> kinderen)
+        {
+            // Initialize all placeholders with empty values first
+            replacements["VillaPinedoKinderen"] = "";
+            replacements["KinderenBetrokkenheid"] = "";
+            replacements["KiesMethode"] = "";
+            replacements["OmgangTekstOfSchema"] = "";
+            replacements["Opvang"] = "";
+            replacements["InformatieUitwisseling"] = "";
+            replacements["BijlageBeslissingen"] = "";
+            replacements["SocialMedia"] = "";
+            replacements["SocialMediaKeuze"] = "";
+            replacements["SocialMediaLeeftijd"] = "";
+            replacements["MobielTablet"] = "";
+            replacements["DeviceSmartphone"] = "";
+            replacements["DeviceTablet"] = "";
+            replacements["DeviceSmartwatch"] = "";
+            replacements["DeviceLaptop"] = "";
+            replacements["IdBewijzen"] = "";
+            replacements["Aansprakelijkheidsverzekering"] = "";
+            replacements["Ziektekostenverzekering"] = "";
+            replacements["ToestemmingReizen"] = "";
+            replacements["Jongmeerderjarige"] = "";
+            replacements["Studiekosten"] = "";
+            replacements["BankrekeningKinderen"] = "";
+            replacements["BankrekeningenCount"] = "0";
+            replacements["Evaluatie"] = "";
+            replacements["ParentingCoordinator"] = "";
+            replacements["MediationClausule"] = "";
+
+            // If no communicatie afspraken data, return early
+            if (communicatieAfspraken == null)
+            {
+                _logger.LogDebug("No communicatie afspraken data available, placeholders set to empty strings");
+                return;
+            }
+
+            // Basic communicatie afspraken data
+            replacements["VillaPinedoKinderen"] = communicatieAfspraken.VillaPinedoKinderen ?? "";
+            replacements["KinderenBetrokkenheid"] = communicatieAfspraken.KinderenBetrokkenheid ?? "";
+            replacements["KiesMethode"] = communicatieAfspraken.KiesMethode ?? "";
+            replacements["OmgangTekstOfSchema"] = communicatieAfspraken.OmgangTekstOfSchema ?? "";
+            replacements["Opvang"] = communicatieAfspraken.Opvang ?? "";
+            replacements["InformatieUitwisseling"] = communicatieAfspraken.InformatieUitwisseling ?? "";
+            replacements["BijlageBeslissingen"] = communicatieAfspraken.BijlageBeslissingen ?? "";
+            replacements["IdBewijzen"] = communicatieAfspraken.IdBewijzen ?? "";
+            replacements["Aansprakelijkheidsverzekering"] = communicatieAfspraken.Aansprakelijkheidsverzekering ?? "";
+            replacements["Ziektekostenverzekering"] = communicatieAfspraken.Ziektekostenverzekering ?? "";
+            replacements["ToestemmingReizen"] = communicatieAfspraken.ToestemmingReizen ?? "";
+            replacements["Jongmeerderjarige"] = communicatieAfspraken.Jongmeerderjarige ?? "";
+            replacements["Studiekosten"] = communicatieAfspraken.Studiekosten ?? "";
+            replacements["Evaluatie"] = communicatieAfspraken.Evaluatie ?? "";
+            replacements["ParentingCoordinator"] = communicatieAfspraken.ParentingCoordinator ?? "";
+            replacements["MediationClausule"] = communicatieAfspraken.MediationClausule ?? "";
+
+            // Parse social media field (can contain age: "wel_13")
+            if (!string.IsNullOrEmpty(communicatieAfspraken.SocialMedia))
+            {
+                var (keuze, leeftijd) = ParseSocialMediaValue(communicatieAfspraken.SocialMedia);
+                replacements["SocialMedia"] = communicatieAfspraken.SocialMedia;
+                replacements["SocialMediaKeuze"] = keuze;
+                replacements["SocialMediaLeeftijd"] = leeftijd;
+            }
+
+            // Parse device afspraken (JSON object with device:age pairs)
+            if (!string.IsNullOrEmpty(communicatieAfspraken.MobielTablet))
+            {
+                var deviceAfspraken = ParseDeviceAfspraken(communicatieAfspraken.MobielTablet);
+                replacements["MobielTablet"] = FormatDeviceAfspraken(deviceAfspraken);
+                replacements["DeviceSmartphone"] = deviceAfspraken.Smartphone?.ToString() ?? "";
+                replacements["DeviceTablet"] = deviceAfspraken.Tablet?.ToString() ?? "";
+                replacements["DeviceSmartwatch"] = deviceAfspraken.Smartwatch?.ToString() ?? "";
+                replacements["DeviceLaptop"] = deviceAfspraken.Laptop?.ToString() ?? "";
+            }
+
+            // Parse bank accounts (JSON array)
+            if (!string.IsNullOrEmpty(communicatieAfspraken.BankrekeningKinderen))
+            {
+                var bankrekeningen = ParseBankrekeningen(communicatieAfspraken.BankrekeningKinderen);
+                replacements["BankrekeningKinderen"] = FormatBankrekeningen(bankrekeningen, partij1, partij2, kinderen);
+                replacements["BankrekeningenCount"] = bankrekeningen.Count.ToString();
+
+                // Add individual bank account placeholders
+                for (int i = 0; i < bankrekeningen.Count; i++)
+                {
+                    var rek = bankrekeningen[i];
+                    replacements[$"Bankrekening{i + 1}IBAN"] = FormatIBAN(rek.Iban);
+                    replacements[$"Bankrekening{i + 1}Tenaamstelling"] = TranslateTenaamstelling(rek.Tenaamstelling, partij1, partij2, kinderen);
+                    replacements[$"Bankrekening{i + 1}BankNaam"] = rek.BankNaam;
+                }
+            }
+
+            _logger.LogDebug("Added communicatie afspraken data: VillaPinedo={VillaPinedo}, BankrekeningenCount={BankCount}",
+                replacements["VillaPinedoKinderen"],
+                replacements["BankrekeningenCount"]);
+        }
+
+        /// <summary>
+        /// Parses social media value to extract choice and age
+        /// Format: "wel_13" or simple "geen", "bepaalde_leeftijd", etc.
+        /// </summary>
+        private (string keuze, string leeftijd) ParseSocialMediaValue(string socialMedia)
+        {
+            if (string.IsNullOrEmpty(socialMedia))
+                return ("", "");
+
+            if (socialMedia.StartsWith("wel_"))
+            {
+                var parts = socialMedia.Split('_');
+                if (parts.Length == 2)
+                {
+                    return ("wel", parts[1]);
+                }
+            }
+
+            return (socialMedia, "");
+        }
+
+        /// <summary>
+        /// Parses device afspraken JSON object
+        /// Format: {"smartphone":12,"tablet":14,"smartwatch":13,"laptop":16}
+        /// </summary>
+        private DeviceAfspraken ParseDeviceAfspraken(string jsonString)
+        {
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<DeviceAfspraken>(jsonString) ?? new DeviceAfspraken();
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse device afspraken JSON: {Json}", jsonString);
+                return new DeviceAfspraken();
+            }
+        }
+
+        /// <summary>
+        /// Formats device afspraken for display
+        /// </summary>
+        private string FormatDeviceAfspraken(DeviceAfspraken afspraken)
+        {
+            var lines = new List<string>();
+
+            if (afspraken.Smartphone.HasValue)
+                lines.Add($"- Smartphone: {afspraken.Smartphone} jaar");
+            if (afspraken.Tablet.HasValue)
+                lines.Add($"- Tablet: {afspraken.Tablet} jaar");
+            if (afspraken.Smartwatch.HasValue)
+                lines.Add($"- Smartwatch: {afspraken.Smartwatch} jaar");
+            if (afspraken.Laptop.HasValue)
+                lines.Add($"- Laptop: {afspraken.Laptop} jaar");
+
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Parses bankrekeningen JSON array
+        /// Format: [{"iban":"NL91ABNA0417164300","tenaamstelling":"ouder_1","bankNaam":"ABN AMRO"}]
+        /// </summary>
+        private List<Kinderrekening> ParseBankrekeningen(string jsonString)
+        {
+            try
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<List<Kinderrekening>>(jsonString) ?? new List<Kinderrekening>();
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse bankrekeningen JSON: {Json}", jsonString);
+                return new List<Kinderrekening>();
+            }
+        }
+
+        /// <summary>
+        /// Formats bank accounts for display
+        /// </summary>
+        private string FormatBankrekeningen(List<Kinderrekening> rekeningen, PersonData? partij1, PersonData? partij2, List<ChildData> kinderen)
+        {
+            if (!rekeningen.Any())
+                return "";
+
+            var lines = new List<string>();
+
+            for (int i = 0; i < rekeningen.Count; i++)
+            {
+                var rek = rekeningen[i];
+                lines.Add($"Rekening {i + 1}:");
+                lines.Add($"  IBAN: {FormatIBAN(rek.Iban)}");
+                lines.Add($"  Bank: {rek.BankNaam}");
+                lines.Add($"  Ten name van: {TranslateTenaamstelling(rek.Tenaamstelling, partij1, partij2, kinderen)}");
+                if (i < rekeningen.Count - 1)
+                    lines.Add(""); // Empty line between accounts
+            }
+
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Formats IBAN with spaces for readability
+        /// Example: NL91ABNA0417164300 -> NL91 ABNA 0417 1643 00
+        /// </summary>
+        private string FormatIBAN(string iban)
+        {
+            if (string.IsNullOrEmpty(iban))
+                return "";
+
+            // Remove any existing spaces
+            iban = iban.Replace(" ", "");
+
+            // Add space every 4 characters
+            var formatted = "";
+            for (int i = 0; i < iban.Length; i++)
+            {
+                if (i > 0 && i % 4 == 0)
+                    formatted += " ";
+                formatted += iban[i];
+            }
+
+            return formatted;
+        }
+
+        /// <summary>
+        /// Translates tenaamstelling codes to readable text
+        /// Codes: "ouder_1", "ouder_2", "ouders_gezamenlijk", "kind_123", "kinderen_alle"
+        /// </summary>
+        private string TranslateTenaamstelling(string code, PersonData? partij1, PersonData? partij2, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(code))
+                return "";
+
+            // Handle parent codes
+            if (code == "ouder_1" && partij1 != null)
+                return $"Op naam van {partij1.Roepnaam ?? partij1.Voornamen ?? "Partij 1"}";
+
+            if (code == "ouder_2" && partij2 != null)
+                return $"Op naam van {partij2.Roepnaam ?? partij2.Voornamen ?? "Partij 2"}";
+
+            if (code == "ouders_gezamenlijk" && partij1 != null && partij2 != null)
+            {
+                var naam1 = partij1.Roepnaam ?? partij1.Voornamen ?? "Partij 1";
+                var naam2 = partij2.Roepnaam ?? partij2.Voornamen ?? "Partij 2";
+                return $"Op gezamenlijke naam van {naam1} en {naam2}";
+            }
+
+            // Handle all children code
+            if (code == "kinderen_alle")
+            {
+                var minderjarigen = kinderen.Where(k => CalculateAge(k.GeboorteDatum) < 18).ToList();
+                if (minderjarigen.Any())
+                {
+                    var namen = minderjarigen.Select(k => k.Roepnaam ?? k.Voornamen ?? k.Achternaam).ToList();
+                    return $"Op naam van {DutchLanguageHelper.FormatList(namen)}";
+                }
+                return "Op naam van alle minderjarige kinderen";
+            }
+
+            // Handle individual child codes (format: "kind_123" where 123 is the child ID)
+            if (code.StartsWith("kind_"))
+            {
+                var kindIdStr = code.Substring(5);
+                if (int.TryParse(kindIdStr, out int kindId))
+                {
+                    var kind = kinderen.FirstOrDefault(k => k.Id == kindId);
+                    if (kind != null)
+                    {
+                        var kindNaam = kind.Roepnaam ?? kind.Voornamen ?? kind.Achternaam;
+                        return $"Op naam van {kindNaam}";
+                    }
+                }
+            }
+
+            // If no match found, return the code as-is
+            return code;
+        }
+
+        /// <summary>
+        /// Calculates age from birth date
+        /// </summary>
+        private int CalculateAge(DateTime? geboorteDatum)
+        {
+            if (!geboorteDatum.HasValue)
+                return 0;
+
+            var today = DateTime.Today;
+            var age = today.Year - geboorteDatum.Value.Year;
+
+            if (geboorteDatum.Value.Date > today.AddYears(-age))
+                age--;
+
+            return age;
         }
 
         #endregion

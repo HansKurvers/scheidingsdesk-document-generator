@@ -46,6 +46,11 @@ namespace scheidingsdesk_document_generator.Models
         public OuderschapsplanInfoData? OuderschapsplanInfo { get; set; }
 
         /// <summary>
+        /// Communication agreements
+        /// </summary>
+        public CommunicatieAfsprakenData? CommunicatieAfspraken { get; set; }
+
+        /// <summary>
         /// Gets party 1 (rol_id = 1)
         /// </summary>
         public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);

@@ -323,3 +323,122 @@ Technische Werking Partij Benaming:
 - Als IsAnoniem = true (anoniem):
   [[Partij1Benaming]] → "de vader" (geslacht = M), "de moeder" (geslacht = V), of "de persoon" (onbekend)
   [[Partij2Benaming]] → "de vader" (geslacht = M), "de moeder" (geslacht = V), of "de persoon" (onbekend)
+
+Communicatie Afspraken Placeholders:
+
+Basis Afspraken:
+- [[VillaPinedoKinderen]] - Villa Pinedo methode voor kinderen
+- [[KinderenBetrokkenheid]] - Betrokkenheid kinderen bij beslissingen
+- [[KiesMethode]] - Gekozen methode voor ouderschapsplan
+- [[OmgangTekstOfSchema]] - Omgangsregeling als tekst of schema
+- [[Opvang]] - Kinderopvang afspraken
+- [[InformatieUitwisseling]] - Methode voor informatie-uitwisseling
+- [[BijlageBeslissingen]] - Bijlage voor belangrijke beslissingen
+- [[IdBewijzen]] - Beheer van identiteitsbewijzen
+- [[Aansprakelijkheidsverzekering]] - Beheer aansprakelijkheidsverzekering
+- [[Ziektekostenverzekering]] - Beheer ziektekostenverzekering
+- [[ToestemmingReizen]] - Afspraken over toestemming reizen
+- [[Jongmeerderjarige]] - Afspraken voor jongvolwassenen (18+)
+- [[Studiekosten]] - Afspraken over studiekosten
+- [[Evaluatie]] - Frequentie evaluatie afspraken
+- [[ParentingCoordinator]] - Inzet parenting coordinator
+- [[MediationClausule]] - Mediation clausule
+
+Social Media Afspraken:
+- [[SocialMedia]] - Volledige waarde (bijv. "wel_13" of "geen")
+- [[SocialMediaKeuze]] - Alleen de keuze (wel/geen/bepaalde_leeftijd/afspraken_later)
+- [[SocialMediaLeeftijd]] - Alleen de leeftijd (geëxtraheerd uit "wel_13")
+
+Voorbeeld Social Media Gebruik:
+Als SocialMedia = "wel_13":
+  [[SocialMedia]] → "wel_13"
+  [[SocialMediaKeuze]] → "wel"
+  [[SocialMediaLeeftijd]] → "13"
+
+Als SocialMedia = "geen":
+  [[SocialMedia]] → "geen"
+  [[SocialMediaKeuze]] → "geen"
+  [[SocialMediaLeeftijd]] → ""
+
+Device Afspraken (Leeftijdsgrenzen):
+- [[MobielTablet]] - Geformatteerde lijst van alle devices (met leeftijden)
+- [[DeviceSmartphone]] - Leeftijd voor smartphone (bijv. "12")
+- [[DeviceTablet]] - Leeftijd voor tablet (bijv. "14")
+- [[DeviceSmartwatch]] - Leeftijd voor smartwatch (bijv. "13")
+- [[DeviceLaptop]] - Leeftijd voor laptop (bijv. "16")
+
+Voorbeeld Device Gebruik:
+Als MobielTablet JSON = {"smartphone":12,"tablet":14}:
+  [[MobielTablet]] → "- Smartphone: 12 jaar\n- Tablet: 14 jaar"
+  [[DeviceSmartphone]] → "12"
+  [[DeviceTablet]] → "14"
+  [[DeviceSmartwatch]] → ""
+  [[DeviceLaptop]] → ""
+
+Bankrekeningen voor Kinderen:
+- [[BankrekeningKinderen]] - Geformatteerde lijst van alle bankrekeningen
+- [[BankrekeningenCount]] - Aantal bankrekeningen (bijv. "2")
+- [[Bankrekening1IBAN]] - IBAN van rekening 1 (geformatteerd met spaties)
+- [[Bankrekening1Tenaamstelling]] - Tenaamstelling rekening 1 (vertaald naar leesbare tekst)
+- [[Bankrekening1BankNaam]] - Banknaam rekening 1
+- [[Bankrekening2IBAN]] - IBAN van rekening 2
+- [[Bankrekening2Tenaamstelling]] - Tenaamstelling rekening 2
+- [[Bankrekening2BankNaam]] - Banknaam rekening 2
+- (etc. voor meer rekeningen)
+
+Voorbeeld Bankrekeningen Gebruik:
+Als BankrekeningKinderen JSON = [
+  {"iban":"NL91ABNA0417164300","tenaamstelling":"ouder_1","bankNaam":"ABN AMRO"},
+  {"iban":"NL89RABO0300065264","tenaamstelling":"kind_123","bankNaam":"Rabobank"}
+]:
+
+[[BankrekeningenCount]] → "2"
+[[BankrekeningKinderen]] →
+  "Rekening 1:
+    IBAN: NL91 ABNA 0417 1643 00
+    Bank: ABN AMRO
+    Ten name van: Op naam van Jan
+
+  Rekening 2:
+    IBAN: NL89 RABO 0300 0652 64
+    Bank: Rabobank
+    Ten name van: Op naam van Emma"
+
+[[Bankrekening1IBAN]] → "NL91 ABNA 0417 1643 00"
+[[Bankrekening1Tenaamstelling]] → "Op naam van Jan"
+[[Bankrekening1BankNaam]] → "ABN AMRO"
+
+Tenaamstelling Codes en Vertaling:
+- "ouder_1" → "Op naam van [Partij1 Roepnaam]"
+- "ouder_2" → "Op naam van [Partij2 Roepnaam]"
+- "ouders_gezamenlijk" → "Op gezamenlijke naam van [Partij1] en [Partij2]"
+- "kind_123" → "Op naam van [Kind met ID 123 Roepnaam]"
+- "kinderen_alle" → "Op naam van [alle minderjarige kinderen met roepnamen]"
+
+IBAN Formatting:
+IBANs worden automatisch geformatteerd met spaties elke 4 karakters:
+- Database: "NL91ABNA0417164300"
+- Placeholder: "NL91 ABNA 0417 1643 00"
+
+Voorbeeld Template Gebruik Communicatie Afspraken:
+
+COMMUNICATIEAFSPRAKEN
+
+Social Media:
+De ouders zijn overeengekomen dat de kinderen [[SocialMediaKeuze]] social media mogen gebruiken
+[[#if SocialMediaLeeftijd]]vanaf [[SocialMediaLeeftijd]] jaar[[/if]].
+
+Devices:
+[[MobielTablet]]
+
+Bankrekeningen:
+Er zijn [[BankrekeningenCount]] bankrekening(en) voor de kinderen aangemaakt:
+
+[[BankrekeningKinderen]]
+
+Verzekeringen:
+- Aansprakelijkheidsverzekering: [[Aansprakelijkheidsverzekering]]
+- Ziektekostenverzekering: [[Ziektekostenverzekering]]
+
+Evaluatie:
+De afspraken worden [[Evaluatie]] geëvalueerd.
