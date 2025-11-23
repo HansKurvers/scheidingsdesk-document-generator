@@ -25,7 +25,7 @@ namespace Scheidingsdesk
             return new OkObjectResult(new
             {
                 status = "Healthy",
-                service = "Scheidingsdesk Document Generator",
+                service = "Ouderschapsplan Document Generator",
                 version = "2.0.0",
                 timestamp = DateTime.UtcNow,
                 endpoints = new[]

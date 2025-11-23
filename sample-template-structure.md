@@ -1,6 +1,6 @@
 # Sample Document Template Structure
 
-This document describes the structure of a Word document template that works with the Scheidingsdesk Document Generator.
+This document describes the structure of a Word document template that works with the Ouderschapsplan Document Generator.
 
 ## Example Document Structure
 

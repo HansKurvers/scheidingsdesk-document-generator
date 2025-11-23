@@ -1,4 +1,4 @@
-# Scheidingsdesk Document Generator
+# Ouderschapsplan Document Generator
 
 Een Azure Functions applicatie voor het automatisch genereren van juridische documenten voor scheidingszaken, specifiek gericht op ouderschapsplannen. Dit systeem integreert met een SQL database en Azure Blob Storage om op maat gemaakte Word documenten te genereren op basis van dossiergegevens.
 
@@ -17,7 +17,7 @@ Een Azure Functions applicatie voor het automatisch genereren van juridische doc
 
 ## Overzicht
 
-De Scheidingsdesk Document Generator is een serverless applicatie gebouwd met Azure Functions v4 (.NET 9, isolated worker model) die Word documenten genereert voor scheidingszaken. Het systeem haalt data op uit een SQL database, downloadt een template vanuit Azure Blob Storage, en vult deze met gepersonaliseerde informatie zoals:
+De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met Azure Functions v4 (.NET 9, isolated worker model) die Word documenten genereert voor scheidingszaken. Het systeem haalt data op uit een SQL database, downloadt een template vanuit Azure Blob Storage, en vult deze met gepersonaliseerde informatie zoals:
 
 - Persoonsgegevens van beide partijen
 - Kindergegevens inclusief leeftijden en namen
@@ -1303,7 +1303,7 @@ Alle helpers (`DutchLanguageHelper`, `DataFormatter`, `OpenXmlHelper`) zijn voll
 
 ## License
 
-Dit project is eigendom van Scheidingsdesk en bedoeld voor interne gebruik in het juridisch document automation systeem.
+Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in het juridisch document automation systeem.
 
 ## Changelog
 
