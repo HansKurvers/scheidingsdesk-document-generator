@@ -21,6 +21,50 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
         }
 
         /// <summary>
+        /// Retrieves a document template by template type
+        /// Maps template types to environment variable URLs
+        /// </summary>
+        public async Task<byte[]> GetTemplateByTypeAsync(string templateType)
+        {
+            var templateUrl = GetTemplateUrlForType(templateType);
+            return await GetTemplateAsync(templateUrl);
+        }
+
+        /// <summary>
+        /// Maps template type to the corresponding Azure Blob Storage URL from environment variables
+        /// </summary>
+        private string GetTemplateUrlForType(string templateType)
+        {
+            // Default to 'default' if not specified
+            templateType = string.IsNullOrWhiteSpace(templateType) ? "default" : templateType.ToLower();
+
+            switch (templateType)
+            {
+                case "default":
+                    var defaultUrl = Environment.GetEnvironmentVariable("TemplateStorageUrl");
+                    if (string.IsNullOrWhiteSpace(defaultUrl))
+                    {
+                        throw new InvalidOperationException("TemplateStorageUrl environment variable is not set.");
+                    }
+                    _logger.LogInformation("Using default template (ouderschapsplan-template.docx)");
+                    return defaultUrl;
+
+                case "v2":
+                    var v2Url = Environment.GetEnvironmentVariable("TemplateStorageUrlV2");
+                    if (string.IsNullOrWhiteSpace(v2Url))
+                    {
+                        throw new InvalidOperationException("TemplateStorageUrlV2 environment variable is not set.");
+                    }
+                    _logger.LogInformation("Using v2 template (Placeholders.docx)");
+                    return v2Url;
+
+                default:
+                    _logger.LogWarning($"Unknown template type '{templateType}', falling back to default");
+                    return GetTemplateUrlForType("default");
+            }
+        }
+
+        /// <summary>
         /// Downloads a template from the specified URL
         /// </summary>
         public async Task<byte[]> GetTemplateAsync(string templateUrl)

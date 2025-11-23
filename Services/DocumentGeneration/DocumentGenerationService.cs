@@ -42,13 +42,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
         /// Generates a complete document based on dossier data
         /// Simple orchestration: download template, get data, process, return
         /// </summary>
-        public async Task<Stream> GenerateDocumentAsync(int dossierId, string templateUrl, string correlationId)
+        public async Task<Stream> GenerateDocumentAsync(int dossierId, string? templateType, string correlationId)
         {
-            _logger.LogInformation($"[{correlationId}] Starting document generation for dossier {dossierId}");
+            // Default to 'default' template type if not specified
+            templateType = string.IsNullOrWhiteSpace(templateType) ? "default" : templateType;
+
+            _logger.LogInformation($"[{correlationId}] Starting document generation for dossier {dossierId} with template type '{templateType}'");
 
             // Step 1: Download template
-            _logger.LogInformation($"[{correlationId}] Step 1: Downloading template");
-            var templateBytes = await _templateProvider.GetTemplateAsync(templateUrl);
+            _logger.LogInformation($"[{correlationId}] Step 1: Downloading template (type: {templateType})");
+            var templateBytes = await _templateProvider.GetTemplateByTypeAsync(templateType);
 
             // Step 2: Get dossier data from database
             _logger.LogInformation($"[{correlationId}] Step 2: Retrieving dossier data");

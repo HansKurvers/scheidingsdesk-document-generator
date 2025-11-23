@@ -47,16 +47,20 @@ namespace Scheidingsdesk
                     return CreateBadRequest("Invalid request body. Please provide a JSON object with DossierId.", correlationId);
                 }
 
-                // Get template URL from environment
-                string templateUrl = Environment.GetEnvironmentVariable("TemplateStorageUrl")
-                    ?? throw new InvalidOperationException("TemplateStorageUrl environment variable is not set.");
+                // Get template type from request, default to 'default' if not specified
+                string? templateType = request.TemplateType;
+                if (string.IsNullOrWhiteSpace(templateType))
+                {
+                    templateType = "default";
+                    _logger.LogInformation($"[{correlationId}] No template type specified, using default");
+                }
 
-                _logger.LogInformation($"[{correlationId}] Generating document for DossierId: {request.DossierId}");
+                _logger.LogInformation($"[{correlationId}] Generating document for DossierId: {request.DossierId} with template type: {templateType}");
 
                 // Generate document - ALL logic delegated to DocumentGenerationService
                 var documentStream = await _documentGenerationService.GenerateDocumentAsync(
                     request.DossierId,
-                    templateUrl,
+                    templateType,
                     correlationId
                 );
 
@@ -139,5 +143,6 @@ namespace Scheidingsdesk
     public class OuderschapsplanRequest
     {
         public int DossierId { get; set; }
+        public string? TemplateType { get; set; }
     }
 }
