@@ -68,6 +68,8 @@ Individuele Kind Gegevens (vervang # met 1, 2, 3, etc.):
 - [[Kind1Voornaam]] - Kind 1 voornaam/voornamen
 - [[Kind1Roepnaam]] - Kind 1 roepnaam
 - [[Kind1Achternaam]] - Kind 1 achternaam
+- [[Kind1Tussenvoegsel]] - Kind 1 tussenvoegsel (van, de, etc.)
+- [[Kind1RoepnaamAchternaam]] - Kind 1 roepnaam + tussenvoegsel + achternaam (bijv. "Jan de Vries")
 - [[Kind1Geboortedatum]] - Kind 1 geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Kind1Geboorteplaats]] - Kind 1 geboorteplaats
 - [[Kind1Leeftijd]] - Kind 1 leeftijd
@@ -181,6 +183,32 @@ Template Detectie Flags (nieuw):
 - [[IsKinderrekeningBetaalwijze]] - Of de betaalwijze een kinderrekening type is (Ja/Nee)
 - [[IsAlimentatieplichtBetaalwijze]] - Of de betaalwijze een alimentatieplichtige type is (Ja/Nee)
 
+Betaalwijze Beschrijving (nieuw):
+- [[BetaalwijzeBeschrijving]] - Volledige tekst over de gekozen betaalwijze (kinderrekening of alimentatie)
+
+  **Variant 1: Kinderrekening** (als IsKinderrekeningBetaalwijze = Ja)
+  Genereert tekst met:
+  - Intro: "We hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening."
+  - Wie kinderbijslag ontvangt en of deze wordt gestort op kinderrekening
+  - Wie kindgebonden budget ontvangt en of deze wordt gestort op kinderrekening
+  - "We betalen allebei de eigen verblijfskosten."
+  - Verblijfsoverstijgende kosten (met kostensoorten) van kinderrekening
+  - Stortingsbedrag ouder 1 per maand
+  - Stortingsbedrag ouder 2 per maand
+  - Controle en tekort afspraken
+  - Opheffingsoptie (helft/verhouding/spaarrekening)
+
+  **Variant 2: Alimentatie** (als IsAlimentatieplichtBetaalwijze = Ja)
+  Genereert tekst met:
+  - Intro: "We hebben ervoor gekozen om een maandelijkse kinderalimentatie af te spreken."
+  - Alimentatiegerechtigde ontvangt kinderbijslag en kindgebonden budget
+  - "We betalen allebei de eigen verblijfskosten."
+  - Zorgkortingspercentage
+  - Alimentatiegerechtigde betaalt verblijfsoverstijgende kosten
+  - Alimentatieplichtige betaalt vanaf ingangsdatum een bedrag per kind per maand
+  - Wettelijke indexering
+  - Eerste indexeringsjaar
+
 Dynamische Lijst - Financiële Afspraken Alle Kinderen:
 - [[KinderenAlimentatie]] - Genereert automatisch een geformatteerde lijst van alle kinderen met hun complete financiële afspraken
   Voorbeeld output:
@@ -199,6 +227,58 @@ Dynamische Lijst - Financiële Afspraken Alle Kinderen:
     - Zorgkorting: 50%
     - Inschrijving bij: Jan
     - Kindgebonden budget: Kinderrekening
+
+Dynamische Hoofdverblijf Verdeling (nieuw):
+- [[HoofdverblijfVerdeling]] - Genereert automatisch een intelligente samenvatting van waar de kinderen hun hoofdverblijf hebben, inclusief co-ouderschap scenario's
+
+  Voorbeeld outputs:
+
+  **Scenario 1: Alle kinderen co-ouderschap**
+  "Wij hebben een zorgregeling afgesproken waarbij onze kinderen ongeveer evenveel tijd bij ieder van ons verblijven. Zij hebben dus geen hoofdverblijf."
+
+  **Scenario 2: Alle kinderen bij één ouder**
+  "Jan, Piet en Lisa hebben hun hoofdverblijf bij Maria."
+
+  **Scenario 3: Gemengde situatie (verschillende ouders)**
+  "Jan en Piet hebben hun hoofdverblijf bij Maria. Lisa heeft haar hoofdverblijf bij Hans."
+
+  **Scenario 4: Gemengd met co-ouderschap**
+  "Jan en Piet hebben hun hoofdverblijf bij Maria. Voor Lisa hebben wij een zorgregeling afgesproken waarbij zij ongeveer evenveel tijd bij ieder van ons verblijft. Zij heeft dus geen hoofdverblijf."
+
+  **Scenario 5: Eén kind co-ouderschap**
+  "Wij hebben een zorgregeling afgesproken waarbij ons kind ongeveer evenveel tijd bij ieder van ons verblijft. Het kind heeft dus geen hoofdverblijf."
+
+  Kenmerken:
+  - Gebruikt roepnamen van kinderen
+  - Gebruikt contextafhankelijke benaming van ouders ([[Partij1Benaming]], [[Partij2Benaming]])
+  - Correcte grammatica voor enkelvoud/meervoud (heeft/hebben, zijn/haar/hun)
+  - Automatische detectie van co-ouderschap per kind
+  - Handelt gemengde scenario's intelligent af met aparte zinnen per situatie
+
+Dynamische BRP Inschrijving Verdeling (nieuw):
+- [[InschrijvingVerdeling]] - Genereert automatisch een opsomming van waar de kinderen in de Basisregistratie Personen (BRP) zijn ingeschreven
+
+  Voorbeeld outputs:
+
+  **Scenario 1: Alle kinderen bij partij1**
+  "Jan, Piet en Lisa zullen ingeschreven staan in de Basisregistratie Personen aan het adres van Maria in Amsterdam."
+
+  **Scenario 2: Eén kind bij partij1**
+  "Jan zal ingeschreven staan in de Basisregistratie Personen aan het adres van Maria in Amsterdam."
+
+  **Scenario 3: Gemengde situatie (verschillende ouders)**
+  "Jan en Piet zullen ingeschreven staan in de Basisregistratie Personen aan het adres van Maria in Amsterdam. Lisa zal ingeschreven staan in de Basisregistratie Personen aan het adres van Hans in Rotterdam."
+
+  **Scenario 4: Anoniem dossier**
+  "Jan en Piet zullen ingeschreven staan in de Basisregistratie Personen aan het adres van de vader in Utrecht."
+
+  Kenmerken:
+  - Gebruikt roepnamen van kinderen
+  - Gebruikt contextafhankelijke benaming van ouders ([[Partij1Benaming]], [[Partij2Benaming]])
+  - Toont de plaats/woonplaats van elke ouder
+  - Correcte grammatica voor enkelvoud/meervoud (zal/zullen)
+  - Handelt gemengde scenario's af met aparte zinnen per ouder
+  - Een kind kan slechts op één adres ingeschreven staan (geen co-ouderschap optie voor BRP)
 
 Opmerking: Alle alimentatie gegevens worden automatisch opgehaald uit de database tabellen:
 - dbo.alimentaties (algemene alimentatie gegevens, inclusief nieuwe kinderrekening velden)
@@ -331,13 +411,49 @@ Basis Afspraken:
 - [[KinderenBetrokkenheid]] - Betrokkenheid kinderen bij beslissingen
 - [[KiesMethode]] - Gekozen methode voor ouderschapsplan
 - [[OmgangTekstOfSchema]] - Omgangsregeling als tekst of schema
+- [[OmgangsregelingBeschrijving]] - Volledige omgangsregeling tekst op basis van keuze:
+  * Tekst: "Wij verdelen de zorg en opvoeding van ons kind / onze kinderen op de volgende manier: [beschrijving]"
+  * Beiden: Zoals tekst, plus verwijzing naar bijlage schema
+  * Schema: "Wij verdelen de zorg en opvoeding van ons kind / onze kinderen volgens het vaste schema van bijlage 1."
 - [[Opvang]] - Kinderopvang afspraken
+- [[OpvangBeschrijving]] - Volledige opvang tekst op basis van keuze:
+  * 1: "We blijven ieder zelf verantwoordelijk voor de opvang van onze kinderen op de dagen dat ze volgens het schema bij ieder van ons verblijven."
+  * 2: "Als opvang of een afwijking van het schema nodig is, vragen we altijd eerst aan de andere ouder of die beschikbaar is, voordat we anderen vragen voor de opvang van onze kinderen."
 - [[InformatieUitwisseling]] - Methode voor informatie-uitwisseling
+- [[InformatieUitwisselingBeschrijving]] - Volledige tekst over hoe ouders informatie delen (met roepnamen kinderen):
+  * email: "Wij delen de informatie over [roepnamen] met elkaar via de e-mail."
+  * telefoon: "Wij delen de informatie over [roepnamen] met elkaar telefonisch."
+  * app: "Wij delen de informatie over [roepnamen] met elkaar via een app (zoals WhatsApp)."
+  * oudersapp: "Wij delen de informatie over [roepnamen] met elkaar via een speciale ouders-app."
+  * persoonlijk: "Wij delen de informatie over [roepnamen] met elkaar in een persoonlijk gesprek."
+  * combinatie: "Wij delen de informatie over [roepnamen] met elkaar via een combinatie van methoden."
 - [[BijlageBeslissingen]] - Bijlage voor belangrijke beslissingen
-- [[IdBewijzen]] - Beheer van identiteitsbewijzen
-- [[Aansprakelijkheidsverzekering]] - Beheer aansprakelijkheidsverzekering
-- [[Ziektekostenverzekering]] - Beheer ziektekostenverzekering
-- [[ToestemmingReizen]] - Afspraken over toestemming reizen
+- [[IdBewijzen]] - Beheer van identiteitsbewijzen (ruwe waarde)
+- [[IdBewijzenBeschrijving]] - Volledige zin over wie de identiteitsbewijzen bewaart:
+  * ouder_1/partij1: "De identiteitsbewijzen van [kinderen] worden bewaard door [Ouder 1 naam]."
+  * ouder_2/partij2: "De identiteitsbewijzen van [kinderen] worden bewaard door [Ouder 2 naam]."
+  * beide_ouders/beiden: "De identiteitsbewijzen van [kinderen] worden bewaard door beide ouders."
+  * kinderen_zelf/kinderen: "[Kind] bewaart zijn/haar eigen identiteitsbewijs." of "[Kinderen] bewaren hun eigen identiteitsbewijs."
+  * nvt/niet_van_toepassing: "Niet van toepassing."
+- [[Aansprakelijkheidsverzekering]] - Beheer aansprakelijkheidsverzekering (ruwe waarde)
+- [[AansprakelijkheidsverzekeringBeschrijving]] - Volledige zin over aansprakelijkheidsverzekering:
+  * beiden/beide_ouders: "Wij zorgen ervoor dat [kinderen] bij ons beiden tegen wettelijke aansprakelijkheid zijn verzekerd."
+  * ouder_1/partij1: "[Ouder 1 naam] zorgt ervoor dat [kinderen] tegen wettelijke aansprakelijkheid zijn verzekerd."
+  * ouder_2/partij2: "[Ouder 2 naam] zorgt ervoor dat [kinderen] tegen wettelijke aansprakelijkheid zijn verzekerd."
+  * nvt/niet_van_toepassing: "Niet van toepassing."
+- [[Ziektekostenverzekering]] - Beheer ziektekostenverzekering (ruwe waarde)
+- [[ZiektekostenverzekeringBeschrijving]] - Volledige zin over ziektekostenverzekering:
+  * ouder_1/partij1: "[Kinderen] zijn verzekerd op de ziektekostenverzekering van [Ouder 1 naam]."
+  * ouder_2/partij2: "[Kinderen] zijn verzekerd op de ziektekostenverzekering van [Ouder 2 naam]."
+  * hoofdverblijf: "[Kinderen] zijn verzekerd op de ziektekostenverzekering van de ouder waar zij hun hoofdverblijf hebben."
+  * nvt/niet_van_toepassing: "Niet van toepassing."
+- [[ToestemmingReizen]] - Afspraken over toestemming reizen (ruwe waarde)
+- [[ToestemmingReizenBeschrijving]] - Volledige zin over toestemming voor reizen:
+  * altijd_overleggen/altijd: "Voor reizen met [kinderen] is altijd vooraf overleg tussen de ouders vereist."
+  * eu_vrij: "Met [kinderen] mag binnen de EU vrij worden gereisd. Voor reizen buiten de EU is vooraf overleg tussen de ouders vereist."
+  * vrij: "Met [kinderen] mag vrij worden gereisd zonder vooraf overleg."
+  * schriftelijk: "Voor reizen met [kinderen] is schriftelijke toestemming van de andere ouder vereist."
+  * nvt: leeg (geen tekst)
 - [[Jongmeerderjarige]] - Afspraken voor jongvolwassenen (18+)
 - [[Studiekosten]] - Afspraken over studiekosten
 - [[Evaluatie]] - Frequentie evaluatie afspraken
@@ -348,6 +464,11 @@ Social Media Afspraken:
 - [[SocialMedia]] - Volledige waarde (bijv. "wel_13" of "geen")
 - [[SocialMediaKeuze]] - Alleen de keuze (wel/geen/bepaalde_leeftijd/afspraken_later)
 - [[SocialMediaLeeftijd]] - Alleen de leeftijd (geëxtraheerd uit "wel_13")
+- [[SocialMediaBeschrijving]] - Volledige zin over social media (met roepnamen kinderen):
+  * geen: "Wij spreken als ouders af dat [kinderen] geen social media mogen gebruiken."
+  * wel: "Wij spreken als ouders af dat [kinderen] social media mogen gebruiken, op voorwaarde dat het op een veilige manier gebeurt."
+  * wel_13: "Wij spreken als ouders af dat [kinderen] social media mogen gebruiken vanaf hun 13e jaar, op voorwaarde dat het op een veilige manier gebeurt."
+  * later: "Wij maken als ouders later afspraken over het gebruik van social media door [kinderen]."
 
 Voorbeeld Social Media Gebruik:
 Als SocialMedia = "wel_13":
@@ -366,14 +487,48 @@ Device Afspraken (Leeftijdsgrenzen):
 - [[DeviceTablet]] - Leeftijd voor tablet (bijv. "14")
 - [[DeviceSmartwatch]] - Leeftijd voor smartwatch (bijv. "13")
 - [[DeviceLaptop]] - Leeftijd voor laptop (bijv. "16")
+- [[DevicesBeschrijving]] - Volledige zinnen over devices met roepnamen kinderen:
+  * Voorbeeld: "Jan en Lisa krijgen een smartphone vanaf hun 12e jaar."
+  * Per device (smartphone, tablet, smartwatch, laptop) een aparte zin
 
 Voorbeeld Device Gebruik:
-Als MobielTablet JSON = {"smartphone":12,"tablet":14}:
+Als MobielTablet JSON = {"smartphone":12,"tablet":14} en kinderen = Jan en Lisa:
   [[MobielTablet]] → "- Smartphone: 12 jaar\n- Tablet: 14 jaar"
   [[DeviceSmartphone]] → "12"
   [[DeviceTablet]] → "14"
   [[DeviceSmartwatch]] → ""
   [[DeviceLaptop]] → ""
+  [[DevicesBeschrijving]] → "Jan en Lisa krijgen een smartphone vanaf hun 12e jaar.\nJan en Lisa krijgen een tablet vanaf hun 14e jaar."
+
+Toezicht Apps (Ouderlijk Toezicht):
+- [[ToezichtApps]] - Keuze voor toezicht apps (wel/geen)
+- [[ToezichtAppsBeschrijving]] - Volledige zin over toezicht apps:
+  * wel: "We spreken als ouders af wel ouderlijk toezichtapps te gebruiken."
+  * geen: "We spreken als ouders af geen ouderlijk toezichtapps te gebruiken."
+
+Voorbeeld Toezicht Apps Gebruik:
+Als ToezichtApps = "wel":
+  [[ToezichtApps]] → "wel"
+  [[ToezichtAppsBeschrijving]] → "We spreken als ouders af wel ouderlijk toezichtapps te gebruiken."
+
+Als ToezichtApps = "geen":
+  [[ToezichtApps]] → "geen"
+  [[ToezichtAppsBeschrijving]] → "We spreken als ouders af geen ouderlijk toezichtapps te gebruiken."
+
+Locatie Delen (Location Sharing):
+- [[LocatieDelen]] - Keuze voor locatie delen (wel/geen)
+- [[LocatieDelenBeschrijving]] - Volledige zin over locatie delen:
+  * wel: "Wij spreken als ouders af om de locatie van onze kinderen wel te delen via digitale apparaten."
+  * geen: "Wij spreken als ouders af om de locatie van onze kinderen niet te delen via digitale apparaten."
+
+Voorbeeld Locatie Delen Gebruik:
+Als LocatieDelen = "wel":
+  [[LocatieDelen]] → "wel"
+  [[LocatieDelenBeschrijving]] → "Wij spreken als ouders af om de locatie van onze kinderen wel te delen via digitale apparaten."
+
+Als LocatieDelen = "geen":
+  [[LocatieDelen]] → "geen"
+  [[LocatieDelenBeschrijving]] → "Wij spreken als ouders af om de locatie van onze kinderen niet te delen via digitale apparaten."
 
 Bankrekeningen voor Kinderen:
 - [[BankrekeningKinderen]] - Geformatteerde lijst van alle bankrekeningen

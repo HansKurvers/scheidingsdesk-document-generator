@@ -96,6 +96,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add alimentatie data (always add placeholders, even if empty)
             AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
 
+            // Add hoofdverblijf verdeling (distribution of children's primary residence)
+            replacements["HoofdverblijfVerdeling"] = GetHoofdverblijfVerdeling(data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen, data.IsAnoniem);
+
+            // Add inschrijving verdeling (distribution of children's BRP registration)
+            replacements["InschrijvingVerdeling"] = GetInschrijvingVerdeling(data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen, data.IsAnoniem);
+
             // Add communicatie afspraken data (always add placeholders, even if empty)
             AddCommunicatieAfsprakenReplacements(replacements, data.CommunicatieAfspraken, data.Partij1, data.Partij2, data.Kinderen);
 
@@ -332,6 +338,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements[$"{prefix}Voornaam"] = child.Voornamen ?? "";
                 replacements[$"{prefix}Roepnaam"] = child.Roepnaam ?? child.Voornamen?.Split(' ').FirstOrDefault() ?? "";
                 replacements[$"{prefix}Achternaam"] = child.Achternaam ?? "";
+                replacements[$"{prefix}Tussenvoegsel"] = child.Tussenvoegsel ?? "";
+                replacements[$"{prefix}RoepnaamAchternaam"] = GetKindRoepnaamAchternaam(child);
                 replacements[$"{prefix}Geboortedatum"] = DataFormatter.FormatDate(child.GeboorteDatum);
                 replacements[$"{prefix}Geboorteplaats"] = child.GeboortePlaats ?? "";
                 replacements[$"{prefix}Leeftijd"] = child.Leeftijd?.ToString() ?? "";
@@ -597,6 +605,70 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         }
 
         /// <summary>
+        /// Get the omgangsregeling description based on the chosen format (Tekst/Schema/Beiden)
+        /// </summary>
+        private string GetOmgangsregelingBeschrijving(
+            string? omgangTekstOfSchema,
+            string? omgangBeschrijving,
+            int aantalKinderen)
+        {
+            if (string.IsNullOrEmpty(omgangTekstOfSchema))
+                return "";
+
+            var kinderenTekst = aantalKinderen == 1 ? "ons kind" : "onze kinderen";
+            var keuze = omgangTekstOfSchema.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "tekst" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} op de volgende manier: {omgangBeschrijving}",
+                "beiden" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} op de volgende manier: {omgangBeschrijving} Daarnaast is er ook een vast schema toegevoegd in de bijlage van het ouderschapsplan.",
+                "schema" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} volgens het vaste schema van bijlage 1.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the opvang description based on the chosen option (1 or 2)
+        /// </summary>
+        private string GetOpvangBeschrijving(string? opvang)
+        {
+            if (string.IsNullOrEmpty(opvang))
+                return "";
+
+            var keuze = opvang.Trim();
+
+            return keuze switch
+            {
+                "1" => "We blijven ieder zelf verantwoordelijk voor de opvang van onze kinderen op de dagen dat ze volgens het schema bij ieder van ons verblijven.",
+                "2" => "Als opvang of een afwijking van het schema nodig is, vragen we altijd eerst aan de andere ouder of die beschikbaar is, voordat we anderen vragen voor de opvang van onze kinderen.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the informatie uitwisseling description based on the chosen method
+        /// </summary>
+        private string GetInformatieUitwisselingBeschrijving(string? informatieUitwisseling, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(informatieUitwisseling))
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var keuze = informatieUitwisseling.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "email" => $"Wij delen de informatie over {kinderenTekst} met elkaar via de e-mail.",
+                "telefoon" => $"Wij delen de informatie over {kinderenTekst} met elkaar telefonisch.",
+                "app" => $"Wij delen de informatie over {kinderenTekst} met elkaar via een app (zoals WhatsApp).",
+                "oudersapp" => $"Wij delen de informatie over {kinderenTekst} met elkaar via een speciale ouders-app.",
+                "persoonlijk" => $"Wij delen de informatie over {kinderenTekst} met elkaar in een persoonlijk gesprek.",
+                "combinatie" => $"Wij delen de informatie over {kinderenTekst} met elkaar via een combinatie van methoden (e-mail, telefonisch, app en mondeling).",
+                _ => ""
+            };
+        }
+
+        /// <summary>
         /// Formats a list of kostensoorten as a bulleted list
         /// </summary>
         private string FormatKostensoortenList(List<string> kostensoorten)
@@ -696,6 +768,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KinderbijslagOntvangerAlleKinderen"] = "";
             replacements["KindgebondenBudgetAlleKinderen"] = "";
 
+            // Initialize betaalwijze beschrijving placeholder
+            replacements["BetaalwijzeBeschrijving"] = "";
+
             // If no alimentatie data, return early
             if (alimentatie == null)
             {
@@ -734,6 +809,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["InschrijvingAlleKinderen"] = GetPartyName(alimentatie.InschrijvingAlleKinderen, partij1, partij2);
             replacements["KinderbijslagOntvangerAlleKinderen"] = GetPartyNameOrKinderrekening(alimentatie.KinderbijslagOntvangerAlleKinderen, partij1, partij2);
             replacements["KindgebondenBudgetAlleKinderen"] = GetPartyNameOrKinderrekening(alimentatie.KindgebondenBudgetAlleKinderen, partij1, partij2);
+
+            // Generate betaalwijze beschrijving (kinderrekening or alimentatie)
+            replacements["BetaalwijzeBeschrijving"] = GetBetaalwijzeBeschrijving(alimentatie, partij1, partij2);
 
             _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}, IsKinderrekening={IsKinderrekening}",
                 replacements["NettoBesteedbaarGezinsinkomen"],
@@ -809,6 +887,30 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         }
 
         /// <summary>
+        /// Gets the roepnaam with tussenvoegsel and achternaam for a child
+        /// Example: "Jan de Vries" (when roepnaam is "Jan")
+        /// </summary>
+        private static string GetKindRoepnaamAchternaam(ChildData? child)
+        {
+            if (child == null) return "";
+
+            var parts = new List<string>();
+
+            // Use roepnaam, or fall back to first name from voornamen, or fall back to achternaam
+            var roepnaam = child.Roepnaam ?? child.Voornamen?.Split(' ').FirstOrDefault() ?? "";
+            if (!string.IsNullOrWhiteSpace(roepnaam))
+                parts.Add(roepnaam.Trim());
+
+            if (!string.IsNullOrWhiteSpace(child.Tussenvoegsel))
+                parts.Add(child.Tussenvoegsel.Trim());
+
+            if (!string.IsNullOrWhiteSpace(child.Achternaam))
+                parts.Add(child.Achternaam.Trim());
+
+            return string.Join(" ", parts);
+        }
+
+        /// <summary>
         /// Gets voorletters + tussenvoegsel + achternaam
         /// Example: "J.P. de Vries" (for Jan Peter de Vries)
         /// </summary>
@@ -876,6 +978,181 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         }
 
         /// <summary>
+        /// Generate the betaalwijze beschrijving based on whether it's kinderrekening or alimentatie
+        /// </summary>
+        private string GetBetaalwijzeBeschrijving(AlimentatieData alimentatie, PersonData? partij1, PersonData? partij2)
+        {
+            var ouder1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Ouder 1";
+            var ouder2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Ouder 2";
+
+            if (alimentatie.IsKinderrekeningBetaalwijze)
+            {
+                return GetKinderrekeningBeschrijving(alimentatie, ouder1Naam, ouder2Naam);
+            }
+            else if (alimentatie.IsAlimentatieplichtBetaalwijze)
+            {
+                return GetAlimentatieBeschrijving(alimentatie, ouder1Naam, ouder2Naam);
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Generate beschrijving for kinderrekening betaalwijze
+        /// </summary>
+        private string GetKinderrekeningBeschrijving(AlimentatieData alimentatie, string ouder1Naam, string ouder2Naam)
+        {
+            var zinnen = new List<string>();
+
+            // Intro
+            zinnen.Add("We hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening.");
+
+            // Kinderbijslag
+            var kinderbijslagOntvanger = alimentatie.KinderbijslagOntvangerAlleKinderen?.ToLower();
+            if (!string.IsNullOrEmpty(kinderbijslagOntvanger))
+            {
+                var ontvangerNaam = kinderbijslagOntvanger == "partij1" ? ouder1Naam : (kinderbijslagOntvanger == "partij2" ? ouder2Naam : "");
+                if (!string.IsNullOrEmpty(ontvangerNaam))
+                {
+                    var actie = alimentatie.KinderbijslagStortenOpKinderrekening == true ? "stort deze op de kinderrekening" : "houdt deze";
+                    zinnen.Add($"{ontvangerNaam} ontvangt de kinderbijslag en {actie}.");
+                }
+            }
+
+            // Kindgebonden budget
+            var kgbOntvanger = alimentatie.KindgebondenBudgetAlleKinderen?.ToLower();
+            if (!string.IsNullOrEmpty(kgbOntvanger))
+            {
+                var ontvangerNaam = kgbOntvanger == "partij1" ? ouder1Naam : (kgbOntvanger == "partij2" ? ouder2Naam : "");
+                if (!string.IsNullOrEmpty(ontvangerNaam))
+                {
+                    var actie = alimentatie.KindgebondenBudgetStortenOpKinderrekening == true ? "stort deze op de kinderrekening" : "houdt deze";
+                    zinnen.Add($"{ontvangerNaam} ontvangt het kindgebonden budget en {actie}.");
+                }
+            }
+
+            // Eigen verblijfskosten
+            zinnen.Add("We betalen allebei de eigen verblijfskosten.");
+
+            // Verblijfsoverstijgende kosten met kostensoorten
+            var kostensoorten = FormatKostensoortenList(alimentatie.KinderrekeningKostensoorten);
+            if (!string.IsNullOrEmpty(kostensoorten))
+            {
+                zinnen.Add($"De verblijfsoverstijgende kosten ({kostensoorten}) zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
+            }
+            else
+            {
+                zinnen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
+            }
+
+            // Stortingen ouder 1
+            if (alimentatie.StortingOuder1Kinderrekening.HasValue && alimentatie.StortingOuder1Kinderrekening > 0)
+            {
+                zinnen.Add($"{ouder1Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder1Kinderrekening)} op deze rekening storten.");
+            }
+
+            // Stortingen ouder 2
+            if (alimentatie.StortingOuder2Kinderrekening.HasValue && alimentatie.StortingOuder2Kinderrekening > 0)
+            {
+                zinnen.Add($"{ouder2Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder2Kinderrekening)} op deze rekening storten.");
+            }
+
+            // Vaste afspraken
+            zinnen.Add("We zullen regelmatig controleren of onze bijdragen genoeg zijn om alle kosten te betalen.");
+            zinnen.Add("Als er structureel een tekort is, zullen we in overleg met elkaar een hogere bijdrage op de kinderrekening storten.");
+            zinnen.Add("We zullen op verzoek aan elkaar uitleggen waarvoor we bepaalde opnames van de kinderrekening hebben gedaan.");
+
+            // Opheffing
+            var opheffingsOptie = alimentatie.KinderrekeningOpheffen?.ToLower();
+            if (!string.IsNullOrEmpty(opheffingsOptie))
+            {
+                var opheffingsTekst = opheffingsOptie switch
+                {
+                    "helft" => "krijgen we ieder de helft van het saldo op de rekening",
+                    "verhouding" => "krijgen we ieder het deel waar we recht op hebben in verhouding tot ieders bijdrage op de rekening",
+                    "spaarrekening" => "maken we het saldo over op een spaarrekening van onze kinderen. Ieder kind krijgt dan evenveel",
+                    _ => ""
+                };
+                if (!string.IsNullOrEmpty(opheffingsTekst))
+                {
+                    zinnen.Add($"Als de rekening wordt opgeheven, dan {opheffingsTekst}.");
+                }
+            }
+
+            return string.Join("\n\n", zinnen);
+        }
+
+        /// <summary>
+        /// Generate beschrijving for alimentatie betaalwijze
+        /// </summary>
+        private string GetAlimentatieBeschrijving(AlimentatieData alimentatie, string ouder1Naam, string ouder2Naam)
+        {
+            var zinnen = new List<string>();
+
+            // Intro
+            zinnen.Add("We hebben ervoor gekozen om een maandelijkse kinderalimentatie af te spreken.");
+
+            // Alimentatiegerechtigde ontvangt kinderbijslag en kgb
+            var alimentatiegerechtigde = alimentatie.Alimentatiegerechtigde?.ToLower();
+            var gerechtigdeNaam = alimentatiegerechtigde == "partij1" ? ouder1Naam : (alimentatiegerechtigde == "partij2" ? ouder2Naam : "");
+            var plichtigeNaam = alimentatiegerechtigde == "partij1" ? ouder2Naam : (alimentatiegerechtigde == "partij2" ? ouder1Naam : "");
+
+            if (!string.IsNullOrEmpty(gerechtigdeNaam))
+            {
+                zinnen.Add($"{gerechtigdeNaam} ontvangt en houdt de kinderbijslag en het kindgebonden budget.");
+            }
+
+            // Eigen verblijfskosten
+            zinnen.Add("We betalen allebei de eigen verblijfskosten.");
+
+            // Zorgkorting
+            if (alimentatie.ZorgkortingPercentageAlleKinderen.HasValue)
+            {
+                zinnen.Add($"We houden rekening met een zorgkorting van {alimentatie.ZorgkortingPercentageAlleKinderen:0.##}%.");
+            }
+
+            // Verblijfsoverstijgende kosten
+            if (!string.IsNullOrEmpty(gerechtigdeNaam))
+            {
+                zinnen.Add($"{gerechtigdeNaam} betaalt de verblijfsoverstijgende kosten.");
+            }
+
+            // Alimentatiebetaling
+            if (!string.IsNullOrEmpty(plichtigeNaam) && !string.IsNullOrEmpty(gerechtigdeNaam) && alimentatie.AlimentatiebedragPerKind.HasValue)
+            {
+                var ingangsdatum = GetIngangsdatumTekst(alimentatie);
+                zinnen.Add($"{plichtigeNaam} betaalt vanaf {ingangsdatum} een kinderalimentatie van {DataFormatter.FormatCurrency(alimentatie.AlimentatiebedragPerKind)} per kind per maand aan {gerechtigdeNaam}.");
+            }
+
+            // Indexering
+            zinnen.Add("Het alimentatiebedrag wordt ieder jaar verhoogd op basis van de wettelijke indexering.");
+
+            // Eerste indexering jaar
+            if (alimentatie.EersteIndexeringJaar.HasValue)
+            {
+                zinnen.Add($"De eerste jaarlijkse verhoging is per 1 januari {alimentatie.EersteIndexeringJaar}.");
+            }
+
+            return string.Join("\n\n", zinnen);
+        }
+
+        /// <summary>
+        /// Get the ingangsdatum text based on the option chosen
+        /// </summary>
+        private string GetIngangsdatumTekst(AlimentatieData alimentatie)
+        {
+            var optie = alimentatie.IngangsdatumOptie?.ToLower();
+
+            return optie switch
+            {
+                "ondertekening" => "datum ondertekening",
+                "anders" when !string.IsNullOrEmpty(alimentatie.IngangsdatumAnders) => alimentatie.IngangsdatumAnders,
+                _ when alimentatie.Ingangsdatum.HasValue => alimentatie.Ingangsdatum.Value.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("nl-NL")),
+                _ => "de ingangsdatum"
+            };
+        }
+
+        /// <summary>
         /// Add communicatie afspraken (communication agreements) related replacements
         /// </summary>
         private void AddCommunicatieAfsprakenReplacements(
@@ -890,21 +1167,34 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KinderenBetrokkenheid"] = "";
             replacements["KiesMethode"] = "";
             replacements["OmgangTekstOfSchema"] = "";
+            replacements["OmgangsregelingBeschrijving"] = "";
             replacements["Opvang"] = "";
+            replacements["OpvangBeschrijving"] = "";
             replacements["InformatieUitwisseling"] = "";
+            replacements["InformatieUitwisselingBeschrijving"] = "";
             replacements["BijlageBeslissingen"] = "";
             replacements["SocialMedia"] = "";
             replacements["SocialMediaKeuze"] = "";
             replacements["SocialMediaLeeftijd"] = "";
+            replacements["SocialMediaBeschrijving"] = "";
             replacements["MobielTablet"] = "";
             replacements["DeviceSmartphone"] = "";
             replacements["DeviceTablet"] = "";
             replacements["DeviceSmartwatch"] = "";
             replacements["DeviceLaptop"] = "";
+            replacements["DevicesBeschrijving"] = "";
+            replacements["ToezichtApps"] = "";
+            replacements["ToezichtAppsBeschrijving"] = "";
+            replacements["LocatieDelen"] = "";
+            replacements["LocatieDelenBeschrijving"] = "";
             replacements["IdBewijzen"] = "";
+            replacements["IdBewijzenBeschrijving"] = "";
             replacements["Aansprakelijkheidsverzekering"] = "";
+            replacements["AansprakelijkheidsverzekeringBeschrijving"] = "";
             replacements["Ziektekostenverzekering"] = "";
+            replacements["ZiektekostenverzekeringBeschrijving"] = "";
             replacements["ToestemmingReizen"] = "";
+            replacements["ToestemmingReizenBeschrijving"] = "";
             replacements["Jongmeerderjarige"] = "";
             replacements["Studiekosten"] = "";
             replacements["BankrekeningKinderen"] = "";
@@ -925,13 +1215,24 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KinderenBetrokkenheid"] = communicatieAfspraken.KinderenBetrokkenheid ?? "";
             replacements["KiesMethode"] = communicatieAfspraken.KiesMethode ?? "";
             replacements["OmgangTekstOfSchema"] = communicatieAfspraken.OmgangTekstOfSchema ?? "";
+            replacements["OmgangsregelingBeschrijving"] = GetOmgangsregelingBeschrijving(
+                communicatieAfspraken.OmgangTekstOfSchema,
+                communicatieAfspraken.OmgangBeschrijving,
+                kinderen?.Count ?? 0
+            );
             replacements["Opvang"] = communicatieAfspraken.Opvang ?? "";
+            replacements["OpvangBeschrijving"] = GetOpvangBeschrijving(communicatieAfspraken.Opvang);
             replacements["InformatieUitwisseling"] = communicatieAfspraken.InformatieUitwisseling ?? "";
+            replacements["InformatieUitwisselingBeschrijving"] = GetInformatieUitwisselingBeschrijving(communicatieAfspraken.InformatieUitwisseling, kinderen ?? new List<ChildData>());
             replacements["BijlageBeslissingen"] = communicatieAfspraken.BijlageBeslissingen ?? "";
             replacements["IdBewijzen"] = communicatieAfspraken.IdBewijzen ?? "";
+            replacements["IdBewijzenBeschrijving"] = GetIdBewijzenBeschrijving(communicatieAfspraken.IdBewijzen, partij1, partij2, kinderen);
             replacements["Aansprakelijkheidsverzekering"] = communicatieAfspraken.Aansprakelijkheidsverzekering ?? "";
+            replacements["AansprakelijkheidsverzekeringBeschrijving"] = GetAansprakelijkheidsverzekeringBeschrijving(communicatieAfspraken.Aansprakelijkheidsverzekering, partij1, partij2, kinderen);
             replacements["Ziektekostenverzekering"] = communicatieAfspraken.Ziektekostenverzekering ?? "";
+            replacements["ZiektekostenverzekeringBeschrijving"] = GetZiektekostenverzekeringBeschrijving(communicatieAfspraken.Ziektekostenverzekering, partij1, partij2, kinderen);
             replacements["ToestemmingReizen"] = communicatieAfspraken.ToestemmingReizen ?? "";
+            replacements["ToestemmingReizenBeschrijving"] = GetToestemmingReizenBeschrijving(communicatieAfspraken.ToestemmingReizen, kinderen);
             replacements["Jongmeerderjarige"] = communicatieAfspraken.Jongmeerderjarige ?? "";
             replacements["Studiekosten"] = communicatieAfspraken.Studiekosten ?? "";
             replacements["Evaluatie"] = communicatieAfspraken.Evaluatie ?? "";
@@ -946,6 +1247,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements["SocialMediaKeuze"] = keuze;
                 replacements["SocialMediaLeeftijd"] = leeftijd;
             }
+            replacements["SocialMediaBeschrijving"] = GetSocialMediaBeschrijving(communicatieAfspraken.SocialMedia, kinderen ?? new List<ChildData>());
 
             // Parse device afspraken (JSON object with device:age pairs)
             if (!string.IsNullOrEmpty(communicatieAfspraken.MobielTablet))
@@ -956,7 +1258,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 replacements["DeviceTablet"] = deviceAfspraken.Tablet?.ToString() ?? "";
                 replacements["DeviceSmartwatch"] = deviceAfspraken.Smartwatch?.ToString() ?? "";
                 replacements["DeviceLaptop"] = deviceAfspraken.Laptop?.ToString() ?? "";
+                replacements["DevicesBeschrijving"] = GetDevicesBeschrijving(deviceAfspraken, kinderen ?? new List<ChildData>());
             }
+
+            // Toezicht apps (parental supervision apps)
+            replacements["ToezichtApps"] = communicatieAfspraken.ToezichtApps ?? "";
+            replacements["ToezichtAppsBeschrijving"] = GetToezichtAppsBeschrijving(communicatieAfspraken.ToezichtApps);
+
+            // Locatie delen (location sharing)
+            replacements["LocatieDelen"] = communicatieAfspraken.LocatieDelen ?? "";
+            replacements["LocatieDelenBeschrijving"] = GetLocatieDelenBeschrijving(communicatieAfspraken.LocatieDelen);
 
             // Parse bank accounts (JSON array)
             if (!string.IsNullOrEmpty(communicatieAfspraken.BankrekeningKinderen))
@@ -1002,6 +1313,37 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         }
 
         /// <summary>
+        /// Get the social media description based on the chosen option
+        /// </summary>
+        private string GetSocialMediaBeschrijving(string? socialMedia, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(socialMedia) || kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var zijnHun = kinderen.Count == 1
+                ? (kinderen[0].Geslacht?.ToLowerInvariant() == "m" ? "zijn" : "haar")
+                : "hun";
+
+            var waarde = socialMedia.Trim().ToLowerInvariant();
+
+            // Check for age pattern (wel_13)
+            if (waarde.StartsWith("wel_"))
+            {
+                var leeftijd = waarde.Substring(4);
+                return $"Wij spreken als ouders af dat {kinderenTekst} social media mogen gebruiken vanaf {zijnHun} {leeftijd}e jaar, op voorwaarde dat het op een veilige manier gebeurt.";
+            }
+
+            return waarde switch
+            {
+                "geen" => $"Wij spreken als ouders af dat {kinderenTekst} geen social media mogen gebruiken.",
+                "wel" => $"Wij spreken als ouders af dat {kinderenTekst} social media mogen gebruiken, op voorwaarde dat het op een veilige manier gebeurt.",
+                "later" => $"Wij maken als ouders later afspraken over het gebruik van social media door {kinderenTekst}.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
         /// Parses device afspraken JSON object
         /// Format: {"smartphone":12,"tablet":14,"smartwatch":13,"laptop":16}
         /// </summary>
@@ -1035,6 +1377,172 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 lines.Add($"- Laptop: {afspraken.Laptop} jaar");
 
             return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        /// Formats device afspraken as full sentences with children's names
+        /// </summary>
+        private string GetDevicesBeschrijving(DeviceAfspraken afspraken, List<ChildData> kinderen)
+        {
+            if (kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var krijgtKrijgen = kinderen.Count == 1 ? "krijgt" : "krijgen";
+            var zijnHun = kinderen.Count == 1
+                ? (kinderen[0].Geslacht?.ToLowerInvariant() == "m" ? "zijn" : "haar")
+                : "hun";
+
+            var zinnen = new List<string>();
+
+            if (afspraken.Smartphone.HasValue)
+                zinnen.Add($"{kinderenTekst} {krijgtKrijgen} een smartphone vanaf {zijnHun} {afspraken.Smartphone}e jaar.");
+            if (afspraken.Tablet.HasValue)
+                zinnen.Add($"{kinderenTekst} {krijgtKrijgen} een tablet vanaf {zijnHun} {afspraken.Tablet}e jaar.");
+            if (afspraken.Smartwatch.HasValue)
+                zinnen.Add($"{kinderenTekst} {krijgtKrijgen} een smartwatch vanaf {zijnHun} {afspraken.Smartwatch}e jaar.");
+            if (afspraken.Laptop.HasValue)
+                zinnen.Add($"{kinderenTekst} {krijgtKrijgen} een laptop vanaf {zijnHun} {afspraken.Laptop}e jaar.");
+
+            return string.Join("\n", zinnen);
+        }
+
+        /// <summary>
+        /// Get the toezicht apps description based on the chosen option (wel/geen)
+        /// </summary>
+        private string GetToezichtAppsBeschrijving(string? toezichtApps)
+        {
+            if (string.IsNullOrEmpty(toezichtApps))
+                return "";
+
+            var keuze = toezichtApps.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "wel" => "We spreken als ouders af wel ouderlijk toezichtapps te gebruiken.",
+                "geen" => "We spreken als ouders af geen ouderlijk toezichtapps te gebruiken.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the locatie delen description based on the chosen option (wel/geen)
+        /// </summary>
+        private string GetLocatieDelenBeschrijving(string? locatieDelen)
+        {
+            if (string.IsNullOrEmpty(locatieDelen))
+                return "";
+
+            var keuze = locatieDelen.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "wel" => "Wij spreken als ouders af om de locatie van onze kinderen wel te delen via digitale apparaten.",
+                "geen" => "Wij spreken als ouders af om de locatie van onze kinderen niet te delen via digitale apparaten.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the ID bewijzen (identity documents) description based on the chosen option
+        /// Options: ouder_1, ouder_2, beide_ouders, kinderen_zelf, nvt
+        /// </summary>
+        private string GetIdBewijzenBeschrijving(string? idBewijzen, PersonData? partij1, PersonData? partij2, List<ChildData>? kinderen)
+        {
+            if (string.IsNullOrEmpty(idBewijzen) || kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var keuze = idBewijzen.Trim().ToLowerInvariant();
+
+            var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Ouder 1";
+            var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Ouder 2";
+
+            return keuze switch
+            {
+                "ouder_1" or "partij1" => $"De identiteitsbewijzen van {kinderenTekst} worden bewaard door {partij1Naam}.",
+                "ouder_2" or "partij2" => $"De identiteitsbewijzen van {kinderenTekst} worden bewaard door {partij2Naam}.",
+                "beide_ouders" or "beiden" => $"De identiteitsbewijzen van {kinderenTekst} worden bewaard door beide ouders.",
+                "kinderen_zelf" or "kinderen" => $"{kinderenTekst} {(kinderen.Count == 1 ? "bewaart" : "bewaren")} {(kinderen.Count == 1 ? "zijn/haar" : "hun")} eigen identiteitsbewijs.",
+                "nvt" or "niet_van_toepassing" => "Niet van toepassing.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the aansprakelijkheidsverzekering (liability insurance) description based on the chosen option
+        /// Options: ouder_1, ouder_2, beiden, nvt
+        /// </summary>
+        private string GetAansprakelijkheidsverzekeringBeschrijving(string? aansprakelijkheidsverzekering, PersonData? partij1, PersonData? partij2, List<ChildData>? kinderen)
+        {
+            if (string.IsNullOrEmpty(aansprakelijkheidsverzekering) || kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var keuze = aansprakelijkheidsverzekering.Trim().ToLowerInvariant();
+
+            var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Ouder 1";
+            var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Ouder 2";
+
+            return keuze switch
+            {
+                "beiden" or "beide_ouders" => $"Wij zorgen ervoor dat {kinderenTekst} bij ons beiden tegen wettelijke aansprakelijkheid {(kinderen.Count == 1 ? "is" : "zijn")} verzekerd.",
+                "ouder_1" or "partij1" => $"{partij1Naam} zorgt ervoor dat {kinderenTekst} tegen wettelijke aansprakelijkheid {(kinderen.Count == 1 ? "is" : "zijn")} verzekerd.",
+                "ouder_2" or "partij2" => $"{partij2Naam} zorgt ervoor dat {kinderenTekst} tegen wettelijke aansprakelijkheid {(kinderen.Count == 1 ? "is" : "zijn")} verzekerd.",
+                "nvt" or "niet_van_toepassing" => "Niet van toepassing.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the ziektekostenverzekering (health insurance) description based on the chosen option
+        /// Options: ouder_1, ouder_2, hoofdverblijf, nvt
+        /// </summary>
+        private string GetZiektekostenverzekeringBeschrijving(string? ziektekostenverzekering, PersonData? partij1, PersonData? partij2, List<ChildData>? kinderen)
+        {
+            if (string.IsNullOrEmpty(ziektekostenverzekering) || kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var keuze = ziektekostenverzekering.Trim().ToLowerInvariant();
+
+            var partij1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Ouder 1";
+            var partij2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Ouder 2";
+            var isZijn = kinderen.Count == 1 ? "is" : "zijn";
+            var zijHun = kinderen.Count == 1
+                ? (kinderen[0].Geslacht?.ToLowerInvariant() == "m" ? "hij zijn" : "zij haar")
+                : "zij hun";
+
+            return keuze switch
+            {
+                "ouder_1" or "partij1" => $"{kinderenTekst} {isZijn} verzekerd op de ziektekostenverzekering van {partij1Naam}.",
+                "ouder_2" or "partij2" => $"{kinderenTekst} {isZijn} verzekerd op de ziektekostenverzekering van {partij2Naam}.",
+                "hoofdverblijf" => $"{kinderenTekst} {isZijn} verzekerd op de ziektekostenverzekering van de ouder waar {zijHun} hoofdverblijf {(kinderen.Count == 1 ? "heeft" : "hebben")}.",
+                "nvt" or "niet_van_toepassing" => "Niet van toepassing.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the toestemming reizen (travel permission) description based on the chosen option
+        /// Options: altijd_overleggen, eu_vrij, vrij, schriftelijk
+        /// </summary>
+        private string GetToestemmingReizenBeschrijving(string? toestemmingReizen, List<ChildData>? kinderen)
+        {
+            if (string.IsNullOrEmpty(toestemmingReizen) || kinderen == null || kinderen.Count == 0)
+                return "";
+
+            var kinderenTekst = GetKinderenTekst(kinderen);
+            var keuze = toestemmingReizen.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "altijd_overleggen" or "altijd" => $"Voor reizen met {kinderenTekst} is altijd vooraf overleg tussen de ouders vereist.",
+                "eu_vrij" => $"Met {kinderenTekst} mag binnen de EU vrij worden gereisd. Voor reizen buiten de EU is vooraf overleg tussen de ouders vereist.",
+                "vrij" => $"Met {kinderenTekst} mag vrij worden gereisd zonder vooraf overleg.",
+                "schriftelijk" => $"Voor reizen met {kinderenTekst} is schriftelijke toestemming van de andere ouder vereist.",
+                _ => ""
+            };
         }
 
         /// <summary>
@@ -1171,6 +1679,186 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 age--;
 
             return age;
+        }
+
+        /// <summary>
+        /// Gets the hoofdverblijf distribution text based on where children have their primary residence
+        /// Handles co-parenting, single parent residence, and mixed scenarios
+        /// </summary>
+        private string GetHoofdverblijfVerdeling(
+            AlimentatieData? alimentatie,
+            PersonData? partij1,
+            PersonData? partij2,
+            List<ChildData> kinderen,
+            bool? isAnoniem)
+        {
+            // If no alimentatie data or no children, return empty
+            if (alimentatie == null || kinderen == null || !kinderen.Any())
+                return "";
+
+            // If no financial agreements per child, return empty
+            if (!alimentatie.FinancieleAfsprakenKinderen.Any())
+                return "";
+
+            // Group children by hoofdverblijf
+            var kinderenBijPartij1 = new List<ChildData>();
+            var kinderenBijPartij2 = new List<ChildData>();
+            var kinderenCoOuderschap = new List<ChildData>();
+
+            foreach (var kind in kinderen)
+            {
+                var afspraak = alimentatie.FinancieleAfsprakenKinderen
+                    .FirstOrDefault(f => f.KindId == kind.Id);
+
+                if (afspraak != null && !string.IsNullOrEmpty(afspraak.Hoofdverblijf))
+                {
+                    var hoofdverblijf = afspraak.Hoofdverblijf.ToLower().Trim();
+
+                    if (hoofdverblijf == "partij1")
+                        kinderenBijPartij1.Add(kind);
+                    else if (hoofdverblijf == "partij2")
+                        kinderenBijPartij2.Add(kind);
+                    else if (hoofdverblijf.Contains("co-ouderschap") || hoofdverblijf.Contains("coouderschap"))
+                        kinderenCoOuderschap.Add(kind);
+                }
+            }
+
+            // Build result sentences
+            var zinnen = new List<string>();
+
+            // Handle children at partij1
+            if (kinderenBijPartij1.Any())
+            {
+                var namen = kinderenBijPartij1.Select(k => k.Naam).ToList();
+                var namenTekst = DutchLanguageHelper.FormatList(namen);
+                var heeftHebbben = kinderenBijPartij1.Count == 1 ? "heeft" : "hebben";
+                var zijnHaarHun = kinderenBijPartij1.Count == 1
+                    ? (kinderenBijPartij1[0].Geslacht?.ToLower() == "m" ? "zijn" : "haar")
+                    : "hun";
+                var partij1Benaming = GetPartijBenaming(partij1, isAnoniem);
+
+                zinnen.Add($"{namenTekst} {heeftHebbben} {zijnHaarHun} hoofdverblijf bij {partij1Benaming}.");
+            }
+
+            // Handle children at partij2
+            if (kinderenBijPartij2.Any())
+            {
+                var namen = kinderenBijPartij2.Select(k => k.Naam).ToList();
+                var namenTekst = DutchLanguageHelper.FormatList(namen);
+                var heeftHebbben = kinderenBijPartij2.Count == 1 ? "heeft" : "hebben";
+                var zijnHaarHun = kinderenBijPartij2.Count == 1
+                    ? (kinderenBijPartij2[0].Geslacht?.ToLower() == "m" ? "zijn" : "haar")
+                    : "hun";
+                var partij2Benaming = GetPartijBenaming(partij2, isAnoniem);
+
+                zinnen.Add($"{namenTekst} {heeftHebbben} {zijnHaarHun} hoofdverblijf bij {partij2Benaming}.");
+            }
+
+            // Handle co-parenting children
+            if (kinderenCoOuderschap.Any())
+            {
+                var namen = kinderenCoOuderschap.Select(k => k.Naam).ToList();
+                var enkelvoud = kinderenCoOuderschap.Count == 1;
+
+                if (enkelvoud)
+                {
+                    var kindNaam = namen[0];
+                    var verblijft = "verblijft";
+                    var zijnHaar = kinderenCoOuderschap[0].Geslacht?.ToLower() == "m" ? "hij" : "zij";
+                    var heeftZin = $"{zijnHaar} heeft";
+
+                    zinnen.Add($"Voor {kindNaam} hebben wij een zorgregeling afgesproken waarbij {zijnHaar} ongeveer evenveel tijd bij ieder van ons {verblijft}. {char.ToUpper(zijnHaar[0]) + zijnHaar.Substring(1)} {heeftZin} dus geen hoofdverblijf.");
+                }
+                else
+                {
+                    var namenTekst = DutchLanguageHelper.FormatList(namen);
+                    zinnen.Add($"Voor {namenTekst} hebben wij een zorgregeling afgesproken waarbij zij ongeveer evenveel tijd bij ieder van ons verblijven. Zij hebben dus geen hoofdverblijf.");
+                }
+            }
+
+            // Special case: all children have co-parenting and it's the only arrangement
+            if (kinderenCoOuderschap.Count == kinderen.Count && !kinderenBijPartij1.Any() && !kinderenBijPartij2.Any())
+            {
+                var enkelvoud = kinderen.Count == 1;
+                var onzeTekst = enkelvoud ? "ons kind" : "onze kinderen";
+                var verblijftVerblijven = enkelvoud ? "verblijft" : "verblijven";
+                var heeftHebben = enkelvoud ? "heeft" : "hebben";
+                var hetKindZij = enkelvoud
+                    ? (kinderen[0].Geslacht?.ToLower() == "m" ? "Het kind" : "Het kind")
+                    : "Zij";
+
+                return $"Wij hebben een zorgregeling afgesproken waarbij {onzeTekst} ongeveer evenveel tijd bij ieder van ons {verblijftVerblijven}. {hetKindZij} {heeftHebben} dus geen hoofdverblijf.";
+            }
+
+            return string.Join(" ", zinnen);
+        }
+
+        /// <summary>
+        /// Gets the BRP registration (inschrijving) distribution text based on where children are registered
+        /// </summary>
+        private string GetInschrijvingVerdeling(
+            AlimentatieData? alimentatie,
+            PersonData? partij1,
+            PersonData? partij2,
+            List<ChildData> kinderen,
+            bool? isAnoniem)
+        {
+            // If no alimentatie data or no children, return empty
+            if (alimentatie == null || kinderen == null || !kinderen.Any())
+                return "";
+
+            // If no financial agreements per child, return empty
+            if (!alimentatie.FinancieleAfsprakenKinderen.Any())
+                return "";
+
+            // Group children by inschrijving (BRP registration)
+            var kinderenBijPartij1 = new List<ChildData>();
+            var kinderenBijPartij2 = new List<ChildData>();
+
+            foreach (var kind in kinderen)
+            {
+                var afspraak = alimentatie.FinancieleAfsprakenKinderen
+                    .FirstOrDefault(f => f.KindId == kind.Id);
+
+                if (afspraak != null && !string.IsNullOrEmpty(afspraak.Inschrijving))
+                {
+                    var inschrijving = afspraak.Inschrijving.ToLower().Trim();
+
+                    if (inschrijving == "partij1")
+                        kinderenBijPartij1.Add(kind);
+                    else if (inschrijving == "partij2")
+                        kinderenBijPartij2.Add(kind);
+                }
+            }
+
+            // Build result sentences
+            var zinnen = new List<string>();
+
+            // Handle children registered at partij1
+            if (kinderenBijPartij1.Any())
+            {
+                var namen = kinderenBijPartij1.Select(k => k.Naam).ToList();
+                var namenTekst = DutchLanguageHelper.FormatList(namen);
+                var zalZullen = kinderenBijPartij1.Count == 1 ? "zal" : "zullen";
+                var partij1Benaming = GetPartijBenaming(partij1, isAnoniem);
+                var plaats1 = partij1?.Plaats ?? "onbekend";
+
+                zinnen.Add($"{namenTekst} {zalZullen} ingeschreven staan in de Basisregistratie Personen aan het adres van {partij1Benaming} in {plaats1}.");
+            }
+
+            // Handle children registered at partij2
+            if (kinderenBijPartij2.Any())
+            {
+                var namen = kinderenBijPartij2.Select(k => k.Naam).ToList();
+                var namenTekst = DutchLanguageHelper.FormatList(namen);
+                var zalZullen = kinderenBijPartij2.Count == 1 ? "zal" : "zullen";
+                var partij2Benaming = GetPartijBenaming(partij2, isAnoniem);
+                var plaats2 = partij2?.Plaats ?? "onbekend";
+
+                zinnen.Add($"{namenTekst} {zalZullen} ingeschreven staan in de Basisregistratie Personen aan het adres van {partij2Benaming} in {plaats2}.");
+            }
+
+            return string.Join(" ", zinnen);
         }
 
         #endregion

@@ -183,10 +183,10 @@ namespace scheidingsdesk_document_generator.Services
                     BEGIN
                         SELECT ca.id, ca.dossier_id, ca.villa_pinedo_kinderen, ca.kinderen_betrokkenheid,
                                ca.kies_methode, ca.opvang, ca.informatie_uitwisseling,
-                               ca.bijlage_beslissingen, ca.social_media, ca.mobiel_tablet, ca.id_bewijzen,
-                               ca.aansprakelijkheidsverzekering, ca.ziektekostenverzekering, ca.toestemming_reizen,
-                               ca.jongmeerderjarige, ca.studiekosten, ca.bankrekening_kinderen, ca.evaluatie,
-                               ca.parenting_coordinator, ca.mediation_clausule
+                               ca.bijlage_beslissingen, ca.social_media, ca.mobiel_tablet, ca.toezicht_apps,
+                               ca.locatie_delen, ca.id_bewijzen, ca.aansprakelijkheidsverzekering, ca.ziektekostenverzekering,
+                               ca.toestemming_reizen, ca.jongmeerderjarige, ca.studiekosten,
+                               ca.bankrekening_kinderen, ca.evaluatie, ca.parenting_coordinator, ca.mediation_clausule
                         FROM dbo.communicatie_afspraken ca
                         WHERE ca.dossier_id = @DossierId;
                     END
@@ -360,7 +360,14 @@ namespace scheidingsdesk_document_generator.Services
                             HoofdverblijfAlleKinderen = SafeReadString(reader, "hoofdverblijf_alle_kinderen"),
                             InschrijvingAlleKinderen = SafeReadString(reader, "inschrijving_alle_kinderen"),
                             KinderbijslagOntvangerAlleKinderen = SafeReadString(reader, "kinderbijslag_ontvanger_alle_kinderen"),
-                            KindgebondenBudgetAlleKinderen = SafeReadString(reader, "kindgebonden_budget_alle_kinderen")
+                            KindgebondenBudgetAlleKinderen = SafeReadString(reader, "kindgebonden_budget_alle_kinderen"),
+
+                            // Kinderrekening opheffing en alimentatie ingangsdatum velden
+                            KinderrekeningOpheffen = SafeReadString(reader, "kinderrekening_opheffen"),
+                            IngangsdatumOptie = SafeReadString(reader, "ingangsdatum_optie"),
+                            Ingangsdatum = SafeReadDateTime(reader, "ingangsdatum"),
+                            IngangsdatumAnders = SafeReadString(reader, "ingangsdatum_anders"),
+                            EersteIndexeringJaar = SafeReadInt(reader, "eerste_indexering_jaar")
                         };
 
                         var hasNewFields = ColumnExists(reader, "storting_ouder1_kinderrekening");
@@ -520,6 +527,8 @@ namespace scheidingsdesk_document_generator.Services
                             BijlageBeslissingen = SafeReadString(reader, "bijlage_beslissingen"),
                             SocialMedia = SafeReadString(reader, "social_media"),
                             MobielTablet = SafeReadString(reader, "mobiel_tablet"),
+                            ToezichtApps = SafeReadString(reader, "toezicht_apps"),
+                            LocatieDelen = SafeReadString(reader, "locatie_delen"),
                             IdBewijzen = SafeReadString(reader, "id_bewijzen"),
                             Aansprakelijkheidsverzekering = SafeReadString(reader, "aansprakelijkheidsverzekering"),
                             Ziektekostenverzekering = SafeReadString(reader, "ziektekostenverzekering"),
@@ -557,6 +566,7 @@ namespace scheidingsdesk_document_generator.Services
 
                         // Populate omgang fields from omgangsregeling table
                         communicatieAfspraken.OmgangTekstOfSchema = SafeReadString(reader, "omgang_tekst_of_schema");
+                        communicatieAfspraken.OmgangBeschrijving = SafeReadString(reader, "omgang_beschrijving");
 
                         // Update dossier reference
                         dossier.CommunicatieAfspraken = communicatieAfspraken;

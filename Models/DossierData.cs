@@ -144,6 +144,23 @@ namespace scheidingsdesk_document_generator.Models
         public string? KindgebondenBudgetAlleKinderen { get; set; }
 
         /// <summary>
+        /// Kinderrekening opheffing optie (helft/verhouding/spaarrekening)
+        /// </summary>
+        public string? KinderrekeningOpheffen { get; set; }
+
+        /// <summary>
+        /// Alimentatie ingangsdatum settings
+        /// </summary>
+        public string? IngangsdatumOptie { get; set; }
+        public DateTime? Ingangsdatum { get; set; }
+        public string? IngangsdatumAnders { get; set; }
+
+        /// <summary>
+        /// Eerste jaar voor wettelijke indexering
+        /// </summary>
+        public int? EersteIndexeringJaar { get; set; }
+
+        /// <summary>
         /// Child cost contributions per person
         /// </summary>
         public List<BijdrageKostenKinderenData> BijdragenKostenKinderen { get; set; } = new List<BijdrageKostenKinderenData>();

@@ -32,6 +32,11 @@ namespace scheidingsdesk_document_generator.Models
         public string? OmgangTekstOfSchema { get; set; }
 
         /// <summary>
+        /// Free text description of visitation arrangement
+        /// </summary>
+        public string? OmgangBeschrijving { get; set; }
+
+        /// <summary>
         /// Childcare arrangements
         /// </summary>
         public string? Opvang { get; set; }
@@ -56,6 +61,16 @@ namespace scheidingsdesk_document_generator.Models
         /// Format: {"smartphone":12,"tablet":14,"smartwatch":13,"laptop":16}
         /// </summary>
         public string? MobielTablet { get; set; }
+
+        /// <summary>
+        /// Parental supervision apps choice (wel/geen)
+        /// </summary>
+        public string? ToezichtApps { get; set; }
+
+        /// <summary>
+        /// Location sharing choice (wel/geen)
+        /// </summary>
+        public string? LocatieDelen { get; set; }
 
         /// <summary>
         /// ID documents management
