@@ -1043,7 +1043,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Paragraaf 4: Verblijfsoverstijgende kosten met bullet list
             if (alimentatie.KinderrekeningKostensoorten != null && alimentatie.KinderrekeningKostensoorten.Any())
             {
-                paragrafen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:\n\n[[KinderrekeningKostensoorten]]\n\nVan deze rekening hebben we allebei een pinpas.");
+                var kostenLijst = FormatKostensoortenList(alimentatie.KinderrekeningKostensoorten);
+                paragrafen.Add($"De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:\n\n{kostenLijst}\n\nVan deze rekening hebben we allebei een pinpas.");
             }
             else
             {
