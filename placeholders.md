@@ -431,7 +431,7 @@ Basis Afspraken:
 - [[OmgangsregelingBeschrijving]] - Volledige omgangsregeling tekst op basis van keuze:
   * Tekst: "Wij verdelen de zorg en opvoeding van ons kind / onze kinderen op de volgende manier: [beschrijving]"
   * Beiden: Zoals tekst, plus verwijzing naar bijlage schema
-  * Schema: "Wij verdelen de zorg en opvoeding van ons kind / onze kinderen volgens het vaste schema van bijlage 1."
+  * Schema/leeg/anders: "Wij verdelen de zorg en opvoeding van ons kind / onze kinderen volgens het vaste schema van bijlage 1." (default)
 - [[Opvang]] - Kinderopvang afspraken
 - [[OpvangBeschrijving]] - Volledige opvang tekst op basis van keuze:
   * 1: "We blijven ieder zelf verantwoordelijk voor de opvang van onze kinderen op de dagen dat ze volgens het schema bij ieder van ons verblijven."

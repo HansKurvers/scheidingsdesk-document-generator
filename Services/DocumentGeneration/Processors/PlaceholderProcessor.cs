@@ -825,18 +825,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             string? omgangBeschrijving,
             int aantalKinderen)
         {
-            if (string.IsNullOrEmpty(omgangTekstOfSchema))
-                return "";
-
             var kinderenTekst = aantalKinderen == 1 ? "ons kind" : "onze kinderen";
-            var keuze = omgangTekstOfSchema.Trim().ToLowerInvariant();
+            var keuze = omgangTekstOfSchema?.Trim().ToLowerInvariant() ?? "";
 
             return keuze switch
             {
                 "tekst" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} op de volgende manier: {omgangBeschrijving}",
                 "beiden" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} op de volgende manier: {omgangBeschrijving} Daarnaast is er ook een vast schema toegevoegd in de bijlage van het ouderschapsplan.",
-                "schema" => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} volgens het vaste schema van bijlage 1.",
-                _ => ""
+                _ => $"Wij verdelen de zorg en opvoeding van {kinderenTekst} volgens het vaste schema van bijlage 1."
             };
         }
 
