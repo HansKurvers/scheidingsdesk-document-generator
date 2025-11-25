@@ -447,6 +447,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["PlaatsRelatie"] = info.PlaatsRelatie ?? "";
             replacements["BetrokkenheidKind"] = info.BetrokkenheidKind ?? "";
             replacements["Kiesplan"] = info.Kiesplan ?? "";
+            replacements["KiesplanZin"] = GetKiesplanZin(info.Kiesplan, kinderen);
 
             // Derived placeholders: Map SoortRelatie to the appropriate terms
             replacements["SoortRelatieVoorwaarden"] = GetRelatieVoorwaarden(info.SoortRelatie);
@@ -632,6 +633,150 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 3 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Dit blijft zo.",
                 4 => $"{partij1Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
                 5 => $"{partij2Naam} heeft alleen het ouderlijk gezag over {kinderenTekst}. Partijen spreken af dat zij binnen {weken} weken na ondertekening van dit ouderschapsplan gezamenlijk gezag zullen regelen.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the KIES plan sentence based on the chosen kiesplan option
+        /// </summary>
+        private string GetKiesplanZin(string? kiesplan, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(kiesplan) || kiesplan == "nee")
+                return "";
+
+            if (kinderen.Count == 0)
+                return "";
+
+            var kinderenNamen = DutchLanguageHelper.FormatList(
+                kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
+
+            var isEnkelvoud = kinderen.Count == 1;
+
+            // Werkwoord vormen
+            var isZijn = isEnkelvoud ? "is" : "zijn";
+            var heeftHebben = isEnkelvoud ? "heeft" : "hebben";
+
+            // Bezittelijk voornaamwoord op basis van geslacht (bij 1 kind) of "hun" (bij meerdere)
+            var hunZijnHaar = isEnkelvoud
+                ? GetBezittelijkVoornaamwoord(kinderen[0].Geslacht)
+                : "hun";
+
+            // KIES Kindplan enkelvoud/meervoud
+            var kindplanTekst = isEnkelvoud
+                ? "Het door ons ondertekende KIES Kindplan is"
+                : "De door ons ondertekende KIES Kindplannen zijn";
+
+            return kiesplan.ToLowerInvariant() switch
+            {
+                "kindplan" => $"Bij het maken van de afspraken in dit ouderschapsplan hebben we {kinderenNamen} gevraagd een KIES Kindplan te maken dat door ons is ondertekend, zodat wij rekening kunnen houden met {hunZijnHaar} wensen. Het KIES Kindplan van {kinderenNamen} is opgenomen als bijlage van dit ouderschapsplan.",
+
+                "kies_professional" => $"Bij het maken van de afspraken in dit ouderschapsplan {isZijn} {kinderenNamen} ondersteund door een KIES professional met een KIES kindgesprek om {hunZijnHaar} vragen te kunnen stellen en behoeftes en wensen aan te geven, zodat wij hiermee rekening kunnen houden. {kindplanTekst} daarbij gemaakt en bijlage van dit ouderschapsplan.",
+
+                "kindbehartiger" => $"Bij het maken van de afspraken in dit ouderschapsplan {heeftHebben} {kinderenNamen} hulp gekregen van een Kindbehartiger om {hunZijnHaar} wensen in kaart te brengen zodat wij hiermee rekening kunnen houden.",
+
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get bezittelijk voornaamwoord based on gender
+        /// </summary>
+        private string GetBezittelijkVoornaamwoord(string? geslacht)
+        {
+            return geslacht?.ToLowerInvariant() switch
+            {
+                "man" or "m" or "jongen" => "zijn",
+                "vrouw" or "v" or "meisje" => "haar",
+                _ => "zijn/haar"  // fallback als geslacht onbekend is
+            };
+        }
+
+        /// <summary>
+        /// Get the betrokkenheid kind sentence based on the chosen option
+        /// </summary>
+        private string GetBetrokkenheidKindZin(string? betrokkenheid, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(betrokkenheid))
+                return "";
+
+            if (kinderen.Count == 0)
+                return "";
+
+            var kinderenNamen = DutchLanguageHelper.FormatList(
+                kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
+
+            var isEnkelvoud = kinderen.Count == 1;
+
+            // Werkwoord vormen
+            var isZijn = isEnkelvoud ? "is" : "zijn";
+
+            // Bezittelijk voornaamwoord op basis van geslacht (bij 1 kind) of "hun" (bij meerdere)
+            var hunZijnHaar = isEnkelvoud
+                ? GetBezittelijkVoornaamwoord(kinderen[0].Geslacht)
+                : "hun";
+
+            return betrokkenheid.ToLowerInvariant() switch
+            {
+                "samen" => $"Wij hebben samen met {kinderenNamen} gesproken zodat wij rekening kunnen houden met {hunZijnHaar} wensen.",
+
+                "los_van_elkaar" => $"Wij hebben los van elkaar met {kinderenNamen} gesproken zodat wij rekening kunnen houden met {hunZijnHaar} wensen.",
+
+                "jonge_leeftijd" => $"{kinderenNamen} {isZijn} gezien de jonge leeftijd niet betrokken bij het opstellen van het ouderschapsplan.",
+
+                "niet_betrokken" => $"{kinderenNamen} {isZijn} niet betrokken bij het opstellen van het ouderschapsplan.",
+
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the Villa Pinedo sentence based on the chosen option
+        /// </summary>
+        private string GetVillaPinedoZin(string? villaPinedo, List<ChildData> kinderen)
+        {
+            if (string.IsNullOrEmpty(villaPinedo))
+                return "";
+
+            if (kinderen.Count == 0)
+                return "";
+
+            var kinderenNamen = DutchLanguageHelper.FormatList(
+                kinderen.Select(k => k.Roepnaam ?? k.Voornamen?.Split(' ').FirstOrDefault() ?? k.Achternaam).ToList());
+
+            var isEnkelvoud = kinderen.Count == 1;
+
+            // Bezittelijk voornaamwoord op basis van geslacht (bij 1 kind) of "hun" (bij meerdere)
+            var hunZijnHaar = isEnkelvoud
+                ? GetBezittelijkVoornaamwoord(kinderen[0].Geslacht)
+                : "hun";
+
+            // "hij/zij" voor enkelvoud, "zij" voor meervoud
+            var zijHijZij = isEnkelvoud
+                ? (kinderen[0].Geslacht?.ToLowerInvariant() switch
+                {
+                    "man" or "m" or "jongen" => "hij",
+                    "vrouw" or "v" or "meisje" => "zij",
+                    _ => "hij/zij"
+                })
+                : "zij";
+
+            // "hem/haar" voor enkelvoud, "hen" voor meervoud (lijdend voorwerp)
+            var henHemHaar = isEnkelvoud
+                ? (kinderen[0].Geslacht?.ToLowerInvariant() switch
+                {
+                    "man" or "m" or "jongen" => "hem",
+                    "vrouw" or "v" or "meisje" => "haar",
+                    _ => "hem/haar"
+                })
+                : "hen";
+
+            return villaPinedo.ToLowerInvariant() switch
+            {
+                "ja" => $"Wij hebben {kinderenNamen} op de hoogte gebracht van Villa Pinedo, waar {zijHijZij} terecht kan met {hunZijnHaar} vragen, voor het delen van ervaringen, het krijgen van tips en steun om met de scheiding om te gaan.",
+
+                "nee" => $"Wij hebben {kinderenNamen} nog niet op de hoogte gebracht van Villa Pinedo, waar {zijHijZij} terecht kan met {hunZijnHaar} vragen, voor het delen van ervaringen, het krijgen van tips en steun om met de scheiding om te gaan. Als daar aanleiding toe is zullen wij {henHemHaar} daar zeker op attenderen.",
+
                 _ => ""
             };
         }
@@ -1302,7 +1447,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // Basic communicatie afspraken data
             replacements["VillaPinedoKinderen"] = communicatieAfspraken.VillaPinedoKinderen ?? "";
+            replacements["VillaPinedoZin"] = GetVillaPinedoZin(communicatieAfspraken.VillaPinedoKinderen, kinderen ?? new List<ChildData>());
             replacements["KinderenBetrokkenheid"] = communicatieAfspraken.KinderenBetrokkenheid ?? "";
+            replacements["BetrokkenheidKindZin"] = GetBetrokkenheidKindZin(communicatieAfspraken.KinderenBetrokkenheid, kinderen ?? new List<ChildData>());
             replacements["KiesMethode"] = communicatieAfspraken.KiesMethode ?? "";
             replacements["OmgangTekstOfSchema"] = communicatieAfspraken.OmgangTekstOfSchema ?? "";
             replacements["OmgangsregelingBeschrijving"] = GetOmgangsregelingBeschrijving(

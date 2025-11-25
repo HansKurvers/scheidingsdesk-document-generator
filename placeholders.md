@@ -102,7 +102,13 @@ Relatie & Juridisch:
   * "samenwonend" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen] omdat we onze samenleving willen beëindigen."
   * "lat_relatie" / "ex_partners" / "anders" → "In dit ouderschapsplan hebben we afspraken gemaakt over [ons kind/onze kinderen]."
 - [[BetrokkenheidKind]] - Betrokkenheid kind
-- [[Kiesplan]] - Kiesplan
+- [[Kiesplan]] - Kiesplan (ruwe database waarde: kindplan, kies_professional, kindbehartiger, nee)
+- [[KiesplanZin]] - Volledige zin over KIES plan op basis van gekozen optie (leeg bij "nee")
+  * "kindplan" → "Bij het maken van de afspraken in dit ouderschapsplan hebben we [kindnamen] gevraagd een KIES Kindplan te maken dat door ons is ondertekend, zodat wij rekening kunnen houden met [zijn/haar/hun] wensen. Het KIES Kindplan van [kindnamen] is opgenomen als bijlage van dit ouderschapsplan."
+  * "kies_professional" → "Bij het maken van de afspraken in dit ouderschapsplan [is/zijn] [kindnamen] ondersteund door een KIES professional met een KIES kindgesprek om [zijn/haar/hun] vragen te kunnen stellen en behoeftes en wensen aan te geven, zodat wij hiermee rekening kunnen houden. [Het/De] door ons ondertekende KIES [Kindplan is/Kindplannen zijn] daarbij gemaakt en bijlage van dit ouderschapsplan."
+  * "kindbehartiger" → "Bij het maken van de afspraken in dit ouderschapsplan [heeft/hebben] [kindnamen] hulp gekregen van een Kindbehartiger om [zijn/haar/hun] wensen in kaart te brengen zodat wij hiermee rekening kunnen houden."
+  * "nee" of leeg → geen tekst
+  * Let op: Werkwoorden (is/zijn, heeft/hebben) en bezittelijk voornaamwoord (zijn/haar/hun) worden automatisch aangepast op basis van het aantal kinderen en geslacht.
 - [[ParentingCoordinator]] - Parenting coordinator informatie
 
 Ouderlijk Gezag (Parental Authority):
@@ -407,8 +413,19 @@ Technische Werking Partij Benaming:
 Communicatie Afspraken Placeholders:
 
 Basis Afspraken:
-- [[VillaPinedoKinderen]] - Villa Pinedo methode voor kinderen
-- [[KinderenBetrokkenheid]] - Betrokkenheid kinderen bij beslissingen
+- [[VillaPinedoKinderen]] - Villa Pinedo methode voor kinderen (ruwe database waarde: ja/nee)
+- [[VillaPinedoZin]] - Volledige zin over Villa Pinedo op basis van gekozen optie
+  * "ja" → "Wij hebben [kindnamen] op de hoogte gebracht van Villa Pinedo, waar [hij/zij] terecht kan met [zijn/haar/hun] vragen, voor het delen van ervaringen, het krijgen van tips en steun om met de scheiding om te gaan."
+  * "nee" → "Wij hebben [kindnamen] nog niet op de hoogte gebracht van Villa Pinedo, waar [hij/zij] terecht kan met [zijn/haar/hun] vragen, voor het delen van ervaringen, het krijgen van tips en steun om met de scheiding om te gaan. Als daar aanleiding toe is zullen wij [hen/hem/haar] daar zeker op attenderen."
+  * leeg → geen tekst
+  * Let op: Persoonlijk voornaamwoord (hij/zij), bezittelijk voornaamwoord (zijn/haar/hun) en lijdend voorwerp (hem/haar/hen) worden automatisch aangepast op basis van geslacht en aantal kinderen.
+- [[KinderenBetrokkenheid]] - Betrokkenheid kinderen bij beslissingen (ruwe database waarde)
+- [[BetrokkenheidKindZin]] - Volledige zin over betrokkenheid kinderen op basis van gekozen optie
+  * "samen" → "Wij hebben samen met [kindnamen] gesproken zodat wij rekening kunnen houden met [zijn/haar/hun] wensen."
+  * "los_van_elkaar" → "Wij hebben los van elkaar met [kindnamen] gesproken zodat wij rekening kunnen houden met [zijn/haar/hun] wensen."
+  * "jonge_leeftijd" → "[kindnamen] [is/zijn] gezien de jonge leeftijd niet betrokken bij het opstellen van het ouderschapsplan."
+  * "niet_betrokken" → "[kindnamen] [is/zijn] niet betrokken bij het opstellen van het ouderschapsplan."
+  * Let op: Werkwoorden (is/zijn) en bezittelijk voornaamwoord (zijn/haar/hun) worden automatisch aangepast.
 - [[KiesMethode]] - Gekozen methode voor ouderschapsplan
 - [[OmgangTekstOfSchema]] - Omgangsregeling als tekst of schema
 - [[OmgangsregelingBeschrijving]] - Volledige omgangsregeling tekst op basis van keuze:
