@@ -1146,7 +1146,13 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Paragraaf 7: Verantwoording
             paragrafen.Add("We zullen op verzoek aan elkaar uitleggen waarvoor we bepaalde opnames van de kinderrekening hebben gedaan.");
 
-            // Paragraaf 8: Opheffing
+            // Paragraaf 8: Maximum opnamebedrag (indien ingesteld)
+            if (alimentatie.KinderrekeningMaximumOpname == true && alimentatie.KinderrekeningMaximumOpnameBedrag.HasValue && alimentatie.KinderrekeningMaximumOpnameBedrag > 0)
+            {
+                paragrafen.Add($"Per transactie kan maximaal {DataFormatter.FormatCurrency(alimentatie.KinderrekeningMaximumOpnameBedrag)} zonder overleg worden opgenomen.");
+            }
+
+            // Paragraaf 9: Opheffing
             var opheffingsOptie = alimentatie.KinderrekeningOpheffen?.ToLower();
             if (!string.IsNullOrEmpty(opheffingsOptie))
             {
