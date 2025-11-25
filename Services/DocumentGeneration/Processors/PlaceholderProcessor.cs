@@ -1034,11 +1034,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Eigen verblijfskosten
             zinnen.Add("We betalen allebei de eigen verblijfskosten.");
 
-            // Verblijfsoverstijgende kosten met kostensoorten
-            var kostensoorten = FormatKostensoortenList(alimentatie.KinderrekeningKostensoorten);
-            if (!string.IsNullOrEmpty(kostensoorten))
+            // Verblijfsoverstijgende kosten met kostensoorten als bullet list
+            if (alimentatie.KinderrekeningKostensoorten != null && alimentatie.KinderrekeningKostensoorten.Any())
             {
-                zinnen.Add($"De verblijfsoverstijgende kosten ({kostensoorten}) zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
+                zinnen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:");
+                zinnen.Add("[[KinderrekeningKostensoorten]]");
+                zinnen.Add("Van deze rekening hebben we allebei een pinpas.");
             }
             else
             {
