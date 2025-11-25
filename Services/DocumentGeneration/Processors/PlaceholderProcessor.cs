@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Extensions.Logging;
@@ -208,14 +209,81 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     _logger.LogInformation("Replaced alimentatie placeholders: {Keys}", string.Join(", ", replacedKeys));
                 }
 
-                // Clear existing text elements (keep first one)
-                texts.Skip(1).ToList().ForEach(t => t.Remove());
-
-                // Update the first text element with the new text
-                if (texts.Any())
+                // Check if the new text contains line breaks
+                if (newText.Contains("\n"))
                 {
-                    texts[0].Text = newText;
+                    // Handle line breaks by creating proper Word line breaks
+                    ReplaceTextWithLineBreaks(paragraph, texts, newText);
                 }
+                else
+                {
+                    // Simple replacement without line breaks
+                    texts.Skip(1).ToList().ForEach(t => t.Remove());
+                    if (texts.Any())
+                    {
+                        texts[0].Text = newText;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Replace text in paragraph with proper Word line breaks for \n characters
+        /// </summary>
+        private void ReplaceTextWithLineBreaks(Paragraph paragraph, List<Text> originalTexts, string newText)
+        {
+            // Get the parent Run of the first text element to copy its properties
+            var firstText = originalTexts.FirstOrDefault();
+            var parentRun = firstText?.Parent as Run;
+            var runProperties = parentRun?.RunProperties?.CloneNode(true) as RunProperties;
+
+            // Remove all original text elements
+            foreach (var text in originalTexts)
+            {
+                text.Remove();
+            }
+
+            // Split the text by newlines and create new elements
+            var lines = newText.Split(new[] { "\n" }, StringSplitOptions.None);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                // Create a new Run for each line
+                var newRun = new Run();
+                if (runProperties != null)
+                {
+                    newRun.RunProperties = runProperties.CloneNode(true) as RunProperties;
+                }
+
+                // Add the text
+                var textElement = new Text(lines[i]);
+                if (lines[i].StartsWith(" ") || lines[i].EndsWith(" "))
+                {
+                    textElement.Space = SpaceProcessingModeValues.Preserve;
+                }
+                newRun.Append(textElement);
+
+                // Add a line break after each line except the last
+                if (i < lines.Length - 1)
+                {
+                    newRun.Append(new Break());
+                }
+
+                // Insert the run into the paragraph
+                if (parentRun != null)
+                {
+                    parentRun.Parent?.InsertBefore(newRun, parentRun);
+                }
+                else
+                {
+                    paragraph.Append(newRun);
+                }
+            }
+
+            // Remove the original parent run if it's empty
+            if (parentRun != null && !parentRun.Descendants<Text>().Any())
+            {
+                parentRun.Remove();
             }
         }
 
