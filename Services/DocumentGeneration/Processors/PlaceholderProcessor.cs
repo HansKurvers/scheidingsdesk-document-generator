@@ -95,7 +95,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             }
 
             // Add alimentatie data (always add placeholders, even if empty)
-            AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen);
+            AddAlimentatieReplacements(replacements, data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen, data.IsAnoniem);
 
             // Add hoofdverblijf verdeling (distribution of children's primary residence)
             replacements["HoofdverblijfVerdeling"] = GetHoofdverblijfVerdeling(data.Alimentatie, data.Partij1, data.Partij2, data.Kinderen, data.IsAnoniem);
@@ -803,7 +803,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             AlimentatieData? alimentatie,
             PersonData? partij1,
             PersonData? partij2,
-            List<ChildData> kinderen)
+            List<ChildData> kinderen,
+            bool? isAnoniem)
         {
             // Initialize all placeholders with empty values first
             replacements["NettoBesteedbaarGezinsinkomen"] = "";
@@ -879,7 +880,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["KindgebondenBudgetAlleKinderen"] = GetPartyNameOrKinderrekening(alimentatie.KindgebondenBudgetAlleKinderen, partij1, partij2);
 
             // Generate betaalwijze beschrijving (kinderrekening or alimentatie)
-            replacements["BetaalwijzeBeschrijving"] = GetBetaalwijzeBeschrijving(alimentatie, partij1, partij2);
+            replacements["BetaalwijzeBeschrijving"] = GetBetaalwijzeBeschrijving(alimentatie, partij1, partij2, isAnoniem);
 
             _logger.LogDebug("Added alimentatie basic data: Gezinsinkomen={Gezinsinkomen}, KostenKinderen={KostenKinderen}, IsKinderrekening={IsKinderrekening}",
                 replacements["NettoBesteedbaarGezinsinkomen"],
@@ -1048,10 +1049,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// <summary>
         /// Generate the betaalwijze beschrijving based on whether it's kinderrekening or alimentatie
         /// </summary>
-        private string GetBetaalwijzeBeschrijving(AlimentatieData alimentatie, PersonData? partij1, PersonData? partij2)
+        private string GetBetaalwijzeBeschrijving(AlimentatieData alimentatie, PersonData? partij1, PersonData? partij2, bool? isAnoniem)
         {
-            var ouder1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "Ouder 1";
-            var ouder2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "Ouder 2";
+            // Use GetPartijBenaming for proper anonymity handling (returns "de vader"/"de moeder" if anonymous)
+            var ouder1Naam = GetPartijBenaming(partij1, isAnoniem);
+            var ouder2Naam = GetPartijBenaming(partij2, isAnoniem);
+
+            // Fallback if benaming is empty
+            if (string.IsNullOrEmpty(ouder1Naam)) ouder1Naam = "Ouder 1";
+            if (string.IsNullOrEmpty(ouder2Naam)) ouder2Naam = "Ouder 2";
 
             if (alimentatie.IsKinderrekeningBetaalwijze)
             {
