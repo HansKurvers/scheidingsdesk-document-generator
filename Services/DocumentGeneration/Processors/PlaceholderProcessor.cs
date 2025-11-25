@@ -1002,12 +1002,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// </summary>
         private string GetKinderrekeningBeschrijving(AlimentatieData alimentatie, string ouder1Naam, string ouder2Naam)
         {
-            var zinnen = new List<string>();
+            var paragrafen = new List<string>();
 
-            // Intro
-            zinnen.Add("We hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening.");
+            // Paragraaf 1: Intro
+            paragrafen.Add("We hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening.");
 
-            // Kinderbijslag
+            // Paragraaf 2: Kinderbijslag en kindgebonden budget
+            var toeslagenZinnen = new List<string>();
+
             var kinderbijslagOntvanger = alimentatie.KinderbijslagOntvangerAlleKinderen?.ToLower();
             if (!string.IsNullOrEmpty(kinderbijslagOntvanger))
             {
@@ -1015,11 +1017,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 if (!string.IsNullOrEmpty(ontvangerNaam))
                 {
                     var actie = alimentatie.KinderbijslagStortenOpKinderrekening == true ? "stort deze op de kinderrekening" : "houdt deze";
-                    zinnen.Add($"{ontvangerNaam} ontvangt de kinderbijslag en {actie}.");
+                    toeslagenZinnen.Add($"{ontvangerNaam} ontvangt de kinderbijslag en {actie}.");
                 }
             }
 
-            // Kindgebonden budget
             var kgbOntvanger = alimentatie.KindgebondenBudgetAlleKinderen?.ToLower();
             if (!string.IsNullOrEmpty(kgbOntvanger))
             {
@@ -1027,43 +1028,50 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 if (!string.IsNullOrEmpty(ontvangerNaam))
                 {
                     var actie = alimentatie.KindgebondenBudgetStortenOpKinderrekening == true ? "stort deze op de kinderrekening" : "houdt deze";
-                    zinnen.Add($"{ontvangerNaam} ontvangt het kindgebonden budget en {actie}.");
+                    toeslagenZinnen.Add($"{ontvangerNaam} ontvangt het kindgebonden budget en {actie}.");
                 }
             }
 
-            // Eigen verblijfskosten
-            zinnen.Add("We betalen allebei de eigen verblijfskosten.");
+            if (toeslagenZinnen.Any())
+            {
+                paragrafen.Add(string.Join(" ", toeslagenZinnen));
+            }
 
-            // Verblijfsoverstijgende kosten met kostensoorten als bullet list
+            // Paragraaf 3: Kosten
+            paragrafen.Add("We betalen allebei de eigen verblijfskosten.");
+
+            // Paragraaf 4: Verblijfsoverstijgende kosten met bullet list
             if (alimentatie.KinderrekeningKostensoorten != null && alimentatie.KinderrekeningKostensoorten.Any())
             {
-                zinnen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:");
-                zinnen.Add("[[KinderrekeningKostensoorten]]");
-                zinnen.Add("Van deze rekening hebben we allebei een pinpas.");
+                paragrafen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:\n\n[[KinderrekeningKostensoorten]]\n\nVan deze rekening hebben we allebei een pinpas.");
             }
             else
             {
-                zinnen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
+                paragrafen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
             }
 
-            // Stortingen ouder 1
+            // Paragraaf 5: Stortingen
+            var stortingenZinnen = new List<string>();
             if (alimentatie.StortingOuder1Kinderrekening.HasValue && alimentatie.StortingOuder1Kinderrekening > 0)
             {
-                zinnen.Add($"{ouder1Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder1Kinderrekening)} op deze rekening storten.");
+                stortingenZinnen.Add($"{ouder1Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder1Kinderrekening)} op deze rekening storten.");
             }
-
-            // Stortingen ouder 2
             if (alimentatie.StortingOuder2Kinderrekening.HasValue && alimentatie.StortingOuder2Kinderrekening > 0)
             {
-                zinnen.Add($"{ouder2Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder2Kinderrekening)} op deze rekening storten.");
+                stortingenZinnen.Add($"{ouder2Naam} zal iedere maand een bedrag van {DataFormatter.FormatCurrency(alimentatie.StortingOuder2Kinderrekening)} op deze rekening storten.");
+            }
+            if (stortingenZinnen.Any())
+            {
+                paragrafen.Add(string.Join(" ", stortingenZinnen));
             }
 
-            // Vaste afspraken
-            zinnen.Add("We zullen regelmatig controleren of onze bijdragen genoeg zijn om alle kosten te betalen.");
-            zinnen.Add("Als er structureel een tekort is, zullen we in overleg met elkaar een hogere bijdrage op de kinderrekening storten.");
-            zinnen.Add("We zullen op verzoek aan elkaar uitleggen waarvoor we bepaalde opnames van de kinderrekening hebben gedaan.");
+            // Paragraaf 6: Controle en overleg
+            paragrafen.Add("We zullen regelmatig controleren of onze bijdragen genoeg zijn om alle kosten te betalen. Als er structureel een tekort is, zullen we in overleg met elkaar een hogere bijdrage op de kinderrekening storten.");
 
-            // Opheffing
+            // Paragraaf 7: Verantwoording
+            paragrafen.Add("We zullen op verzoek aan elkaar uitleggen waarvoor we bepaalde opnames van de kinderrekening hebben gedaan.");
+
+            // Paragraaf 8: Opheffing
             var opheffingsOptie = alimentatie.KinderrekeningOpheffen?.ToLower();
             if (!string.IsNullOrEmpty(opheffingsOptie))
             {
@@ -1076,11 +1084,11 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 };
                 if (!string.IsNullOrEmpty(opheffingsTekst))
                 {
-                    zinnen.Add($"Als de rekening wordt opgeheven, dan {opheffingsTekst}.");
+                    paragrafen.Add($"Als de rekening wordt opgeheven, dan {opheffingsTekst}.");
                 }
             }
 
-            return string.Join("\n\n", zinnen);
+            return string.Join("\n\n", paragrafen);
         }
 
         /// <summary>
