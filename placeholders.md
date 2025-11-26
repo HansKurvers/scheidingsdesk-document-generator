@@ -297,6 +297,8 @@ Grammatica Regels (Nederlands enkelvoud/meervoud):
 Opmerking: Gebruik de volledige vorm in je template (bijv. [[heeft/hebben]], niet [[meervoud heeft/hebben]])
 
 - [[ons kind/onze kinderen]] - "onze kinderen" (meervoud) of "ons kind" (enkelvoud)
+- [[het kind/de kinderen]] - "de kinderen" (meervoud) of "het kind" (enkelvoud)
+- [[kind/kinderen]] - "kinderen" (meervoud) of "kind" (enkelvoud)
 - [[heeft/hebben]] - "hebben" (meervoud) of "heeft" (enkelvoud)
 - [[is/zijn]] - "zijn" (meervoud) of "is" (enkelvoud)
 - [[verblijft/verblijven]] - "verblijven" (meervoud) of "verblijft" (enkelvoud)

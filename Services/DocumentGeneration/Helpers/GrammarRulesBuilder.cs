@@ -70,6 +70,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
             // Basic singular/plural rules (for backward compatibility)
             rules["ons kind/onze kinderen"] = DutchLanguageHelper.GetChildTerm(isPlural);
+            rules["het kind/de kinderen"] = isPlural ? "de kinderen" : "het kind";
+            rules["kind/kinderen"] = isPlural ? "kinderen" : "kind";
             rules["heeft/hebben"] = DutchLanguageHelper.VerbForms.Heeft_Hebben(isPlural);
             rules["is/zijn"] = DutchLanguageHelper.VerbForms.Is_Zijn(isPlural);
             rules["verblijft/verblijven"] = DutchLanguageHelper.VerbForms.Verblijft_Verblijven(isPlural);
@@ -143,6 +145,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
                 // Basic singular/plural rules (for backward compatibility)
                 ["ons kind/onze kinderen"] = DutchLanguageHelper.GetChildTerm(isPlural),
+                ["het kind/de kinderen"] = isPlural ? "de kinderen" : "het kind",
+                ["kind/kinderen"] = isPlural ? "kinderen" : "kind",
                 ["heeft/hebben"] = DutchLanguageHelper.VerbForms.Heeft_Hebben(isPlural),
                 ["is/zijn"] = DutchLanguageHelper.VerbForms.Is_Zijn(isPlural),
                 ["verblijft/verblijven"] = DutchLanguageHelper.VerbForms.Verblijft_Verblijven(isPlural),
