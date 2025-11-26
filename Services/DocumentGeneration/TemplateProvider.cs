@@ -55,8 +55,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
                     {
                         throw new InvalidOperationException("TemplateStorageUrlV2 environment variable is not set.");
                     }
-                    _logger.LogInformation("Using v2 template (Placeholders.docx)");
+                    _logger.LogInformation("Using v2 template (OPscheidingsdeskundige.docx)");
                     return v2Url;
+
+                case "mfam":
+                    var mfamUrl = Environment.GetEnvironmentVariable("TemplateStorageUrlMfam");
+                    if (string.IsNullOrWhiteSpace(mfamUrl))
+                    {
+                        throw new InvalidOperationException("TemplateStorageUrlMfam environment variable is not set.");
+                    }
+                    _logger.LogInformation("Using MFAM template (OPMfam.docx)");
+                    return mfamUrl;
 
                 default:
                     _logger.LogWarning($"Unknown template type '{templateType}', falling back to default");
