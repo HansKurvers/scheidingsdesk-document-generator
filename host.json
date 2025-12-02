@@ -23,7 +23,7 @@
             },
             "cors": {
                 "allowedOrigins": [
-                    "https://app.scheidingsdesk.nl",
+                    "https://app.idocx.nl",
                     "http://localhost:5173",
                     "http://localhost:3000"
                 ],

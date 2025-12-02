@@ -17,6 +17,7 @@
 - Workflow was gebruikt tijdens ontwikkeling
 - Kan gebruikt worden voor testing
 - **URL**: `https://scheidingsdesk-document-service.azurewebsites.net/api/ouderschapsplan`
+- **Note**: Legacy naming, app is nu i-docx
 
 ## 📋 Frontend Configuratie
 
@@ -66,7 +67,7 @@ VITE_DOCUMENT_GENERATOR_URL=https://mediation-document-generator.azurewebsites.n
 
 ## 🧪 Testen na Deployment
 
-1. Check GitHub Actions run status: https://github.com/HansKurvers/scheidingsdesk-document-generator/actions
+1. Check GitHub Actions run status: https://github.com/HansKurvers/scheidingsdesk-document-generator/actions (repository naam nog niet gewijzigd)
 2. Test document generatie via frontend
 3. Check Azure Application Insights logs voor errors
 

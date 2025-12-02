@@ -2,7 +2,7 @@
 
 ## Context
 
-De document generator (scheidingsdesk-document-generator) is bijgewerkt met 10 nieuwe kinderrekening velden. De code is backwards compatible en kan omgaan met ontbrekende kolommen. Nu moeten de database kolommen worden toegevoegd zodat de frontend data kan opslaan en de document generator de data kan ophalen.
+De document generator (i-docx document-generator, repository: scheidingsdesk-document-generator) is bijgewerkt met 10 nieuwe kinderrekening velden. De code is backwards compatible en kan omgaan met ontbrekende kolommen. Nu moeten de database kolommen worden toegevoegd zodat de frontend data kan opslaan en de document generator de data kan ophalen.
 
 ## Database Informatie
 
@@ -387,6 +387,6 @@ GO
 ## Contact
 
 Bij vragen over de document generator implementatie, zie:
-- Repository: `scheidingsdesk-document-generator`
+- Repository: `scheidingsdesk-document-generator` (i-docx document generator)
 - Documentatie: `DEPLOYMENT.md`
 - Database service code: `Services/DatabaseService.cs` (regels 314-327)
