@@ -102,13 +102,16 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │       │   ├── DutchLanguageHelper.cs          # 🇳🇱 Nederlandse grammatica regels
 │       │   ├── DataFormatter.cs                # 📝 Data formatting (datums, namen, adressen)
 │       │   ├── OpenXmlHelper.cs                # 📄 Word document element creatie
-│       │   └── GrammarRulesBuilder.cs          # 🔤 Grammar rules op basis van kinderen
+│       │   ├── GrammarRulesBuilder.cs          # 🔤 Grammar rules op basis van kinderen
+│       │   └── ArticleNumberingHelper.cs       # 🔢 Automatische artikelnummering
 │       │
 │       ├── Processors/                         # Document verwerking
 │       │   ├── PlaceholderProcessor.cs         # Vervangt placeholders in document
 │       │   ├── IPlaceholderProcessor.cs
 │       │   ├── ContentControlProcessor.cs      # Verwerkt content controls en tabel placeholders
-│       │   └── IContentControlProcessor.cs
+│       │   ├── IContentControlProcessor.cs
+│       │   ├── ConditionalSectionProcessor.cs  # Verwerkt [[IF:]]...[[ENDIF:]] blokken
+│       │   └── IConditionalSectionProcessor.cs
 │       │
 │       └── Generators/                         # Strategy Pattern: Tabel generators
 │           ├── ITableGenerator.cs              # Interface voor alle generators
@@ -160,16 +163,24 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
    │
    └─→ Document Processing:
        │
-       ├─→ PlaceholderProcessor.ProcessDocument()
+       ├─→ Step 1: PlaceholderProcessor.ProcessDocument()
        │   └─→ Vervangt alle tekst placeholders in body, headers, footers
        │
-       ├─→ ContentControlProcessor.ProcessTablePlaceholders()
+       ├─→ Step 2: ConditionalSectionProcessor.ProcessConditionalSections()
+       │   └─→ Verwerkt [[IF:Veld]]...[[ENDIF:Veld]] blokken
+       │       - Verwijdert blokken waar veld leeg is
+       │       - Behoudt content en verwijdert alleen tags waar veld gevuld is
+       │
+       ├─→ Step 3: ArticleNumberingHelper.ProcessArticlePlaceholders()
+       │   └─→ Vervangt [[ARTIKEL]] met oplopende nummers (Artikel 1, 2, 3...)
+       │
+       ├─→ Step 4: ContentControlProcessor.ProcessTablePlaceholders()
        │   └─→ Gebruikt Strategy Pattern voor tabel generatie:
        │       ├─→ OmgangTableGenerator
        │       ├─→ ZorgTableGenerator (handelt alle zorg categorieën af)
        │       └─→ ChildrenListGenerator
        │
-       └─→ ContentControlProcessor.RemoveContentControls()
+       └─→ Step 5: ContentControlProcessor.RemoveContentControls()
            └─→ Verwijdert Word content controls, behoudt content
    ↓
 4. Gegenereerd document wordt teruggegeven als file download
@@ -223,6 +234,11 @@ Deze helpers bevatten geen state en bieden herbruikbare functionaliteit:
    - Bouwt grammatica regels op basis van kinderen data
    - Bepaalt enkelvoud/meervoud aan de hand van minderjarige kinderen
 
+5. **ArticleNumberingHelper** - Automatische artikelnummering
+   - Vervangt `[[ARTIKEL]]` met "Artikel 1", "Artikel 2", etc.
+   - Vervangt `[[ARTIKEL_NR]]` met alleen het nummer (1, 2, etc.)
+   - Werkt samen met conditionele secties voor correcte nummering
+
 #### 🔄 Processors
 
 1. **PlaceholderProcessor** - Vervangt alle text placeholders
@@ -230,7 +246,13 @@ Deze helpers bevatten geen state en bieden herbruikbare functionaliteit:
    - Verwerkt body, headers, footers
    - Ondersteunt 4 formaten: `[[Key]]`, `{Key}`, `<<Key>>`, `[Key]`
 
-2. **ContentControlProcessor** - Verwerkt speciale content
+2. **ConditionalSectionProcessor** - Verwerkt conditionele secties
+   - Ondersteunt `[[IF:VeldNaam]]...[[ENDIF:VeldNaam]]` syntax
+   - Verwijdert complete blokken als veld leeg is
+   - Behoudt content en verwijdert alleen tags als veld gevuld is
+   - Ondersteunt geneste conditionele blokken
+
+3. **ContentControlProcessor** - Verwerkt speciale content
    - Gebruikt Strategy Pattern voor tabel generators
    - Verwijdert Word content controls
    - Behoudt en fix formatting van content
@@ -271,6 +293,7 @@ services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
 services.AddScoped<ITemplateProvider, TemplateProvider>();
 services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
 services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
+services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
 services.AddScoped<GrammarRulesBuilder>();
 
 // Table generators (Strategy Pattern)
@@ -876,6 +899,87 @@ Deze placeholders worden **automatisch** aangepast op basis van het aantal minde
 **Voorbeeld:**
 - 1 jongen: "[[ons kind/onze kinderen]] [[heeft/hebben]]" → "ons kind heeft"
 - 2 kinderen: "[[ons kind/onze kinderen]] [[heeft/hebben]]" → "onze kinderen hebben"
+
+### Conditionele Secties
+
+De template ondersteunt conditionele secties die alleen worden opgenomen als het veld een waarde heeft:
+
+```
+[[IF:GezagRegeling]]
+[[ARTIKEL]] - Het gezag over [[ons kind/onze kinderen]]
+
+[[GezagRegeling]]
+[[ENDIF:GezagRegeling]]
+```
+
+**Hoe het werkt:**
+- `[[IF:VeldNaam]]` - Start conditioneel blok
+- `[[ENDIF:VeldNaam]]` - Einde conditioneel blok
+- Als `VeldNaam` leeg/null is → hele blok wordt verwijderd (inclusief alle paragraphs ertussen)
+- Als `VeldNaam` een waarde heeft → alleen de IF/ENDIF tags worden verwijderd, content blijft behouden
+
+**Geneste conditionele blokken:**
+Conditionele blokken kunnen genest worden, maar elke IF moet een bijbehorende ENDIF hebben met dezelfde veldnaam:
+
+```
+[[IF:WoonplaatsRegeling]]
+Artikel X - Woonplaats
+
+[[WoonplaatsRegeling]]
+
+[[IF:WoonplaatsOptie]]
+Gekozen optie: [[WoonplaatsOptie]]
+[[ENDIF:WoonplaatsOptie]]
+[[ENDIF:WoonplaatsRegeling]]
+```
+
+### Automatische Artikelnummering
+
+Gebruik `[[ARTIKEL]]` voor automatische oplopende nummering:
+
+```
+[[ARTIKEL]] - Respectvol ouderschap
+[[ARTIKEL]] - De mening van [[ons kind/onze kinderen]]
+[[ARTIKEL]] - Het gezag over [[ons kind/onze kinderen]]
+```
+
+Wordt na verwerking:
+
+```
+Artikel 1 - Respectvol ouderschap
+Artikel 2 - De mening van onze kinderen
+Artikel 3 - Het gezag over onze kinderen
+```
+
+**Alternatief - alleen het nummer:**
+Gebruik `[[ARTIKEL_NR]]` als "Artikel" al in de template staat:
+
+```
+Artikel [[ARTIKEL_NR]] - Respectvol ouderschap
+Artikel [[ARTIKEL_NR]] - De mening van [[ons kind/onze kinderen]]
+```
+
+**Combinatie met conditionele secties:**
+Als een artikel in een conditionele sectie staat en die sectie wordt verwijderd (omdat het veld leeg is), nummeren de resterende artikelen automatisch correct door. Dit zorgt ervoor dat je nooit "gaten" in de nummering krijgt.
+
+**Voorbeeld:**
+```
+[[ARTIKEL]] - Respectvol ouderschap
+
+[[IF:GezagRegeling]]
+[[ARTIKEL]] - Het gezag
+[[GezagRegeling]]
+[[ENDIF:GezagRegeling]]
+
+[[ARTIKEL]] - Financiële afspraken
+```
+
+Als `GezagRegeling` leeg is, wordt het resultaat:
+```
+Artikel 1 - Respectvol ouderschap
+
+Artikel 2 - Financiële afspraken
+```
 
 ### Dynamische Tabellen
 

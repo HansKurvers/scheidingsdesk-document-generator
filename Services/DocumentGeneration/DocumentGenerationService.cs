@@ -21,6 +21,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
         private readonly GrammarRulesBuilder _grammarRulesBuilder;
         private readonly IPlaceholderProcessor _placeholderProcessor;
         private readonly IContentControlProcessor _contentControlProcessor;
+        private readonly IConditionalSectionProcessor _conditionalSectionProcessor;
 
         public DocumentGenerationService(
             ILogger<DocumentGenerationService> logger,
@@ -28,7 +29,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
             ITemplateProvider templateProvider,
             GrammarRulesBuilder grammarRulesBuilder,
             IPlaceholderProcessor placeholderProcessor,
-            IContentControlProcessor contentControlProcessor)
+            IContentControlProcessor contentControlProcessor,
+            IConditionalSectionProcessor conditionalSectionProcessor)
         {
             _logger = logger;
             _databaseService = databaseService;
@@ -36,6 +38,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
             _grammarRulesBuilder = grammarRulesBuilder;
             _placeholderProcessor = placeholderProcessor;
             _contentControlProcessor = contentControlProcessor;
+            _conditionalSectionProcessor = conditionalSectionProcessor;
         }
 
         /// <summary>
@@ -120,19 +123,27 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
                         throw new InvalidOperationException("Document body is null");
                     }
 
-                    // Process placeholders in body
-                    _logger.LogInformation($"[{correlationId}] Processing placeholders");
+                    // Step 1: Process placeholders in body
+                    _logger.LogInformation($"[{correlationId}] Step 1: Processing placeholders");
                     _placeholderProcessor.ProcessDocument(body, replacements, correlationId);
 
                     // Process headers and footers
                     _placeholderProcessor.ProcessHeadersAndFooters(mainPart, replacements, correlationId);
 
-                    // Process table placeholders (generates dynamic tables)
-                    _logger.LogInformation($"[{correlationId}] Processing table placeholders");
+                    // Step 2: Process conditional sections
+                    _logger.LogInformation($"[{correlationId}] Step 2: Processing conditional sections");
+                    _conditionalSectionProcessor.ProcessConditionalSections(doc, replacements, correlationId);
+
+                    // Step 3: Process article numbering
+                    _logger.LogInformation($"[{correlationId}] Step 3: Processing article numbering");
+                    ArticleNumberingHelper.ProcessArticlePlaceholders(doc, _logger, correlationId);
+
+                    // Step 4: Process table placeholders (generates dynamic tables)
+                    _logger.LogInformation($"[{correlationId}] Step 4: Processing table placeholders");
                     _contentControlProcessor.ProcessTablePlaceholders(body, dossierData, correlationId);
 
-                    // Remove content controls
-                    _logger.LogInformation($"[{correlationId}] Removing content controls");
+                    // Step 5: Remove content controls
+                    _logger.LogInformation($"[{correlationId}] Step 5: Removing content controls");
                     _contentControlProcessor.RemoveContentControls(mainPart.Document, correlationId);
 
                     // Save changes

@@ -38,6 +38,7 @@ var host = new HostBuilder()
         services.AddScoped<ITemplateProvider, TemplateProvider>();
         services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
         services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
+        services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
         services.AddScoped<GrammarRulesBuilder>();
 
         // Register all table generators (Strategy Pattern)
