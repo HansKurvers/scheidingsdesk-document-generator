@@ -9,25 +9,43 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 {
     /// <summary>
     /// Helper voor automatische artikelnummering in Word documenten.
-    /// Vervangt [[ARTIKEL]] placeholders door oplopende nummers.
+    /// Ondersteunt hoofdartikelen ([[ARTIKEL]]) en subartikelen ([[SUBARTIKEL]]).
+    ///
+    /// Voorbeeld output:
+    /// - [[ARTIKEL]] → "Artikel 1", "Artikel 2", "Artikel 3"
+    /// - [[SUBARTIKEL]] na Artikel 4 → "4.1", "4.2", "4.3"
+    /// - [[ARTIKEL]] reset subartikel teller
+    /// - [[ARTIKEL_RESET]] reset ALLE tellers naar 1
     /// </summary>
     public static class ArticleNumberingHelper
     {
-        private static readonly Regex ArticlePlaceholderPattern =
+        // Regex patterns voor verschillende placeholder types
+        private static readonly Regex ArticlePattern =
             new(@"\[\[ARTIKEL\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex ArticleNumberPlaceholderPattern =
+        private static readonly Regex SubArticlePattern =
+            new(@"\[\[SUBARTIKEL\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        private static readonly Regex ArticleNumberPattern =
             new(@"\[\[ARTIKEL_NR\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        private static readonly Regex SubArticleNumberPattern =
+            new(@"\[\[SUBARTIKEL_NR\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // Reset pattern - zet artikelnummer terug naar 1
+        private static readonly Regex ArticleResetPattern =
+            new(@"\[\[ARTIKEL_RESET\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         /// <summary>
-        /// Vervangt alle [[ARTIKEL]] placeholders door oplopende nummers ("Artikel 1", "Artikel 2", etc.)
+        /// Verwerkt alle artikel en subartikel placeholders in het document.
+        /// Moet in document-volgorde worden verwerkt zodat nummering klopt.
         /// </summary>
         public static void ProcessArticlePlaceholders(
             WordprocessingDocument document,
             ILogger logger,
             string correlationId)
         {
-            logger.LogInformation($"[{correlationId}] Starting article numbering");
+            logger.LogInformation($"[{correlationId}] Starting article and sub-article numbering");
 
             var mainPart = document.MainDocumentPart;
             if (mainPart?.Document?.Body == null)
@@ -36,17 +54,18 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
                 return;
             }
 
-            int articleNumber = 1;
+            // State voor nummering
+            var state = new NumberingState();
 
-            // Process main body
-            articleNumber = ProcessElementArticles(mainPart.Document.Body, articleNumber, logger, correlationId);
+            // Process main body (paragraph voor paragraph om volgorde te behouden)
+            ProcessElementInOrder(mainPart.Document.Body, state, logger, correlationId);
 
-            // Process headers (meestal geen artikelnummers, maar voor volledigheid)
+            // Process headers
             foreach (var headerPart in mainPart.HeaderParts)
             {
                 if (headerPart.Header != null)
                 {
-                    articleNumber = ProcessElementArticles(headerPart.Header, articleNumber, logger, correlationId);
+                    ProcessElementInOrder(headerPart.Header, state, logger, correlationId);
                 }
             }
 
@@ -55,85 +74,131 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             {
                 if (footerPart.Footer != null)
                 {
-                    articleNumber = ProcessElementArticles(footerPart.Footer, articleNumber, logger, correlationId);
+                    ProcessElementInOrder(footerPart.Footer, state, logger, correlationId);
                 }
             }
 
-            logger.LogInformation($"[{correlationId}] Article numbering completed. Total articles: {articleNumber - 1}");
-        }
-
-        private static int ProcessElementArticles(
-            OpenXmlElement element,
-            int startNumber,
-            ILogger logger,
-            string correlationId)
-        {
-            int currentNumber = startNumber;
-
-            // Zoek alle Text elements die [[ARTIKEL]] bevatten
-            var textElements = element.Descendants<Text>()
-                .Where(t => ArticlePlaceholderPattern.IsMatch(t.Text))
-                .ToList();
-
-            foreach (var textElement in textElements)
-            {
-                var originalText = textElement.Text;
-
-                // Vervang alle placeholders in deze text node
-                int tempNumber = currentNumber;
-                textElement.Text = ArticlePlaceholderPattern.Replace(originalText, m =>
-                {
-                    var replacement = $"Artikel {tempNumber}";
-                    logger.LogDebug($"[{correlationId}] Replacing [[ARTIKEL]] with '{replacement}'");
-                    tempNumber++;
-                    return replacement;
-                });
-
-                // Update currentNumber voor volgende text element
-                var matchCount = ArticlePlaceholderPattern.Matches(originalText).Count;
-                currentNumber += matchCount;
-            }
-
-            return currentNumber;
+            logger.LogInformation(
+                $"[{correlationId}] Article numbering completed. Main articles: {state.MainArticleNumber - 1}, Sub-articles: {state.TotalSubArticles}");
         }
 
         /// <summary>
-        /// Alternatieve versie die alleen het nummer vervangt (voor als "Artikel" al in template staat)
-        /// Gebruik [[ARTIKEL_NR]] in template
+        /// Verwerkt element in document-volgorde om correcte nummering te garanderen.
+        /// Dit is belangrijk omdat [[ARTIKEL]] de subartikel-teller moet resetten.
         /// </summary>
-        public static void ProcessArticleNumberPlaceholders(
-            WordprocessingDocument document,
+        private static void ProcessElementInOrder(
+            OpenXmlElement element,
+            NumberingState state,
             ILogger logger,
             string correlationId)
         {
-            logger.LogInformation($"[{correlationId}] Starting article number processing");
+            // Verzamel alle Text nodes in document-volgorde
+            var textNodes = element.Descendants<Text>().ToList();
 
-            var mainPart = document.MainDocumentPart;
-            if (mainPart?.Document?.Body == null)
+            foreach (var textNode in textNodes)
             {
-                logger.LogWarning($"[{correlationId}] Document has no body");
-                return;
-            }
+                var text = textNode.Text;
+                if (string.IsNullOrEmpty(text)) continue;
 
-            int articleNumber = 1;
-
-            var textElements = mainPart.Document.Body.Descendants<Text>()
-                .Where(t => ArticleNumberPlaceholderPattern.IsMatch(t.Text))
-                .ToList();
-
-            foreach (var textElement in textElements)
-            {
-                var originalText = textElement.Text;
-                textElement.Text = ArticleNumberPlaceholderPattern.Replace(originalText, m =>
+                // Check voor [[ARTIKEL_RESET]] - reset alle tellers
+                if (ArticleResetPattern.IsMatch(text))
                 {
-                    var num = articleNumber.ToString();
-                    logger.LogDebug($"[{correlationId}] Replacing [[ARTIKEL_NR]] with '{num}'");
-                    articleNumber++;
-                    return num;
-                });
-            }
+                    text = ArticleResetPattern.Replace(text, m =>
+                    {
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_RESET]] - Resetting counters to 1");
 
-            logger.LogInformation($"[{correlationId}] Article number processing completed. Total: {articleNumber - 1}");
+                        // Reset alle tellers
+                        state.MainArticleNumber = 1;
+                        state.CurrentMainArticle = 1;
+                        state.SubArticleNumber = 1;
+
+                        return ""; // Verwijder de placeholder uit het document
+                    });
+                }
+
+                // Check voor [[ARTIKEL]] - hoofdartikel
+                if (ArticlePattern.IsMatch(text))
+                {
+                    text = ArticlePattern.Replace(text, m =>
+                    {
+                        var replacement = $"Artikel {state.MainArticleNumber}";
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL]] → '{replacement}'");
+
+                        // Reset subartikel teller bij nieuw hoofdartikel
+                        state.CurrentMainArticle = state.MainArticleNumber;
+                        state.SubArticleNumber = 1;
+                        state.MainArticleNumber++;
+
+                        return replacement;
+                    });
+                }
+
+                // Check voor [[ARTIKEL_NR]] - alleen nummer
+                if (ArticleNumberPattern.IsMatch(text))
+                {
+                    text = ArticleNumberPattern.Replace(text, m =>
+                    {
+                        var replacement = state.MainArticleNumber.ToString();
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_NR]] → '{replacement}'");
+
+                        state.CurrentMainArticle = state.MainArticleNumber;
+                        state.SubArticleNumber = 1;
+                        state.MainArticleNumber++;
+
+                        return replacement;
+                    });
+                }
+
+                // Check voor [[SUBARTIKEL]] - subartikel met prefix
+                if (SubArticlePattern.IsMatch(text))
+                {
+                    text = SubArticlePattern.Replace(text, m =>
+                    {
+                        var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
+                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL]] → '{replacement}'");
+
+                        state.SubArticleNumber++;
+                        state.TotalSubArticles++;
+
+                        return replacement;
+                    });
+                }
+
+                // Check voor [[SUBARTIKEL_NR]] - zelfde als [[SUBARTIKEL]]
+                if (SubArticleNumberPattern.IsMatch(text))
+                {
+                    text = SubArticleNumberPattern.Replace(text, m =>
+                    {
+                        var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
+                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL_NR]] → '{replacement}'");
+
+                        state.SubArticleNumber++;
+                        state.TotalSubArticles++;
+
+                        return replacement;
+                    });
+                }
+
+                textNode.Text = text;
+            }
+        }
+
+        /// <summary>
+        /// State object voor het bijhouden van nummering tijdens verwerking
+        /// </summary>
+        private class NumberingState
+        {
+            /// <summary>Volgende hoofdartikel nummer (1, 2, 3...)</summary>
+            public int MainArticleNumber { get; set; } = 1;
+
+            /// <summary>Huidige hoofdartikel (voor subartikel prefix)</summary>
+            public int CurrentMainArticle { get; set; } = 1;
+
+            /// <summary>Volgende subartikel nummer binnen huidig hoofdartikel</summary>
+            public int SubArticleNumber { get; set; } = 1;
+
+            /// <summary>Totaal aantal verwerkte subartikelen (voor logging)</summary>
+            public int TotalSubArticles { get; set; } = 0;
         }
     }
 }
