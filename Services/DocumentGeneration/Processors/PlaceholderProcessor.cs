@@ -848,8 +848,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             return keuze switch
             {
-                "1" => "We blijven ieder zelf verantwoordelijk voor de opvang van onze kinderen op de dagen dat ze volgens het schema bij ieder van ons verblijven.",
-                "2" => "Als opvang of een afwijking van het schema nodig is, vragen we altijd eerst aan de andere ouder of die beschikbaar is, voordat we anderen vragen voor de opvang van onze kinderen.",
+                "1" => "Wij blijven ieder zelf verantwoordelijk voor de opvang van onze kinderen op de dagen dat ze volgens het schema bij ieder van ons verblijven.",
+                "2" => "Als opvang of een afwijking van het schema nodig is, vragen wij altijd eerst aan de andere ouder of die beschikbaar is, voordat wij anderen vragen voor de opvang van onze kinderen.",
                 _ => ""
             };
         }
@@ -1220,7 +1220,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             var paragrafen = new List<string>();
 
             // Paragraaf 1: Intro
-            paragrafen.Add("We hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening.");
+            paragrafen.Add("Wij hebben ervoor gekozen om gebruik te maken van een gezamenlijke kinderrekening.");
 
             // Paragraaf 2: Kinderbijslag en kindgebonden budget
             var toeslagenZinnen = new List<string>();
@@ -1253,17 +1253,17 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             }
 
             // Paragraaf 3: Kosten
-            paragrafen.Add("We betalen allebei de eigen verblijfskosten.");
+            paragrafen.Add("Wij betalen allebei de eigen verblijfskosten.");
 
             // Paragraaf 4: Verblijfsoverstijgende kosten met bullet list
             if (alimentatie.KinderrekeningKostensoorten != null && alimentatie.KinderrekeningKostensoorten.Any())
             {
                 var kostenLijst = FormatKostensoortenList(alimentatie.KinderrekeningKostensoorten);
-                paragrafen.Add($"De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening:\n\n{kostenLijst}\n\nVan deze rekening hebben we allebei een pinpas.");
+                paragrafen.Add($"De verblijfsoverstijgende kosten betalen wij van de kinderrekening:\n{kostenLijst}\nVan deze rekening hebben wij allebei een pinpas.");
             }
             else
             {
-                paragrafen.Add("De verblijfsoverstijgende kosten zullen we betalen van de kinderrekening. Van deze rekening hebben we allebei een pinpas.");
+                paragrafen.Add("De verblijfsoverstijgende kosten betalen wij van de kinderrekening. Van deze rekening hebben wij allebei een pinpas.");
             }
 
             // Paragraaf 5: Stortingen
@@ -1282,10 +1282,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             }
 
             // Paragraaf 6: Controle en overleg
-            paragrafen.Add("We zullen regelmatig controleren of onze bijdragen genoeg zijn om alle kosten te betalen. Als er structureel een tekort is, zullen we in overleg met elkaar een hogere bijdrage op de kinderrekening storten.");
+            paragrafen.Add("Wij zullen regelmatig controleren of onze bijdragen genoeg zijn om alle kosten te betalen. Als er structureel een tekort is, zullen wij in overleg met elkaar een hogere bijdrage op de kinderrekening storten.");
 
             // Paragraaf 7: Verantwoording
-            paragrafen.Add("We zullen op verzoek aan elkaar uitleggen waarvoor we bepaalde opnames van de kinderrekening hebben gedaan.");
+            paragrafen.Add("Wij zullen op verzoek aan elkaar uitleggen waarvoor wij bepaalde opnames van de kinderrekening hebben gedaan.");
 
             // Paragraaf 8: Maximum opnamebedrag (indien ingesteld)
             if (alimentatie.KinderrekeningMaximumOpname == true && alimentatie.KinderrekeningMaximumOpnameBedrag.HasValue && alimentatie.KinderrekeningMaximumOpnameBedrag > 0)
@@ -1310,7 +1310,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 }
             }
 
-            return string.Join("\n\n", paragrafen);
+            return string.Join("\n", paragrafen);
         }
 
         /// <summary>
@@ -1321,7 +1321,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             var zinnen = new List<string>();
 
             // Intro
-            zinnen.Add("We hebben ervoor gekozen om een maandelijkse kinderalimentatie af te spreken.");
+            zinnen.Add("Wij hebben ervoor gekozen om een maandelijkse kinderalimentatie af te spreken.");
 
             // Alimentatiegerechtigde ontvangt kinderbijslag en kgb
             var alimentatiegerechtigde = alimentatie.Alimentatiegerechtigde?.ToLower();
@@ -1334,12 +1334,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             }
 
             // Eigen verblijfskosten
-            zinnen.Add("We betalen allebei de eigen verblijfskosten.");
+            zinnen.Add("Wij betalen allebei de eigen verblijfskosten.");
 
             // Zorgkorting
             if (alimentatie.ZorgkortingPercentageAlleKinderen.HasValue)
             {
-                zinnen.Add($"We houden rekening met een zorgkorting van {alimentatie.ZorgkortingPercentageAlleKinderen:0.##}%.");
+                zinnen.Add($"Wij houden rekening met een zorgkorting van {alimentatie.ZorgkortingPercentageAlleKinderen:0.##}%.");
             }
 
             // Verblijfsoverstijgende kosten
@@ -1364,7 +1364,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 zinnen.Add($"De eerste jaarlijkse verhoging is per 1 januari {alimentatie.EersteIndexeringJaar}.");
             }
 
-            return string.Join("\n\n", zinnen);
+            return string.Join("\n", zinnen);
         }
 
         /// <summary>
@@ -1652,8 +1652,8 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             return keuze switch
             {
-                "wel" => "We spreken als ouders af wel ouderlijk toezichtapps te gebruiken.",
-                "geen" => "We spreken als ouders af geen ouderlijk toezichtapps te gebruiken.",
+                "wel" => "Wij spreken als ouders af wel ouderlijk toezichtapps te gebruiken.",
+                "geen" => "Wij spreken als ouders af geen ouderlijk toezichtapps te gebruiken.",
                 _ => ""
             };
         }
