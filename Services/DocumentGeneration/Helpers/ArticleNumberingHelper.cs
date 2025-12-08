@@ -8,44 +8,42 @@ using System.Text.RegularExpressions;
 namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 {
     /// <summary>
-    /// Helper voor automatische artikelnummering met Word native nummering.
-    /// Nummering past zich automatisch aan bij verwijderen/toevoegen in Word.
+    /// Helper voor automatische artikelnummering met Word SEQ velden.
+    /// SEQ velden zijn onafhankelijk van bullets/lijsten en updaten automatisch.
     ///
     /// Ondersteunt:
-    /// - [[ARTIKEL]] → Word native nummering "Artikel 1", "Artikel 2", etc.
-    /// - [[SUBARTIKEL]] → Word native nummering "1.1", "1.2", etc.
+    /// - [[ARTIKEL]] → SEQ veld "Artikel 1", "Artikel 2", etc.
+    /// - [[SUBARTIKEL]] → SEQ veld "1.1", "1.2", etc.
     /// - [[ARTIKEL_NR]] → Alleen nummer (platte tekst, voor referenties)
     /// - [[SUBARTIKEL_NR]] → Alleen subnummer (platte tekst, voor referenties)
     /// - [[ARTIKEL_RESET]] → Reset alle tellers naar 1
     /// </summary>
     public static class ArticleNumberingHelper
     {
-        // Regex patterns voor verschillende placeholder types
-        private static readonly Regex ArticlePattern =
+        private static readonly Regex ArtikelPattern =
             new(@"\[\[ARTIKEL\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex SubArticlePattern =
+        private static readonly Regex SubArtikelPattern =
             new(@"\[\[SUBARTIKEL\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex ArticleNumberPattern =
+        private static readonly Regex ArtikelNrPattern =
             new(@"\[\[ARTIKEL_NR\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static readonly Regex SubArticleNumberPattern =
+        private static readonly Regex SubArtikelNrPattern =
             new(@"\[\[SUBARTIKEL_NR\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        // Reset pattern - zet artikelnummer terug naar 1
-        private static readonly Regex ArticleResetPattern =
+        private static readonly Regex ArtikelResetPattern =
             new(@"\[\[ARTIKEL_RESET\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// Verwerkt alle artikel placeholders en past Word native nummering toe.
+        /// Verwerkt alle artikel placeholders en vervangt ze door SEQ velden.
         /// </summary>
         public static void ProcessArticlePlaceholders(
             WordprocessingDocument document,
             ILogger logger,
             string correlationId)
         {
-            logger.LogInformation($"[{correlationId}] Starting article numbering with Word native lists");
+            logger.LogInformation($"[{correlationId}] Starting article numbering with SEQ fields");
 
             var mainPart = document.MainDocumentPart;
             if (mainPart?.Document?.Body == null)
@@ -54,229 +52,211 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
                 return;
             }
 
-            // Stap 1: Zorg dat numbering definitions bestaan
-            NumberingDefinitionHelper.EnsureNumberingDefinitions(document);
-
-            // Stap 2: Verwerk placeholders
             var state = new NumberingState();
-            ProcessBodyParagraphs(document, mainPart.Document.Body, state, logger, correlationId);
 
-            // Process headers
+            // Verwerk main body
+            ProcessContainer(mainPart.Document.Body, state, logger, correlationId);
+
+            // Verwerk headers
             foreach (var headerPart in mainPart.HeaderParts)
             {
                 if (headerPart.Header != null)
                 {
-                    ProcessBodyParagraphs(document, headerPart.Header, state, logger, correlationId);
+                    ProcessContainer(headerPart.Header, state, logger, correlationId);
                 }
             }
 
-            // Process footers
+            // Verwerk footers
             foreach (var footerPart in mainPart.FooterParts)
             {
                 if (footerPart.Footer != null)
                 {
-                    ProcessBodyParagraphs(document, footerPart.Footer, state, logger, correlationId);
+                    ProcessContainer(footerPart.Footer, state, logger, correlationId);
                 }
             }
 
+            // Activeer auto-update van velden bij openen
+            SeqFieldHelper.EnableAutoUpdateFields(document);
+
             logger.LogInformation(
-                $"[{correlationId}] Article numbering completed. Main articles: {state.MainArticleNumber - 1}, Sub-articles: {state.TotalSubArticles}");
+                $"[{correlationId}] Article numbering completed. Main articles: {state.ArtikelNumber - 1}, Sub-articles: {state.TotalSubArtikels}");
         }
 
-        private static void ProcessBodyParagraphs(
-            WordprocessingDocument document,
+        private static void ProcessContainer(
             OpenXmlElement container,
             NumberingState state,
             ILogger logger,
             string correlationId)
         {
-            // We moeten paragraph-voor-paragraph werken om de volgorde te behouden
+            // Verwerk alle paragraphs in volgorde
             var paragraphs = container.Descendants<Paragraph>().ToList();
 
             foreach (var paragraph in paragraphs)
             {
-                var text = GetParagraphText(paragraph);
+                ProcessParagraph(paragraph, state, logger, correlationId);
+            }
+        }
 
-                // Check voor [[ARTIKEL_RESET]]
-                if (ArticleResetPattern.IsMatch(text))
+        private static void ProcessParagraph(
+            Paragraph paragraph,
+            NumberingState state,
+            ILogger logger,
+            string correlationId)
+        {
+            // We moeten runs individueel verwerken om placeholders te vinden
+            // Maak een snapshot van runs omdat we de collectie gaan wijzigen
+            var runs = paragraph.Elements<Run>().ToList();
+
+            foreach (var run in runs)
+            {
+                // Maak een snapshot van text elements
+                var textElements = run.Elements<Text>().ToList();
+
+                foreach (var textElement in textElements)
                 {
-                    logger.LogDebug($"[{correlationId}] [[ARTIKEL_RESET]] found - resetting counters");
-                    state.MainArticleNumber = 1;
-                    state.CurrentMainArticle = 1;
-                    state.SubArticleNumber = 1;
-                    state.NextNumId = 2001;
+                    var text = textElement.Text;
+                    if (string.IsNullOrEmpty(text)) continue;
 
-                    // Verwijder de reset placeholder
-                    RemovePlaceholderFromParagraph(paragraph, ArticleResetPattern);
-
-                    // Als paragraph nu leeg is, verwijder hem
-                    if (string.IsNullOrWhiteSpace(GetParagraphText(paragraph)))
+                    // Check voor [[ARTIKEL_RESET]]
+                    if (ArtikelResetPattern.IsMatch(text))
                     {
-                        paragraph.Remove();
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_RESET]] found - resetting counters");
+                        state.ArtikelNumber = 1;
+                        state.SubArtikelNumber = 1;
+                        state.IsFirstSubArtikelInArtikel = true;
+                        textElement.Text = ArtikelResetPattern.Replace(text, "");
+                        continue;
                     }
-                    continue;
-                }
 
-                // Check voor [[ARTIKEL]]
-                if (ArticlePattern.IsMatch(text))
-                {
-                    logger.LogDebug($"[{correlationId}] [[ARTIKEL]] → applying Word numbering for article {state.MainArticleNumber}");
-
-                    // Verwijder "[[ARTIKEL]]" uit de tekst (laat rest staan, bijv. " - Respectvol ouderschap")
-                    RemovePlaceholderFromParagraph(paragraph, ArticlePattern);
-
-                    // Voeg numbering toe aan paragraph
-                    ApplyArtikelNumbering(paragraph);
-
-                    // Reset subartikel nummering voor dit nieuwe artikel
-                    state.CurrentSubArtikelNumId = NumberingDefinitionHelper.CreateRestartedSubArtikelNumbering(
-                        document,
-                        state.MainArticleNumber,
-                        state.NextNumId++);
-
-                    state.CurrentMainArticle = state.MainArticleNumber;
-                    state.SubArticleNumber = 1;
-                    state.MainArticleNumber++;
-                    continue;
-                }
-
-                // Check voor [[ARTIKEL_NR]] - alleen nummer (platte tekst voor referenties)
-                if (ArticleNumberPattern.IsMatch(text))
-                {
-                    foreach (var textNode in paragraph.Descendants<Text>())
+                    // Check voor [[ARTIKEL]]
+                    if (ArtikelPattern.IsMatch(text))
                     {
-                        if (ArticleNumberPattern.IsMatch(textNode.Text))
-                        {
-                            var replacement = state.MainArticleNumber.ToString();
-                            logger.LogDebug($"[{correlationId}] [[ARTIKEL_NR]] → '{replacement}'");
-                            textNode.Text = ArticleNumberPattern.Replace(textNode.Text, replacement);
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL]] → SEQ field for Artikel {state.ArtikelNumber}");
 
-                            state.CurrentMainArticle = state.MainArticleNumber;
-                            state.SubArticleNumber = 1;
-                            state.MainArticleNumber++;
-                        }
+                        // Bij eerste artikel of na reset, gebruik \r 1 om te resetten
+                        int? resetTo = state.ArtikelNumber == 1 ? 1 : null;
+
+                        ReplaceWithSeqField(run, textElement, ArtikelPattern,
+                            SeqFieldHelper.CreateSeqField("Artikel", "Artikel ", resetTo));
+
+                        state.CurrentArtikelNumber = state.ArtikelNumber;
+                        state.ArtikelNumber++;
+                        state.SubArtikelNumber = 1;
+                        state.IsFirstSubArtikelInArtikel = true;
+                        continue;
                     }
-                    continue;
-                }
 
-                // Check voor [[SUBARTIKEL]]
-                if (SubArticlePattern.IsMatch(text))
-                {
-                    logger.LogDebug($"[{correlationId}] [[SUBARTIKEL]] → applying Word numbering {state.CurrentMainArticle}.{state.SubArticleNumber}");
-
-                    // Verwijder "[[SUBARTIKEL]]" uit de tekst
-                    RemovePlaceholderFromParagraph(paragraph, SubArticlePattern);
-
-                    // Voeg subartikel numbering toe
-                    ApplySubArtikelNumbering(paragraph, state.CurrentSubArtikelNumId);
-
-                    state.SubArticleNumber++;
-                    state.TotalSubArticles++;
-                    continue;
-                }
-
-                // Check voor [[SUBARTIKEL_NR]] - platte tekst voor referenties
-                if (SubArticleNumberPattern.IsMatch(text))
-                {
-                    foreach (var textNode in paragraph.Descendants<Text>())
+                    // Check voor [[SUBARTIKEL]]
+                    if (SubArtikelPattern.IsMatch(text))
                     {
-                        if (SubArticleNumberPattern.IsMatch(textNode.Text))
-                        {
-                            var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
-                            logger.LogDebug($"[{correlationId}] [[SUBARTIKEL_NR]] → '{replacement}'");
-                            textNode.Text = SubArticleNumberPattern.Replace(textNode.Text, replacement);
+                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL]] → SEQ field for {state.CurrentArtikelNumber}.{state.SubArtikelNumber}");
 
-                            state.SubArticleNumber++;
-                            state.TotalSubArticles++;
-                        }
+                        ReplaceWithSeqField(run, textElement, SubArtikelPattern,
+                            SeqFieldHelper.CreateSubArtikelSeqField(
+                                state.CurrentArtikelNumber,
+                                state.IsFirstSubArtikelInArtikel));
+
+                        state.SubArtikelNumber++;
+                        state.TotalSubArtikels++;
+                        state.IsFirstSubArtikelInArtikel = false;
+                        continue;
+                    }
+
+                    // Check voor [[ARTIKEL_NR]] - alleen nummer, geen "Artikel " prefix (platte tekst)
+                    if (ArtikelNrPattern.IsMatch(text))
+                    {
+                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_NR]] → '{state.ArtikelNumber}' (plain text)");
+                        textElement.Text = ArtikelNrPattern.Replace(text, state.ArtikelNumber.ToString());
+
+                        state.CurrentArtikelNumber = state.ArtikelNumber;
+                        state.ArtikelNumber++;
+                        state.SubArtikelNumber = 1;
+                        state.IsFirstSubArtikelInArtikel = true;
+                        continue;
+                    }
+
+                    // Check voor [[SUBARTIKEL_NR]] - volledig subartikel nummer (platte tekst)
+                    if (SubArtikelNrPattern.IsMatch(text))
+                    {
+                        var replacement = $"{state.CurrentArtikelNumber}.{state.SubArtikelNumber}";
+                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL_NR]] → '{replacement}' (plain text)");
+                        textElement.Text = SubArtikelNrPattern.Replace(text, replacement);
+
+                        state.SubArtikelNumber++;
+                        state.TotalSubArtikels++;
+                        state.IsFirstSubArtikelInArtikel = false;
                     }
                 }
             }
         }
 
-        private static string GetParagraphText(Paragraph paragraph)
+        /// <summary>
+        /// Vervangt een placeholder in een Text element met SEQ veld elementen.
+        /// </summary>
+        private static void ReplaceWithSeqField(
+            Run parentRun,
+            Text textElement,
+            Regex pattern,
+            List<OpenXmlElement> seqFieldElements)
         {
-            return string.Join("", paragraph.Descendants<Text>().Select(t => t.Text));
-        }
+            var text = textElement.Text;
+            var match = pattern.Match(text);
 
-        private static void RemovePlaceholderFromParagraph(Paragraph paragraph, Regex pattern)
-        {
-            foreach (var text in paragraph.Descendants<Text>())
+            if (!match.Success) return;
+
+            // Tekst voor de placeholder
+            var beforeText = text.Substring(0, match.Index);
+            // Tekst na de placeholder
+            var afterText = text.Substring(match.Index + match.Length);
+
+            // Kopieer formatting van de originele run
+            var runProperties = parentRun.RunProperties?.CloneNode(true) as RunProperties;
+
+            // Voeg tekst voor placeholder toe (als die er is)
+            if (!string.IsNullOrEmpty(beforeText))
             {
-                if (pattern.IsMatch(text.Text))
+                var beforeRun = new Run();
+                if (runProperties != null)
+                    beforeRun.RunProperties = runProperties.CloneNode(true) as RunProperties;
+                beforeRun.AppendChild(new Text(beforeText) { Space = SpaceProcessingModeValues.Preserve });
+                parentRun.InsertBeforeSelf(beforeRun);
+            }
+
+            // Voeg SEQ veld elementen toe met dezelfde formatting
+            foreach (var element in seqFieldElements)
+            {
+                if (element is Run seqRun && runProperties != null)
                 {
-                    text.Text = pattern.Replace(text.Text, "");
+                    // Alleen formatting toevoegen aan runs die tekst of veldcodes bevatten
+                    if (seqRun.GetFirstChild<Text>() != null || seqRun.GetFirstChild<FieldCode>() != null)
+                    {
+                        seqRun.RunProperties = runProperties.CloneNode(true) as RunProperties;
+                    }
                 }
+                parentRun.InsertBeforeSelf(element);
             }
-        }
 
-        /// <summary>
-        /// Past Word nummering toe op een artikel paragraph.
-        /// </summary>
-        private static void ApplyArtikelNumbering(Paragraph paragraph)
-        {
-            // Zorg dat paragraph properties bestaan
-            var pPr = paragraph.ParagraphProperties;
-            if (pPr == null)
+            // Voeg tekst na placeholder toe (als die er is)
+            if (!string.IsNullOrEmpty(afterText))
             {
-                pPr = new ParagraphProperties();
-                paragraph.InsertAt(pPr, 0);
+                var afterRun = new Run();
+                if (runProperties != null)
+                    afterRun.RunProperties = runProperties.CloneNode(true) as RunProperties;
+                afterRun.AppendChild(new Text(afterText) { Space = SpaceProcessingModeValues.Preserve });
+                parentRun.InsertBeforeSelf(afterRun);
             }
 
-            // Verwijder bestaande numbering als die er is
-            var existingNumPr = pPr.NumberingProperties;
-            existingNumPr?.Remove();
-
-            // Voeg onze numbering toe
-            var numPr = NumberingDefinitionHelper.CreateArtikelNumberingProperties();
-            pPr.Append(numPr);
+            // Verwijder de originele run
+            parentRun.Remove();
         }
 
-        /// <summary>
-        /// Past Word nummering toe op een subartikel paragraph.
-        /// </summary>
-        private static void ApplySubArtikelNumbering(Paragraph paragraph, int numId)
-        {
-            var pPr = paragraph.ParagraphProperties;
-            if (pPr == null)
-            {
-                pPr = new ParagraphProperties();
-                paragraph.InsertAt(pPr, 0);
-            }
-
-            var existingNumPr = pPr.NumberingProperties;
-            existingNumPr?.Remove();
-
-            // Gebruik de specifieke numId voor dit artikel (voor juiste prefix)
-            var numPr = new NumberingProperties(
-                new NumberingLevelReference { Val = 0 },
-                new NumberingId { Val = numId }
-            );
-            pPr.Append(numPr);
-        }
-
-        /// <summary>
-        /// State object voor het bijhouden van nummering tijdens verwerking
-        /// </summary>
         private class NumberingState
         {
-            /// <summary>Volgende hoofdartikel nummer (1, 2, 3...)</summary>
-            public int MainArticleNumber { get; set; } = 1;
-
-            /// <summary>Huidige hoofdartikel (voor subartikel prefix)</summary>
-            public int CurrentMainArticle { get; set; } = 1;
-
-            /// <summary>Volgende subartikel nummer binnen huidig hoofdartikel</summary>
-            public int SubArticleNumber { get; set; } = 1;
-
-            /// <summary>Totaal aantal verwerkte subartikelen (voor logging)</summary>
-            public int TotalSubArticles { get; set; } = 0;
-
-            /// <summary>Huidige subartikel numId (voor Word numbering)</summary>
-            public int CurrentSubArtikelNumId { get; set; } = NumberingDefinitionHelper.SubArtikelNumberingId;
-
-            /// <summary>Volgende vrije numId voor dynamische subartikel numbering instances</summary>
-            public int NextNumId { get; set; } = 2001;
+            public int ArtikelNumber { get; set; } = 1;
+            public int CurrentArtikelNumber { get; set; } = 1;
+            public int SubArtikelNumber { get; set; } = 1;
+            public int TotalSubArtikels { get; set; } = 0;
+            public bool IsFirstSubArtikelInArtikel { get; set; } = true;
         }
     }
 }
