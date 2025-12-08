@@ -8,14 +8,15 @@ using System.Text.RegularExpressions;
 namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 {
     /// <summary>
-    /// Helper voor automatische artikelnummering in Word documenten.
-    /// Ondersteunt hoofdartikelen ([[ARTIKEL]]) en subartikelen ([[SUBARTIKEL]]).
+    /// Helper voor automatische artikelnummering met Word native nummering.
+    /// Nummering past zich automatisch aan bij verwijderen/toevoegen in Word.
     ///
-    /// Voorbeeld output:
-    /// - [[ARTIKEL]] → "Artikel 1", "Artikel 2", "Artikel 3"
-    /// - [[SUBARTIKEL]] na Artikel 4 → "4.1", "4.2", "4.3"
-    /// - [[ARTIKEL]] reset subartikel teller
-    /// - [[ARTIKEL_RESET]] reset ALLE tellers naar 1
+    /// Ondersteunt:
+    /// - [[ARTIKEL]] → Word native nummering "Artikel 1", "Artikel 2", etc.
+    /// - [[SUBARTIKEL]] → Word native nummering "1.1", "1.2", etc.
+    /// - [[ARTIKEL_NR]] → Alleen nummer (platte tekst, voor referenties)
+    /// - [[SUBARTIKEL_NR]] → Alleen subnummer (platte tekst, voor referenties)
+    /// - [[ARTIKEL_RESET]] → Reset alle tellers naar 1
     /// </summary>
     public static class ArticleNumberingHelper
     {
@@ -37,15 +38,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             new(@"\[\[ARTIKEL_RESET\]\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// Verwerkt alle artikel en subartikel placeholders in het document.
-        /// Moet in document-volgorde worden verwerkt zodat nummering klopt.
+        /// Verwerkt alle artikel placeholders en past Word native nummering toe.
         /// </summary>
         public static void ProcessArticlePlaceholders(
             WordprocessingDocument document,
             ILogger logger,
             string correlationId)
         {
-            logger.LogInformation($"[{correlationId}] Starting article and sub-article numbering");
+            logger.LogInformation($"[{correlationId}] Starting article numbering with Word native lists");
 
             var mainPart = document.MainDocumentPart;
             if (mainPart?.Document?.Body == null)
@@ -54,18 +54,19 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
                 return;
             }
 
-            // State voor nummering
-            var state = new NumberingState();
+            // Stap 1: Zorg dat numbering definitions bestaan
+            NumberingDefinitionHelper.EnsureNumberingDefinitions(document);
 
-            // Process main body (paragraph voor paragraph om volgorde te behouden)
-            ProcessElementInOrder(mainPart.Document.Body, state, logger, correlationId);
+            // Stap 2: Verwerk placeholders
+            var state = new NumberingState();
+            ProcessBodyParagraphs(document, mainPart.Document.Body, state, logger, correlationId);
 
             // Process headers
             foreach (var headerPart in mainPart.HeaderParts)
             {
                 if (headerPart.Header != null)
                 {
-                    ProcessElementInOrder(headerPart.Header, state, logger, correlationId);
+                    ProcessBodyParagraphs(document, headerPart.Header, state, logger, correlationId);
                 }
             }
 
@@ -74,7 +75,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             {
                 if (footerPart.Footer != null)
                 {
-                    ProcessElementInOrder(footerPart.Footer, state, logger, correlationId);
+                    ProcessBodyParagraphs(document, footerPart.Footer, state, logger, correlationId);
                 }
             }
 
@@ -82,105 +83,176 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
                 $"[{correlationId}] Article numbering completed. Main articles: {state.MainArticleNumber - 1}, Sub-articles: {state.TotalSubArticles}");
         }
 
-        /// <summary>
-        /// Verwerkt element in document-volgorde om correcte nummering te garanderen.
-        /// Dit is belangrijk omdat [[ARTIKEL]] de subartikel-teller moet resetten.
-        /// </summary>
-        private static void ProcessElementInOrder(
-            OpenXmlElement element,
+        private static void ProcessBodyParagraphs(
+            WordprocessingDocument document,
+            OpenXmlElement container,
             NumberingState state,
             ILogger logger,
             string correlationId)
         {
-            // Verzamel alle Text nodes in document-volgorde
-            var textNodes = element.Descendants<Text>().ToList();
+            // We moeten paragraph-voor-paragraph werken om de volgorde te behouden
+            var paragraphs = container.Descendants<Paragraph>().ToList();
 
-            foreach (var textNode in textNodes)
+            foreach (var paragraph in paragraphs)
             {
-                var text = textNode.Text;
-                if (string.IsNullOrEmpty(text)) continue;
+                var text = GetParagraphText(paragraph);
 
-                // Check voor [[ARTIKEL_RESET]] - reset alle tellers
+                // Check voor [[ARTIKEL_RESET]]
                 if (ArticleResetPattern.IsMatch(text))
                 {
-                    text = ArticleResetPattern.Replace(text, m =>
+                    logger.LogDebug($"[{correlationId}] [[ARTIKEL_RESET]] found - resetting counters");
+                    state.MainArticleNumber = 1;
+                    state.CurrentMainArticle = 1;
+                    state.SubArticleNumber = 1;
+                    state.NextNumId = 2001;
+
+                    // Verwijder de reset placeholder
+                    RemovePlaceholderFromParagraph(paragraph, ArticleResetPattern);
+
+                    // Als paragraph nu leeg is, verwijder hem
+                    if (string.IsNullOrWhiteSpace(GetParagraphText(paragraph)))
                     {
-                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_RESET]] - Resetting counters to 1");
-
-                        // Reset alle tellers
-                        state.MainArticleNumber = 1;
-                        state.CurrentMainArticle = 1;
-                        state.SubArticleNumber = 1;
-
-                        return ""; // Verwijder de placeholder uit het document
-                    });
+                        paragraph.Remove();
+                    }
+                    continue;
                 }
 
-                // Check voor [[ARTIKEL]] - hoofdartikel
+                // Check voor [[ARTIKEL]]
                 if (ArticlePattern.IsMatch(text))
                 {
-                    text = ArticlePattern.Replace(text, m =>
-                    {
-                        var replacement = $"Artikel {state.MainArticleNumber}";
-                        logger.LogDebug($"[{correlationId}] [[ARTIKEL]] → '{replacement}'");
+                    logger.LogDebug($"[{correlationId}] [[ARTIKEL]] → applying Word numbering for article {state.MainArticleNumber}");
 
-                        // Reset subartikel teller bij nieuw hoofdartikel
-                        state.CurrentMainArticle = state.MainArticleNumber;
-                        state.SubArticleNumber = 1;
-                        state.MainArticleNumber++;
+                    // Verwijder "[[ARTIKEL]]" uit de tekst (laat rest staan, bijv. " - Respectvol ouderschap")
+                    RemovePlaceholderFromParagraph(paragraph, ArticlePattern);
 
-                        return replacement;
-                    });
+                    // Voeg numbering toe aan paragraph
+                    ApplyArtikelNumbering(paragraph);
+
+                    // Reset subartikel nummering voor dit nieuwe artikel
+                    state.CurrentSubArtikelNumId = NumberingDefinitionHelper.CreateRestartedSubArtikelNumbering(
+                        document,
+                        state.MainArticleNumber,
+                        state.NextNumId++);
+
+                    state.CurrentMainArticle = state.MainArticleNumber;
+                    state.SubArticleNumber = 1;
+                    state.MainArticleNumber++;
+                    continue;
                 }
 
-                // Check voor [[ARTIKEL_NR]] - alleen nummer
+                // Check voor [[ARTIKEL_NR]] - alleen nummer (platte tekst voor referenties)
                 if (ArticleNumberPattern.IsMatch(text))
                 {
-                    text = ArticleNumberPattern.Replace(text, m =>
+                    foreach (var textNode in paragraph.Descendants<Text>())
                     {
-                        var replacement = state.MainArticleNumber.ToString();
-                        logger.LogDebug($"[{correlationId}] [[ARTIKEL_NR]] → '{replacement}'");
+                        if (ArticleNumberPattern.IsMatch(textNode.Text))
+                        {
+                            var replacement = state.MainArticleNumber.ToString();
+                            logger.LogDebug($"[{correlationId}] [[ARTIKEL_NR]] → '{replacement}'");
+                            textNode.Text = ArticleNumberPattern.Replace(textNode.Text, replacement);
 
-                        state.CurrentMainArticle = state.MainArticleNumber;
-                        state.SubArticleNumber = 1;
-                        state.MainArticleNumber++;
-
-                        return replacement;
-                    });
+                            state.CurrentMainArticle = state.MainArticleNumber;
+                            state.SubArticleNumber = 1;
+                            state.MainArticleNumber++;
+                        }
+                    }
+                    continue;
                 }
 
-                // Check voor [[SUBARTIKEL]] - subartikel met prefix
+                // Check voor [[SUBARTIKEL]]
                 if (SubArticlePattern.IsMatch(text))
                 {
-                    text = SubArticlePattern.Replace(text, m =>
-                    {
-                        var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
-                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL]] → '{replacement}'");
+                    logger.LogDebug($"[{correlationId}] [[SUBARTIKEL]] → applying Word numbering {state.CurrentMainArticle}.{state.SubArticleNumber}");
 
-                        state.SubArticleNumber++;
-                        state.TotalSubArticles++;
+                    // Verwijder "[[SUBARTIKEL]]" uit de tekst
+                    RemovePlaceholderFromParagraph(paragraph, SubArticlePattern);
 
-                        return replacement;
-                    });
+                    // Voeg subartikel numbering toe
+                    ApplySubArtikelNumbering(paragraph, state.CurrentSubArtikelNumId);
+
+                    state.SubArticleNumber++;
+                    state.TotalSubArticles++;
+                    continue;
                 }
 
-                // Check voor [[SUBARTIKEL_NR]] - zelfde als [[SUBARTIKEL]]
+                // Check voor [[SUBARTIKEL_NR]] - platte tekst voor referenties
                 if (SubArticleNumberPattern.IsMatch(text))
                 {
-                    text = SubArticleNumberPattern.Replace(text, m =>
+                    foreach (var textNode in paragraph.Descendants<Text>())
                     {
-                        var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
-                        logger.LogDebug($"[{correlationId}] [[SUBARTIKEL_NR]] → '{replacement}'");
+                        if (SubArticleNumberPattern.IsMatch(textNode.Text))
+                        {
+                            var replacement = $"{state.CurrentMainArticle}.{state.SubArticleNumber}";
+                            logger.LogDebug($"[{correlationId}] [[SUBARTIKEL_NR]] → '{replacement}'");
+                            textNode.Text = SubArticleNumberPattern.Replace(textNode.Text, replacement);
 
-                        state.SubArticleNumber++;
-                        state.TotalSubArticles++;
-
-                        return replacement;
-                    });
+                            state.SubArticleNumber++;
+                            state.TotalSubArticles++;
+                        }
+                    }
                 }
-
-                textNode.Text = text;
             }
+        }
+
+        private static string GetParagraphText(Paragraph paragraph)
+        {
+            return string.Join("", paragraph.Descendants<Text>().Select(t => t.Text));
+        }
+
+        private static void RemovePlaceholderFromParagraph(Paragraph paragraph, Regex pattern)
+        {
+            foreach (var text in paragraph.Descendants<Text>())
+            {
+                if (pattern.IsMatch(text.Text))
+                {
+                    text.Text = pattern.Replace(text.Text, "");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Past Word nummering toe op een artikel paragraph.
+        /// </summary>
+        private static void ApplyArtikelNumbering(Paragraph paragraph)
+        {
+            // Zorg dat paragraph properties bestaan
+            var pPr = paragraph.ParagraphProperties;
+            if (pPr == null)
+            {
+                pPr = new ParagraphProperties();
+                paragraph.InsertAt(pPr, 0);
+            }
+
+            // Verwijder bestaande numbering als die er is
+            var existingNumPr = pPr.NumberingProperties;
+            existingNumPr?.Remove();
+
+            // Voeg onze numbering toe
+            var numPr = NumberingDefinitionHelper.CreateArtikelNumberingProperties();
+            pPr.Append(numPr);
+        }
+
+        /// <summary>
+        /// Past Word nummering toe op een subartikel paragraph.
+        /// </summary>
+        private static void ApplySubArtikelNumbering(Paragraph paragraph, int numId)
+        {
+            var pPr = paragraph.ParagraphProperties;
+            if (pPr == null)
+            {
+                pPr = new ParagraphProperties();
+                paragraph.InsertAt(pPr, 0);
+            }
+
+            var existingNumPr = pPr.NumberingProperties;
+            existingNumPr?.Remove();
+
+            // Gebruik de specifieke numId voor dit artikel (voor juiste prefix)
+            var numPr = new NumberingProperties(
+                new NumberingLevelReference { Val = 0 },
+                new NumberingId { Val = numId }
+            );
+            pPr.Append(numPr);
         }
 
         /// <summary>
@@ -199,6 +271,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
 
             /// <summary>Totaal aantal verwerkte subartikelen (voor logging)</summary>
             public int TotalSubArticles { get; set; } = 0;
+
+            /// <summary>Huidige subartikel numId (voor Word numbering)</summary>
+            public int CurrentSubArtikelNumId { get; set; } = NumberingDefinitionHelper.SubArtikelNumberingId;
+
+            /// <summary>Volgende vrije numId voor dynamische subartikel numbering instances</summary>
+            public int NextNumId { get; set; } = 2001;
         }
     }
 }

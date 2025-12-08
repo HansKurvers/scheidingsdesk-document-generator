@@ -1506,7 +1506,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             if (!string.IsNullOrEmpty(communicatieAfspraken.BankrekeningKinderen))
             {
                 var bankrekeningen = ParseBankrekeningen(communicatieAfspraken.BankrekeningKinderen);
-                replacements["BankrekeningKinderen"] = FormatBankrekeningen(bankrekeningen, partij1, partij2, kinderen);
+                replacements["BankrekeningKinderen"] = FormatBankrekeningen(bankrekeningen, partij1, partij2, kinderen ?? new List<ChildData>());
                 replacements["BankrekeningenCount"] = bankrekeningen.Count.ToString();
 
                 // Add individual bank account placeholders
@@ -1514,7 +1514,7 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 {
                     var rek = bankrekeningen[i];
                     replacements[$"Bankrekening{i + 1}IBAN"] = FormatIBAN(rek.Iban);
-                    replacements[$"Bankrekening{i + 1}Tenaamstelling"] = TranslateTenaamstelling(rek.Tenaamstelling, partij1, partij2, kinderen);
+                    replacements[$"Bankrekening{i + 1}Tenaamstelling"] = TranslateTenaamstelling(rek.Tenaamstelling, partij1, partij2, kinderen ?? new List<ChildData>());
                     replacements[$"Bankrekening{i + 1}BankNaam"] = rek.BankNaam;
                 }
             }
