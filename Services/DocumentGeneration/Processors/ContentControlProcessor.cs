@@ -47,8 +47,37 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
                         try
                         {
+                            // Get original paragraph properties to preserve formatting (indentation, etc.)
+                            var originalProps = paragraph.ParagraphProperties?.CloneNode(true) as ParagraphProperties;
+
                             // Generate the table/list elements
                             var elements = generator.Generate(data, correlationId);
+
+                            // Apply original paragraph properties to generated paragraphs
+                            if (originalProps != null)
+                            {
+                                foreach (var element in elements)
+                                {
+                                    if (element is Paragraph newParagraph)
+                                    {
+                                        var clonedProps = originalProps.CloneNode(true) as ParagraphProperties;
+
+                                        if (newParagraph.ParagraphProperties != null)
+                                        {
+                                            // Keep existing properties but add indentation from original if not set
+                                            if (newParagraph.ParagraphProperties.Indentation == null && clonedProps?.Indentation != null)
+                                            {
+                                                newParagraph.ParagraphProperties.Indentation =
+                                                    clonedProps.Indentation.CloneNode(true) as Indentation;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            newParagraph.ParagraphProperties = clonedProps;
+                                        }
+                                    }
+                                }
+                            }
 
                             // Insert elements after the placeholder paragraph
                             foreach (var element in elements.AsEnumerable().Reverse())
