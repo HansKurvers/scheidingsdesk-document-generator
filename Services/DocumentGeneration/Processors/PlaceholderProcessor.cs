@@ -1427,7 +1427,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["ToestemmingReizen"] = "";
             replacements["ToestemmingReizenBeschrijving"] = "";
             replacements["Jongmeerderjarige"] = "";
+            replacements["JongmeerderjarigeBeschrijving"] = "";
             replacements["Studiekosten"] = "";
+            replacements["StudiekostenBeschrijving"] = "";
             replacements["BankrekeningKinderen"] = "";
             replacements["BankrekeningenCount"] = "0";
             replacements["Evaluatie"] = "";
@@ -1467,7 +1469,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements["ToestemmingReizen"] = communicatieAfspraken.ToestemmingReizen ?? "";
             replacements["ToestemmingReizenBeschrijving"] = GetToestemmingReizenBeschrijving(communicatieAfspraken.ToestemmingReizen, kinderen);
             replacements["Jongmeerderjarige"] = communicatieAfspraken.Jongmeerderjarige ?? "";
+            replacements["JongmeerderjarigeBeschrijving"] = GetJongmeerderjarigeBeschrijving(communicatieAfspraken.Jongmeerderjarige, partij1, partij2);
             replacements["Studiekosten"] = communicatieAfspraken.Studiekosten ?? "";
+            replacements["StudiekostenBeschrijving"] = GetStudiekostenBeschrijving(communicatieAfspraken.Studiekosten, partij1, partij2);
             replacements["Evaluatie"] = communicatieAfspraken.Evaluatie ?? "";
             replacements["ParentingCoordinator"] = communicatieAfspraken.ParentingCoordinator ?? "";
             replacements["MediationClausule"] = communicatieAfspraken.MediationClausule ?? "";
@@ -1774,6 +1778,59 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                 "eu_vrij" => $"Met {kinderenTekst} mag binnen de EU vrij worden gereisd. Voor reizen buiten de EU is vooraf overleg tussen de ouders vereist.",
                 "vrij" => $"Met {kinderenTekst} mag vrij worden gereisd zonder vooraf overleg.",
                 "schriftelijk" => $"Voor reizen met {kinderenTekst} is schriftelijke toestemming van de andere ouder vereist.",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the jongmeerderjarige (young adult 18-21) description based on the chosen option
+        /// Options: bijdrage_rechtstreeks_kind, bijdrage_rechtstreeks_uitwonend, bijdrage_beiden, ouder1, ouder2, geen_bijdrage, nvt
+        /// </summary>
+        private string GetJongmeerderjarigeBeschrijving(string? jongmeerderjarige, PersonData? partij1, PersonData? partij2)
+        {
+            if (string.IsNullOrEmpty(jongmeerderjarige))
+                return "";
+
+            var ouder1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "de vader";
+            var ouder2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "de moeder";
+            var keuze = jongmeerderjarige.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "bijdrage_rechtstreeks_kind" => "De ouders betalen een bijdrage rechtstreeks aan het kind.",
+                "bijdrage_rechtstreeks_uitwonend" => "De ouders betalen een bijdrage rechtstreeks aan het kind als het kind niet meer thuiswoont.",
+                "bijdrage_beiden" => "Beide ouders blijven bijdragen aan de kosten voor het jongmeerderjarige kind.",
+                "ouder1" => $"{ouder1Naam} blijft bijdragen aan de kosten voor het jongmeerderjarige kind.",
+                "ouder2" => $"{ouder2Naam} blijft bijdragen aan de kosten voor het jongmeerderjarige kind.",
+                "geen_bijdrage" => "Er is geen bijdrage meer verschuldigd als het kind voldoende eigen inkomen heeft.",
+                "nvt" => "",
+                _ => ""
+            };
+        }
+
+        /// <summary>
+        /// Get the studiekosten (study costs) description based on the chosen option
+        /// Options: draagkracht_rato, netto_inkomen_rato, beide_helft, evenredig, ouder1, ouder2, kind_zelf, nvt
+        /// </summary>
+        private string GetStudiekostenBeschrijving(string? studiekosten, PersonData? partij1, PersonData? partij2)
+        {
+            if (string.IsNullOrEmpty(studiekosten))
+                return "";
+
+            var ouder1Naam = partij1?.Roepnaam ?? partij1?.Voornamen ?? "de vader";
+            var ouder2Naam = partij2?.Roepnaam ?? partij2?.Voornamen ?? "de moeder";
+            var keuze = studiekosten.Trim().ToLowerInvariant();
+
+            return keuze switch
+            {
+                "draagkracht_rato" => "Beide ouders dragen naar rato van hun draagkracht bij aan de studiekosten.",
+                "netto_inkomen_rato" => "De ouders dragen naar rato van hun netto inkomen bij aan de studiekosten.",
+                "beide_helft" => "Beide ouders dragen voor de helft bij aan de studiekosten.",
+                "evenredig" => "De ouders dragen evenredig naar inkomen bij aan de studiekosten.",
+                "ouder1" => $"{ouder1Naam} betaalt de studiekosten.",
+                "ouder2" => $"{ouder2Naam} betaalt de studiekosten.",
+                "kind_zelf" => "Het kind betaalt de studiekosten zelf (via lening en/of werk).",
+                "nvt" => "",
                 _ => ""
             };
         }
