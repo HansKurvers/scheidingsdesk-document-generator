@@ -127,5 +127,110 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers
             public static string Gaat_Gaan(bool isPlural) => isPlural ? "gaan" : "gaat";
             public static string Komt_Komen(bool isPlural) => isPlural ? "komen" : "komt";
         }
+
+        /// <summary>
+        /// Mapping van nationaliteit basisvorm naar bijvoeglijke vorm
+        /// Bijv. "Nederlands" -> "Nederlandse" voor zinnen zoals "de Nederlandse nationaliteit"
+        /// </summary>
+        private static readonly Dictionary<string, string> NationalityAdjectives = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Nederlands", "Nederlandse" },
+            { "Belgisch", "Belgische" },
+            { "Duits", "Duitse" },
+            { "Frans", "Franse" },
+            { "Brits", "Britse" },
+            { "Amerikaans", "Amerikaanse" },
+            { "Spaans", "Spaanse" },
+            { "Italiaans", "Italiaanse" },
+            { "Portugees", "Portugese" },
+            { "Pools", "Poolse" },
+            { "Turks", "Turkse" },
+            { "Marokkaans", "Marokkaanse" },
+            { "Surinaams", "Surinaamse" },
+            { "Indonesisch", "Indonesische" },
+            { "Chinees", "Chinese" },
+            { "Indiaas", "Indiase" },
+            { "Russisch", "Russische" },
+            { "Oekraïens", "Oekraïense" },
+            { "Grieks", "Griekse" },
+            { "Oostenrijks", "Oostenrijkse" },
+            { "Zwitsers", "Zwitserse" },
+            { "Zweeds", "Zweedse" },
+            { "Noors", "Noorse" },
+            { "Deens", "Deense" },
+            { "Fins", "Finse" },
+            { "Iers", "Ierse" },
+            { "Australisch", "Australische" },
+            { "Canadees", "Canadese" },
+            { "Japans", "Japanse" },
+            { "Zuid-Koreaans", "Zuid-Koreaanse" },
+            { "Braziliaans", "Braziliaanse" },
+            { "Mexicaans", "Mexicaanse" },
+            { "Argentijns", "Argentijnse" },
+            { "Zuid-Afrikaans", "Zuid-Afrikaanse" },
+            { "Egyptisch", "Egyptische" },
+            { "Israëlisch", "Israëlische" },
+            { "Saoedi-Arabisch", "Saoedi-Arabische" },
+            { "Afghaans", "Afghaanse" },
+            { "Iraaks", "Iraakse" },
+            { "Iraans", "Iraanse" },
+            { "Syrisch", "Syrische" },
+            { "Pakistaans", "Pakistaanse" },
+            { "Bengalees", "Bengalese" },
+            { "Vietnamees", "Vietnamese" },
+            { "Thais", "Thaise" },
+            { "Filipijns", "Filipijnse" },
+            { "Roemeens", "Roemeense" },
+            { "Bulgaars", "Bulgaarse" },
+            { "Hongaars", "Hongaarse" },
+            { "Tsjechisch", "Tsjechische" },
+            { "Slowaaks", "Slowaakse" },
+            { "Kroatisch", "Kroatische" },
+            { "Servisch", "Servische" },
+            { "Bosnisch", "Bosnische" },
+            { "Albanees", "Albanese" },
+            { "Macedonisch", "Macedonische" },
+            { "Montenegrijns", "Montenegrijnse" },
+            { "Kosovaars", "Kosovaarse" },
+            { "Moldavisch", "Moldavische" },
+            { "Wit-Russisch", "Wit-Russische" },
+            { "Litouws", "Litouwse" },
+            { "Lets", "Letse" },
+            { "Ests", "Estse" },
+            { "Sloveens", "Sloveense" },
+            { "Luxemburgs", "Luxemburgse" },
+            { "Maltees", "Maltese" },
+            { "Cypriotisch", "Cypriotische" },
+            { "IJslands", "IJslandse" },
+            { "Curaçaos", "Curaçaose" },
+            { "Arubaans", "Arubaanse" },
+            { "Eritrees", "Eritrese" },
+            { "Ethiopisch", "Ethiopische" },
+            { "Somalisch", "Somalische" },
+            { "Nigeriaans", "Nigeriaanse" },
+            { "Ghanees", "Ghanese" },
+            { "Keniaans", "Keniaanse" },
+            { "Congolees", "Congolese" },
+            { "Tunesisch", "Tunesische" },
+            { "Algerijns", "Algerijnse" },
+            { "Libisch", "Libische" }
+        };
+
+        /// <summary>
+        /// Converteert nationaliteit van basisvorm naar bijvoeglijke vorm
+        /// </summary>
+        /// <param name="nationality">Nationaliteit in basisvorm (bijv. "Nederlands")</param>
+        /// <returns>Nationaliteit in bijvoeglijke vorm (bijv. "Nederlandse")</returns>
+        public static string ToNationalityAdjective(string? nationality)
+        {
+            if (string.IsNullOrWhiteSpace(nationality))
+                return "";
+
+            if (NationalityAdjectives.TryGetValue(nationality, out var adjective))
+                return adjective;
+
+            // Fallback: voeg 'e' toe aan het einde
+            return nationality + "e";
+        }
     }
 }

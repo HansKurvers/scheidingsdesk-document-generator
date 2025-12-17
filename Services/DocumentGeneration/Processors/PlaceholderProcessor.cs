@@ -323,6 +323,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
             // Voorletters + tussenvoegsel + achternaam
             replacements[$"{prefix}VoorlettersAchternaam"] = GetVoorlettersAchternaam(person);
+
+            // Nationaliteit (basisvorm en bijvoeglijke vorm)
+            replacements[$"{prefix}Nationaliteit1"] = person.Nationaliteit1 ?? "";
+            replacements[$"{prefix}Nationaliteit2"] = person.Nationaliteit2 ?? "";
+            replacements[$"{prefix}Nationaliteit1Bijvoeglijk"] = DutchLanguageHelper.ToNationalityAdjective(person.Nationaliteit1);
+            replacements[$"{prefix}Nationaliteit2Bijvoeglijk"] = DutchLanguageHelper.ToNationalityAdjective(person.Nationaliteit2);
         }
 
         /// <summary>

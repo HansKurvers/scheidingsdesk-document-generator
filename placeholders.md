@@ -25,6 +25,10 @@ Partij 1 Informatie:
 - [[Partij1Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij1VolledigAdres]] - Volledig adres (straat, postcode, plaats)
 - [[Partij1Benaming]] - Contextafhankelijke benaming (roepnaam of "de vader"/"de moeder" bij anoniem)
+- [[Partij1Nationaliteit1]] - Eerste nationaliteit (basisvorm, bijv. "Nederlands")
+- [[Partij1Nationaliteit2]] - Tweede nationaliteit (basisvorm)
+- [[Partij1Nationaliteit1Bijvoeglijk]] - Eerste nationaliteit bijvoeglijk (bijv. "Nederlandse" voor "de Nederlandse nationaliteit")
+- [[Partij1Nationaliteit2Bijvoeglijk]] - Tweede nationaliteit bijvoeglijk
 
 Partij 2 Informatie:
 
@@ -45,6 +49,10 @@ Partij 2 Informatie:
 - [[Partij2Geboortedatum]] - Geboortedatum (d MMMM yyyy, bijv. "15 januari 2024")
 - [[Partij2VolledigAdres]] - Volledig adres
 - [[Partij2Benaming]] - Contextafhankelijke benaming (roepnaam of "de vader"/"de moeder" bij anoniem)
+- [[Partij2Nationaliteit1]] - Eerste nationaliteit (basisvorm, bijv. "Belgisch")
+- [[Partij2Nationaliteit2]] - Tweede nationaliteit (basisvorm)
+- [[Partij2Nationaliteit1Bijvoeglijk]] - Eerste nationaliteit bijvoeglijk (bijv. "Belgische" voor "de Belgische nationaliteit")
+- [[Partij2Nationaliteit2Bijvoeglijk]] - Tweede nationaliteit bijvoeglijk
 
 Dossier Informatie:
 
