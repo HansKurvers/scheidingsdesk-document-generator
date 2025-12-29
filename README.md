@@ -28,6 +28,16 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
 
 **Belangrijke refactoring (v2.0.0)**: Het systeem is volledig gerefactored volgens SOLID principes en DRY. De oorspronkelijke monolithische functie (1669 regels) is opgesplitst in 18 modulaire, herbruikbare services en generators, wat heeft geleid tot een **91.5% code reductie** in het endpoint zelf (142 regels).
 
+### Versie Compatibiliteit
+
+| Frontend | API | Doc Generator | Status |
+|----------|-----|---------------|--------|
+| 1.2.x | 1.1.x | 2.2.x | ✅ Actueel |
+| 1.1.x | 1.0.x | 2.1.x | ⚠️ Legacy |
+| 1.0.x | 1.0.x | 2.0.x | ❌ Niet ondersteund |
+
+> **Let op**: Zorg dat alle componenten compatibele versies draaien om onverwacht gedrag te voorkomen.
+
 ## Functionaliteiten
 
 ### Hoofd Features
