@@ -396,6 +396,7 @@ public class DossierData
     public List<ZorgData> Zorg { get; set; }
     public AlimentatieData? Alimentatie { get; set; }
     public OuderschapsplanInfoData? OuderschapsplanInfo { get; set; }
+    public CommunicatieAfsprakenData? CommunicatieAfspraken { get; set; }  // Nieuw in v2.2.0
 
     // Convenience properties
     public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);
@@ -415,6 +416,7 @@ public class PersonData
     public string? Roepnaam { get; set; }
     public string? Tussenvoegsel { get; set; }
     public string Achternaam { get; set; }
+    public string? Voorletters { get; set; }           // Nieuw: voor VoorlettersAchternaam
     public string? Adres { get; set; }
     public string? Postcode { get; set; }
     public string? Plaats { get; set; }
@@ -422,8 +424,11 @@ public class PersonData
     public DateTime? GeboorteDatum { get; set; }
     public string? Telefoon { get; set; }
     public string? Email { get; set; }
-    public int? RolId { get; set; }          // 1 = Partij 1, 2 = Partij 2
-    public string VolledigeNaam { get; }     // Computed property
+    public string? Geslacht { get; set; }              // M/V voor gender-specifieke teksten
+    public string? Nationaliteit1 { get; set; }        // Nieuw: eerste nationaliteit
+    public string? Nationaliteit2 { get; set; }        // Nieuw: tweede nationaliteit (optioneel)
+    public int? RolId { get; set; }                    // 1 = Partij 1, 2 = Partij 2
+    public string VolledigeNaam { get; }               // Computed property
 }
 ```
 
@@ -489,6 +494,54 @@ public class ZorgData
     public string? SituatieAnders { get; set; }      // Custom override
 
     public string EffectieveSituatie { get; }        // Returns SituatieAnders or ZorgSituatieNaam
+}
+```
+
+### CommunicatieAfsprakenData (Nieuw in v2.2.0)
+
+Communicatie- en praktische afspraken rondom de kinderen.
+
+```csharp
+public class CommunicatieAfsprakenData
+{
+    public int Id { get; set; }
+    public int DossierId { get; set; }
+
+    // Kinderen betrokkenheid
+    public string? VillaPinedoKinderen { get; set; }
+    public string? KinderenBetrokkenheid { get; set; }
+    public string? KiesMethode { get; set; }
+
+    // Omgang
+    public string? OmgangTekstOfSchema { get; set; }
+    public string? OmgangBeschrijving { get; set; }
+    public string? Opvang { get; set; }
+    public string? InformatieUitwisseling { get; set; }
+    public string? BijlageBeslissingen { get; set; }
+
+    // Digitale afspraken
+    public string? SocialMedia { get; set; }         // "wel", "geen", "wel_13" etc.
+    public string? MobielTablet { get; set; }        // JSON: {"smartphone":12,"tablet":14}
+    public string? ToezichtApps { get; set; }        // "wel" / "geen"
+    public string? LocatieDelen { get; set; }        // "wel" / "geen"
+
+    // Verzekeringen & documenten
+    public string? IdBewijzen { get; set; }          // "ouder_1", "ouder_2", "beide_ouders", etc.
+    public string? Aansprakelijkheidsverzekering { get; set; }
+    public string? Ziektekostenverzekering { get; set; }
+    public string? ToestemmingReizen { get; set; }
+
+    // Toekomst
+    public string? Jongmeerderjarige { get; set; }
+    public string? Studiekosten { get; set; }
+
+    // Bankrekeningen
+    public string? BankrekeningKinderen { get; set; } // JSON array van Kinderrekening objects
+
+    // Evaluatie & conflictoplossing
+    public string? Evaluatie { get; set; }
+    public string? ParentingCoordinator { get; set; }
+    public string? MediationClausule { get; set; }
 }
 ```
 
@@ -683,7 +736,7 @@ Als je nieuwe code leest, volg de flow:
 
 ## Template Placeholders
 
-De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]]`, `{...}`, `<<...>>`, `[...]`
+De Word template ondersteunt **200+ placeholders** in meerdere formaten: `[[...]]`, `{...}`, `<<...>>`, `[...]`
 
 ### Placeholder Features
 
@@ -721,6 +774,7 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[Partij1Tussenvoegsel]] / [[Partij2Tussenvoegsel]]                  - Tussenvoegsel (de, van, van der, etc.)
 [[Partij1VolledigeNaamMetTussenvoegsel]] / [[Partij2VolledigeNaamMetTussenvoegsel]]
 [[Partij1VolledigeAchternaam]] / [[Partij2VolledigeAchternaam]]      - Achternaam met tussenvoegsel
+[[Partij1VoorlettersAchternaam]] / [[Partij2VoorlettersAchternaam]]  - Voorletters + tussenvoegsel + achternaam (bijv. "J.P. de Vries")
 [[Partij1Adres]] / [[Partij2Adres]]                                  - Straat + huisnummer
 [[Partij1Postcode]] / [[Partij2Postcode]]                            - Postcode
 [[Partij1Plaats]] / [[Partij2Plaats]]                                - Woonplaats
@@ -730,7 +784,19 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[Partij1Telefoon]] / [[Partij2Telefoon]]                            - Telefoonnummer
 [[Partij1Email]] / [[Partij2Email]]                                  - Email adres
 [[Partij1Benaming]] / [[Partij2Benaming]]                            - Context-afhankelijk (roepnaam of "de vader/moeder/persoon")
+[[Partij1Nationaliteit1]] / [[Partij2Nationaliteit1]]                - Eerste nationaliteit (bijv. "Nederlandse")
+[[Partij1Nationaliteit2]] / [[Partij2Nationaliteit2]]                - Tweede nationaliteit (optioneel)
+[[Partij1Nationaliteit1Bijvoeglijk]] / [[Partij2Nationaliteit1Bijvoeglijk]]  - Bijvoeglijke vorm nationaliteit (bijv. "Nederlandse")
+[[Partij1Nationaliteit2Bijvoeglijk]] / [[Partij2Nationaliteit2Bijvoeglijk]]  - Bijvoeglijke vorm tweede nationaliteit
 ```
+
+**Nationaliteit conversie:**
+Het systeem converteert nationaliteiten automatisch naar de bijvoeglijke vorm:
+- "Nederland" → "Nederlandse"
+- "België" → "Belgische"
+- "Duitsland" → "Duitse"
+- "Turkije" → "Turkse"
+- etc.
 
 ### Kind Gegevens
 
@@ -740,6 +806,8 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[Kind1Voornaam]] / [[Kind2Voornaam]]                                - Voornaam/voornamen
 [[Kind1Roepnaam]] / [[Kind2Roepnaam]]                                - Roepnaam
 [[Kind1Achternaam]] / [[Kind2Achternaam]]                            - Achternaam
+[[Kind1Tussenvoegsel]] / [[Kind2Tussenvoegsel]]                      - Tussenvoegsel (de, van, etc.)
+[[Kind1RoepnaamAchternaam]] / [[Kind2RoepnaamAchternaam]]            - Roepnaam + tussenvoegsel + achternaam (bijv. "Jan de Vries")
 [[Kind1Geboortedatum]] / [[Kind2Geboortedatum]]                      - Geboortedatum (dd-MM-yyyy)
 [[Kind1Geboorteplaats]] / [[Kind2Geboorteplaats]]                    - Geboorteplaats
 [[Kind1Leeftijd]] / [[Kind2Leeftijd]]                                - Leeftijd in jaren
@@ -824,6 +892,7 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[OpvangKinderen]]                     - Opvang regeling
 [[BetrokkenheidKind]]                  - Betrokkenheid bij beslissingen
 [[Kiesplan]]                           - Kiesplan beschrijving
+[[KiesplanZin]]                        - Gegenereerde zin over kiesplan
 [[ParentingCoordinator]]               - Parenting coordinator informatie
 [[KeuzeDevices]]                       - Afspraken over devices
 [[BankrekeningnummersKind]]            - Bankrekeningnummers
@@ -869,7 +938,115 @@ De Word template ondersteunt **146+ placeholders** in meerdere formaten: `[[...]
 [[IsKinderrekeningBetaalwijze]]        - Betaling via kinderrekening (Ja/Nee)
 [[IsAlimentatieplichtBetaalwijze]]     - Betaling via alimentatieplicht (Ja/Nee)
 [[KinderenAlimentatie]]                - Lijst van kinderen met alimentatie
+[[ZorgkortingPercentageAlleKinderen]]  - Zorgkorting percentage (bijv. "35%")
+[[AfsprakenAlleKinderenGelijk]]        - Ja/Nee afspraken voor alle kinderen gelijk
+[[HoofdverblijfAlleKinderen]]          - Hoofdverblijf voor alle kinderen (roepnaam ouder)
+[[InschrijvingAlleKinderen]]           - BRP-inschrijving voor alle kinderen (roepnaam ouder)
+[[KinderbijslagOntvangerAlleKinderen]] - Wie ontvangt kinderbijslag (roepnaam of "Kinderrekening")
+[[KindgebondenBudgetAlleKinderen]]     - Wie ontvangt kindgebonden budget (roepnaam of "Kinderrekening")
+[[HoofdverblijfVerdeling]]             - Verdeling hoofdverblijf per kind (gegenereerde tekst)
+[[InschrijvingVerdeling]]              - Verdeling BRP-inschrijving per kind (gegenereerde tekst)
+[[BetaalwijzeBeschrijving]]            - Volledige beschrijving van de betaalwijze (gegenereerde tekst)
 ```
+
+**BetaalwijzeBeschrijving:**
+Dit is een automatisch gegenereerde beschrijving die alle financiële afspraken samenvat, inclusief:
+- Keuze voor kinderrekening of alimentatie
+- Toeslagen (kinderbijslag, kindgebonden budget)
+- Stortingen door beide ouders
+- Verblijfsoverstijgende kosten
+- Maximum opname bedragen
+- Indexeringsafspraken
+
+### Communicatie Afspraken
+
+Dit is een uitgebreid model voor alle communicatie- en praktische afspraken rondom de kinderen.
+
+**Basis afspraken:**
+```
+[[VillaPinedoKinderen]]                - Villa Pinedo methode voor kinderen
+[[VillaPinedoZin]]                     - Gegenereerde zin over Villa Pinedo
+[[KinderenBetrokkenheid]]              - Betrokkenheid kinderen bij beslissingen
+[[BetrokkenheidKindZin]]               - Gegenereerde zin over betrokkenheid
+[[KiesMethode]]                        - Gekozen methode voor ouderschapsplan
+[[OmgangTekstOfSchema]]                - Omgang als tekst of schema
+[[OmgangsregelingBeschrijving]]        - Volledige beschrijving omgangsregeling
+[[Evaluatie]]                          - Evaluatiefrequentie
+[[ParentingCoordinator]]               - Parenting coordinator informatie
+[[MediationClausule]]                  - Mediation clausule
+```
+
+**Opvang & Informatie:**
+```
+[[Opvang]]                             - Opvang keuze
+[[OpvangBeschrijving]]                 - Gegenereerde beschrijving opvang
+[[InformatieUitwisseling]]             - Informatie uitwisseling methode
+[[InformatieUitwisselingBeschrijving]] - Gegenereerde beschrijving informatie-uitwisseling
+[[BijlageBeslissingen]]                - Bijlage beslissingen
+```
+
+**Digitale afspraken:**
+```
+[[SocialMedia]]                        - Social media keuze (wel/geen/wel_13)
+[[SocialMediaKeuze]]                   - Keuze geëxtraheerd (wel/geen/later)
+[[SocialMediaLeeftijd]]                - Leeftijd indien van toepassing
+[[SocialMediaBeschrijving]]            - Gegenereerde beschrijving social media afspraken
+[[MobielTablet]]                       - JSON object met device leeftijden
+[[DeviceSmartphone]]                   - Leeftijd voor smartphone
+[[DeviceTablet]]                       - Leeftijd voor tablet
+[[DeviceSmartwatch]]                   - Leeftijd voor smartwatch
+[[DeviceLaptop]]                       - Leeftijd voor laptop
+[[DevicesBeschrijving]]                - Gegenereerde beschrijving devices per leeftijd
+[[ToezichtApps]]                       - Ouderlijk toezichtapps (wel/geen)
+[[ToezichtAppsBeschrijving]]           - Gegenereerde beschrijving toezichtapps
+[[LocatieDelen]]                       - Locatie delen (wel/geen)
+[[LocatieDelenBeschrijving]]           - Gegenereerde beschrijving locatie delen
+```
+
+**Verzekeringen & Documenten:**
+```
+[[IdBewijzen]]                         - ID-bewijzen beheer (ouder_1/ouder_2/beide_ouders/kinderen_zelf)
+[[IdBewijzenBeschrijving]]             - Gegenereerde beschrijving ID-bewijzen
+[[Aansprakelijkheidsverzekering]]      - WA-verzekering beheer (ouder_1/ouder_2/beiden)
+[[AansprakelijkheidsverzekeringBeschrijving]]  - Gegenereerde beschrijving WA-verzekering
+[[Ziektekostenverzekering]]            - Zorgverzekering beheer (ouder_1/ouder_2/hoofdverblijf)
+[[ZiektekostenverzekeringBeschrijving]] - Gegenereerde beschrijving zorgverzekering
+```
+
+**Reizen & Toekomst:**
+```
+[[ToestemmingReizen]]                  - Reistoestemming (altijd_overleggen/eu_vrij/vrij/schriftelijk)
+[[ToestemmingReizenBeschrijving]]      - Gegenereerde beschrijving reistoestemming
+[[Jongmeerderjarige]]                  - Jongmeerderjarige afspraken (optie)
+[[JongmeerderjarigeBeschrijving]]      - Gegenereerde beschrijving jongmeerderjarige
+[[Studiekosten]]                       - Studiekosten afspraken (optie)
+[[StudiekostenBeschrijving]]           - Gegenereerde beschrijving studiekosten
+```
+
+**Bankrekeningen kinderen:**
+```
+[[BankrekeningKinderen]]               - Geformatteerde lijst bankrekeningen
+[[BankrekeningenCount]]                - Aantal bankrekeningen
+[[Bankrekening1IBAN]]                  - IBAN eerste rekening (geformatteerd met spaties)
+[[Bankrekening1Tenaamstelling]]        - Tenaamstelling eerste rekening
+[[Bankrekening1BankNaam]]              - Banknaam eerste rekening
+[[Bankrekening2IBAN]] etc.             - Idem voor volgende rekeningen
+```
+
+**Voorbeelden van gegenereerde beschrijvingen:**
+
+*SocialMediaBeschrijving (bij optie wel_13):*
+> "Wij spreken als ouders af dat Jan en Marie social media mogen gebruiken vanaf hun 13e jaar, op voorwaarde dat het op een veilige manier gebeurt."
+
+*DevicesBeschrijving:*
+> "Jan en Marie krijgen een smartphone vanaf hun 12e jaar.
+> Jan en Marie krijgen een tablet vanaf hun 10e jaar."
+
+*IdBewijzenBeschrijving (bij optie beide_ouders):*
+> "De identiteitsbewijzen van Jan en Marie worden bewaard door beide ouders."
+
+*JongmeerderjarigeBeschrijving:*
+> "Wij spreken af dat de afspraken in dit ouderschapsplan doorlopen totdat onze kinderen 21 jaar worden."
 
 ### Grammatica Regels (Automatisch Enkelvoud/Meervoud)
 
@@ -935,8 +1112,17 @@ Gekozen optie: [[WoonplaatsOptie]]
 
 ### Automatische Artikelnummering
 
-Gebruik `[[ARTIKEL]]` voor automatische oplopende nummering:
+Het systeem ondersteunt automatische multi-level juridische nummering met de volgende placeholders:
 
+| Placeholder | Beschrijving | Output |
+|-------------|--------------|--------|
+| `[[ARTIKEL]]` | Multi-level list level 0 | "Artikel 1", "Artikel 2", etc. |
+| `[[SUBARTIKEL]]` | Multi-level list level 1 | "1.1", "1.2", etc. |
+| `[[ARTIKEL_NR]]` | Alleen nummer (platte tekst) | "1", "2", etc. |
+| `[[SUBARTIKEL_NR]]` | Alleen subnummer (platte tekst) | "1.1", "1.2", etc. |
+| `[[ARTIKEL_RESET]]` | Reset alle tellers naar 1 | (geen output) |
+
+**Basis gebruik:**
 ```
 [[ARTIKEL]] - Respectvol ouderschap
 [[ARTIKEL]] - De mening van [[ons kind/onze kinderen]]
@@ -944,19 +1130,51 @@ Gebruik `[[ARTIKEL]]` voor automatische oplopende nummering:
 ```
 
 Wordt na verwerking:
-
 ```
 Artikel 1 - Respectvol ouderschap
 Artikel 2 - De mening van onze kinderen
 Artikel 3 - Het gezag over onze kinderen
 ```
 
-**Alternatief - alleen het nummer:**
-Gebruik `[[ARTIKEL_NR]]` als "Artikel" al in de template staat:
+**Multi-level nummering met subartikelen:**
+```
+[[ARTIKEL]] - Financiële afspraken
+[[SUBARTIKEL]] Kinderalimentatie
+[[SUBARTIKEL]] Kinderbijslag
+[[SUBARTIKEL]] Kinderrekening
 
+[[ARTIKEL]] - Zorgregeling
+[[SUBARTIKEL]] Hoofdverblijf
+[[SUBARTIKEL]] Omgangsregeling
+```
+
+Wordt na verwerking:
+```
+Artikel 1 - Financiële afspraken
+1.1 Kinderalimentatie
+1.2 Kinderbijslag
+1.3 Kinderrekening
+
+Artikel 2 - Zorgregeling
+2.1 Hoofdverblijf
+2.2 Omgangsregeling
+```
+
+**Alleen het nummer (voor referenties):**
+Gebruik `[[ARTIKEL_NR]]` als "Artikel" al in de template staat:
 ```
 Artikel [[ARTIKEL_NR]] - Respectvol ouderschap
-Artikel [[ARTIKEL_NR]] - De mening van [[ons kind/onze kinderen]]
+```
+
+**Reset nummering:**
+Gebruik `[[ARTIKEL_RESET]]` om de tellers te resetten (bijv. voor bijlagen):
+```
+[[ARTIKEL]] - Hoofdstuk 1
+[[ARTIKEL]] - Hoofdstuk 2
+
+[[ARTIKEL_RESET]]
+
+[[ARTIKEL]] - Bijlage A (wordt weer "Artikel 1")
 ```
 
 **Combinatie met conditionele secties:**
@@ -1411,7 +1629,54 @@ Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in h
 
 ## Changelog
 
-### v2.0.0 (Current) - 🎉 Grote Refactoring
+### v2.2.0 (Current) - Communicatie Afspraken & Uitbreidingen
+
+**Nieuwe features:**
+- 📋 **CommunicatieAfspraken model** - Volledig nieuw model met 40+ placeholders voor:
+  - Villa Pinedo methode en kinderen betrokkenheid
+  - Digitale afspraken (social media, devices, toezichtapps, locatie delen)
+  - Verzekeringen (WA, zorgverzekering)
+  - ID-bewijzen beheer
+  - Reistoestemming
+  - Jongmeerderjarige en studiekosten afspraken
+  - Bankrekeningen kinderen
+- 📝 **Automatische beschrijvings-generators** - Intelligente tekstgeneratie op basis van keuzes:
+  - `[[SocialMediaBeschrijving]]`, `[[DevicesBeschrijving]]`
+  - `[[IdBewijzenBeschrijving]]`, `[[ToestemmingReizenBeschrijving]]`
+  - `[[JongmeerderjarigeBeschrijving]]`, `[[StudiekostenBeschrijving]]`
+  - En vele anderen...
+- 🏠 **Hoofdverblijf/Inschrijving verdeling** - Nieuwe placeholders voor kindverdeling:
+  - `[[HoofdverblijfVerdeling]]` - Automatische tekst per kind
+  - `[[InschrijvingVerdeling]]` - BRP-inschrijving verdeling
+- 💰 **BetaalwijzeBeschrijving** - Volledige financiële beschrijving met:
+  - Kinderrekening of alimentatie uitleg
+  - Toeslagen en stortingen
+  - Verblijfsoverstijgende kosten
+  - Maximum opnames en indexering
+
+### v2.1.0 - Multi-level Artikelnummering & Nationaliteit
+
+**Nieuwe features:**
+- 🔢 **Multi-level juridische nummering**:
+  - `[[SUBARTIKEL]]` - Sub-artikelen (1.1, 1.2, etc.)
+  - `[[SUBARTIKEL_NR]]` - Alleen subnummer
+  - `[[ARTIKEL_RESET]]` - Reset tellers voor bijlagen
+- 🌍 **Nationaliteit placeholders**:
+  - `[[Partij1Nationaliteit1]]` / `[[Partij2Nationaliteit1]]`
+  - `[[Partij1Nationaliteit1Bijvoeglijk]]` - Automatische conversie (Nederland → Nederlandse)
+- 👤 **VoorlettersAchternaam** - Nieuwe placeholder voor formele naamnotatie (J.P. de Vries)
+- 👶 **Kind placeholders uitgebreid**:
+  - `[[KindXTussenvoegsel]]`
+  - `[[KindXRoepnaamAchternaam]]`
+- 💵 **Alimentatie uitbreidingen**:
+  - `[[ZorgkortingPercentageAlleKinderen]]`
+  - `[[AfsprakenAlleKinderenGelijk]]`
+  - `[[HoofdverblijfAlleKinderen]]`, `[[InschrijvingAlleKinderen]]`
+  - `[[KinderbijslagOntvangerAlleKinderen]]`, `[[KindgebondenBudgetAlleKinderen]]`
+- 📄 **Paragraph formatting behouden** - Fixes voor correcte opmaak bij placeholder vervanging
+- 🔤 **Formeel "Wij"** - Alimentatie teksten gebruiken nu formeel "Wij" i.p.v. "wij"
+
+### v2.0.0 - 🎉 Grote Refactoring
 
 **Belangrijkste wijzigingen:**
 - ♻️ **Volledige refactoring** volgens SOLID principes en DRY
