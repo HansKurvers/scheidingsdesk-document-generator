@@ -1,4 +1,4 @@
-# Ouderschapsplan Document Generator
+# i-docx Document Generator
 
 Een Azure Functions applicatie voor het automatisch genereren van juridische documenten voor scheidingszaken, specifiek gericht op ouderschapsplannen. Dit systeem integreert met een SQL database en Azure Blob Storage om op maat gemaakte Word documenten te genereren op basis van dossiergegevens.
 
