@@ -79,7 +79,7 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 ### Project Structuur
 
 ```
-/scheidingsdesk-document-generator/
+/idocx-document-generator/
 ├── Models/                                      # Data modellen
 │   ├── DossierData.cs                          # Hoofdmodel voor dossier
 │   ├── PersonData.cs                           # Persoonsgegevens (partijen)
@@ -126,7 +126,7 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 ├── Program.cs                                   # 🔧 DI configuratie en host setup
 ├── host.json                                    # Azure Functions configuratie
 ├── local.settings.json                          # Lokale development settings
-└── scheidingsdesk-document-generator.csproj     # Project file
+└── idocx-document-generator.csproj              # Project file
 ```
 
 ### Technologie Stack
@@ -559,7 +559,7 @@ public class CommunicatieAfsprakenData
 
 ```bash
 git clone <repository-url>
-cd scheidingsdesk-document-generator
+cd idocx-document-generator
 ```
 
 ### Stap 2: Database Setup
@@ -1251,31 +1251,31 @@ Deze placeholders genereren complete tabellen en **moeten op een eigen regel sta
 
 ```bash
 # Resource group
-az group create --name rg-scheidingsdesk --location westeurope
+az group create --name rg-idocx-docgen --location westeurope
 
 # Storage account (voor Azure Functions)
 az storage account create \
-  --name stscheidingsdesk \
-  --resource-group rg-scheidingsdesk \
+  --name stidocxdocgen \
+  --resource-group rg-idocx-docgen \
   --location westeurope \
   --sku Standard_LRS
 
 # Application Insights
 az monitor app-insights component create \
-  --app ai-scheidingsdesk \
+  --app ai-idocx-docgen \
   --location westeurope \
-  --resource-group rg-scheidingsdesk
+  --resource-group rg-idocx-docgen
 
 # Function App
 az functionapp create \
-  --resource-group rg-scheidingsdesk \
+  --resource-group rg-idocx-docgen \
   --consumption-plan-location westeurope \
   --runtime dotnet-isolated \
   --runtime-version 9.0 \
   --functions-version 4 \
-  --name func-scheidingsdesk \
-  --storage-account stscheidingsdesk \
-  --app-insights ai-scheidingsdesk
+  --name func-idocx-docgen \
+  --storage-account stidocxdocgen \
+  --app-insights ai-idocx-docgen
 ```
 
 **Stap 2: Configuratie Settings**
@@ -1283,15 +1283,15 @@ az functionapp create \
 ```bash
 # Connection string
 az functionapp config connection-string set \
-  --name func-scheidingsdesk \
-  --resource-group rg-scheidingsdesk \
+  --name func-idocx-docgen \
+  --resource-group rg-idocx-docgen \
   --connection-string-type SQLAzure \
   --settings DefaultConnection="Server=your-server.database.windows.net;Database=your-db;User Id=user;Password=pass;"
 
 # Template URL met SAS token
 az functionapp config appsettings set \
-  --name func-scheidingsdesk \
-  --resource-group rg-scheidingsdesk \
+  --name func-idocx-docgen \
+  --resource-group rg-idocx-docgen \
   --settings TemplateStorageUrl="https://yourstorage.blob.core.windows.net/templates/Ouderschapsplan%20NIEUW.docx?sp=r&st=2024-01-01&..."
 ```
 
@@ -1299,7 +1299,7 @@ az functionapp config appsettings set \
 
 ```bash
 # Via Azure Functions Core Tools
-func azure functionapp publish func-scheidingsdesk
+func azure functionapp publish func-idocx-docgen
 
 # Of via Visual Studio
 # Right-click project → Publish → Select target: Azure → Function App (Windows)
@@ -1336,7 +1336,7 @@ jobs:
     - name: Deploy to Azure Functions
       uses: Azure/functions-action@v1
       with:
-        app-name: func-scheidingsdesk
+        app-name: func-idocx-docgen
         package: ./output
         publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 ```
@@ -1435,10 +1435,10 @@ mockTemplateProvider
 **Oplossing**:
 ```bash
 # Check environment variable
-az functionapp config appsettings list --name func-scheidingsdesk --resource-group rg-scheidingsdesk | grep TemplateStorageUrl
+az functionapp config appsettings list --name func-idocx-docgen --resource-group rg-idocx-docgen | grep TemplateStorageUrl
 
 # Update met nieuwe SAS token
-az functionapp config appsettings set --name func-scheidingsdesk --resource-group rg-scheidingsdesk --settings TemplateStorageUrl="new-url-with-sas"
+az functionapp config appsettings set --name func-idocx-docgen --resource-group rg-idocx-docgen --settings TemplateStorageUrl="new-url-with-sas"
 ```
 
 #### 2. "Database connection failed"
@@ -1449,7 +1449,7 @@ az functionapp config appsettings set --name func-scheidingsdesk --resource-grou
 ```bash
 # Voeg Azure Functions IP toe aan SQL firewall
 az sql server firewall-rule create \
-  --resource-group rg-scheidingsdesk \
+  --resource-group rg-idocx-docgen \
   --server your-sql-server \
   --name AllowAzureFunctions \
   --start-ip-address 0.0.0.0 \
