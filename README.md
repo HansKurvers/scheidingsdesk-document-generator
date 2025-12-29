@@ -1503,6 +1503,45 @@ az sql server firewall-rule create \
 - Verify dat interfaces correct zijn geïmplementeerd
 - Bij nieuwe generator: check of `ITableGenerator` implementatie is geregistreerd
 
+#### 7. "Content control not found" of lege output
+
+**Oorzaak**: Template heeft geen content controls of verkeerde placeholder syntax.
+
+**Oplossing**:
+- Open template in Word, ga naar Developer tab → Design Mode
+- Controleer of content controls aanwezig zijn met correcte tags
+- Verifieer placeholder syntax: `[[Naam]]` niet `[[ Naam ]]` (geen spaties)
+- Check of placeholders exact overeenkomen met code (case-insensitive)
+
+#### 8. "Artikel numbering incorrect" of gaten in nummering
+
+**Oorzaak**: Conditionele secties verstoren de artikelnummering.
+
+**Oplossing**:
+- Zorg dat `[[ARTIKEL]]` altijd op een eigen paragraph staat (niet inline)
+- Controleer of alle `[[IF:VeldNaam]]` tags een bijbehorende `[[ENDIF:VeldNaam]]` hebben
+- Verifieer dat veldnamen exact overeenkomen (case-sensitive voor IF/ENDIF)
+- Gebruik `[[ARTIKEL_RESET]]` expliciet voor bijlagen/appendices
+
+#### 9. "Foreign key constraint violation" bij verwijderen
+
+**Oorzaak**: Gekoppelde records bestaan nog in gerelateerde tabellen.
+
+**Oplossing**:
+- Verwijder eerst kind-records (omgang, zorg) voordat je dossier verwijdert
+- Check `dossiers_partijen`, `dossiers_kinderen`, `omgang`, `zorg` tabellen
+- Gebruik CASCADE DELETE in database schema voor automatische cleanup
+
+#### 10. Gegenereerd document opent niet of is corrupt
+
+**Oorzaak**: Document generatie is onderbroken of template is beschadigd.
+
+**Oplossing**:
+- Download template opnieuw en test met minimale data
+- Check Application Insights voor specifieke OpenXML errors
+- Verifieer dat alle tabel generators valid XML produceren
+- Test met een nieuw, leeg template om template-specifieke issues uit te sluiten
+
 ### Logging en Monitoring
 
 **Lokaal:**
