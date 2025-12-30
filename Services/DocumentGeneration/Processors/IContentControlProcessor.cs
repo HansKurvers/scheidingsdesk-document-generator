@@ -22,5 +22,14 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// <param name="data">Dossier data for table generation</param>
         /// <param name="correlationId">Correlation ID for logging</param>
         void ProcessTablePlaceholders(Body body, DossierData data, string correlationId);
+
+        /// <summary>
+        /// Processes table and list placeholders in document body with replacements context
+        /// </summary>
+        /// <param name="body">Document body to process</param>
+        /// <param name="data">Dossier data for table generation</param>
+        /// <param name="replacements">Placeholder replacements for conditional processing</param>
+        /// <param name="correlationId">Correlation ID for logging</param>
+        void ProcessTablePlaceholders(Body body, DossierData data, System.Collections.Generic.Dictionary<string, string> replacements, string correlationId);
     }
 }

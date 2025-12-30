@@ -29,6 +29,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
         /// </summary>
         public void ProcessTablePlaceholders(Body body, DossierData data, string correlationId)
         {
+            // Call overload with empty replacements for backwards compatibility
+            ProcessTablePlaceholders(body, data, new Dictionary<string, string>(), correlationId);
+        }
+
+        /// <summary>
+        /// Processes table and list placeholders in document body with replacements context
+        /// </summary>
+        public void ProcessTablePlaceholders(Body body, DossierData data, Dictionary<string, string> replacements, string correlationId)
+        {
             var paragraphs = body.Descendants<Paragraph>().ToList();
             _logger.LogInformation($"[{correlationId}] Scanning {paragraphs.Count} paragraphs for table placeholders");
 
@@ -47,6 +56,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
 
                         try
                         {
+                            // Set replacements on ArtikelContentGenerator if applicable
+                            if (generator is Generators.ArtikelContentGenerator artikelGenerator)
+                            {
+                                artikelGenerator.Replacements = replacements;
+                            }
+
                             // Get original paragraph properties to preserve formatting (indentation, etc.)
                             var originalProps = paragraph.ParagraphProperties?.CloneNode(true) as ParagraphProperties;
 

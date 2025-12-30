@@ -51,6 +51,11 @@ namespace scheidingsdesk_document_generator.Models
         public CommunicatieAfsprakenData? CommunicatieAfspraken { get; set; }
 
         /// <summary>
+        /// Artikel templates with user/dossier customizations for document generation
+        /// </summary>
+        public List<ArtikelData> Artikelen { get; set; } = new List<ArtikelData>();
+
+        /// <summary>
         /// Gets party 1 (rol_id = 1)
         /// </summary>
         public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);

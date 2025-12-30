@@ -65,6 +65,16 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
                 throw new InvalidOperationException($"No data found for DossierId: {dossierId}");
             }
 
+            // Step 2b: Get artikelen from database (for templates with [[ARTIKELEN]] placeholder)
+            _logger.LogInformation($"[{correlationId}] Step 2b: Retrieving artikelen for document type '{templateType}'");
+            var documentType = templateType == "convenant" ? "convenant" : "ouderschapsplan";
+            var artikelen = await _databaseService.GetArtikelenVoorDossierAsync(
+                dossierId,
+                dossierData.GebruikerId,
+                documentType);
+            dossierData.Artikelen = artikelen;
+            _logger.LogInformation($"[{correlationId}] Retrieved {artikelen.Count} artikelen");
+
             // Step 3: Build grammar rules
             _logger.LogInformation($"[{correlationId}] Step 3: Building grammar rules");
             var grammarRules = _grammarRulesBuilder.BuildRules(dossierData.Kinderen, correlationId);
@@ -138,9 +148,9 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
                     _logger.LogInformation($"[{correlationId}] Step 3: Processing article numbering");
                     ArticleNumberingHelper.ProcessArticlePlaceholders(doc, _logger, correlationId);
 
-                    // Step 4: Process table placeholders (generates dynamic tables)
+                    // Step 4: Process table placeholders (generates dynamic tables and artikelen)
                     _logger.LogInformation($"[{correlationId}] Step 4: Processing table placeholders");
-                    _contentControlProcessor.ProcessTablePlaceholders(body, dossierData, correlationId);
+                    _contentControlProcessor.ProcessTablePlaceholders(body, dossierData, replacements, correlationId);
 
                     // Step 5: Remove content controls
                     _logger.LogInformation($"[{correlationId}] Step 5: Removing content controls");

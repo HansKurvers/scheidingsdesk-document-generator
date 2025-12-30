@@ -8,6 +8,7 @@ using scheidingsdesk_document_generator.Services.DocumentGeneration;
 using scheidingsdesk_document_generator.Services.DocumentGeneration.Processors;
 using scheidingsdesk_document_generator.Services.DocumentGeneration.Helpers;
 using scheidingsdesk_document_generator.Services.DocumentGeneration.Generators;
+using scheidingsdesk_document_generator.Services.Artikel;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -41,11 +42,15 @@ var host = new HostBuilder()
         services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
         services.AddScoped<GrammarRulesBuilder>();
 
+        // Register artikel service
+        services.AddScoped<IArtikelService, ArtikelService>();
+
         // Register all table generators (Strategy Pattern)
         services.AddScoped<ITableGenerator, OmgangTableGenerator>();
         services.AddScoped<ITableGenerator, ZorgTableGenerator>(); // Handles ALL zorg categories including vakanties & feestdagen
         services.AddScoped<ITableGenerator, ChildrenListGenerator>();
         services.AddScoped<ITableGenerator, AlimentatieTableGenerator>();
+        services.AddScoped<ITableGenerator, ArtikelContentGenerator>(); // Generates artikelen from bibliotheek
     })
 
     .Build();

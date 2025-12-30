@@ -930,5 +930,115 @@ namespace scheidingsdesk_document_generator.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// Retrieves artikelen (articles/clauses) for a dossier with 3-layer priority:
+        /// Dossier override > Gebruiker aanpassing > Systeem template
+        /// </summary>
+        /// <param name="dossierId">The dossier ID</param>
+        /// <param name="gebruikerId">The user ID (owner of the dossier)</param>
+        /// <param name="documentType">The document type (e.g., "ouderschapsplan", "convenant")</param>
+        /// <returns>List of articles with effective text based on priority</returns>
+        public async Task<List<ArtikelData>> GetArtikelenVoorDossierAsync(int dossierId, int gebruikerId, string documentType = "ouderschapsplan")
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving artikelen for dossier {DossierId}, user {GebruikerId}, type {DocumentType}",
+                    dossierId, gebruikerId, documentType);
+
+                using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                // Query that joins artikel_templates with gebruiker_artikelen and dossier_artikelen
+                // to get the effective text based on the 3-layer priority system
+                const string query = @"
+                    SELECT
+                        t.id,
+                        t.document_type,
+                        t.artikel_code,
+                        t.artikel_titel,
+                        t.artikel_tekst,
+                        t.volgorde,
+                        t.is_verplicht,
+                        t.is_conditioneel,
+                        t.conditie_veld,
+                        t.categorie,
+                        t.help_tekst,
+                        t.versie,
+                        t.is_actief,
+                        -- Gebruiker aanpassingen
+                        ga.aangepaste_titel AS gebruiker_titel,
+                        ga.aangepaste_tekst AS gebruiker_tekst,
+                        ga.is_actief AS gebruiker_actief,
+                        -- Dossier overrides
+                        da.aangepaste_tekst AS dossier_tekst,
+                        ISNULL(da.is_uitgesloten, 0) AS is_uitgesloten
+                    FROM dbo.artikel_templates t
+                    LEFT JOIN dbo.gebruiker_artikelen ga
+                        ON t.id = ga.artikel_template_id
+                        AND ga.gebruiker_id = @GebruikerId
+                    LEFT JOIN dbo.dossier_artikelen da
+                        ON t.id = da.artikel_template_id
+                        AND da.dossier_id = @DossierId
+                    WHERE t.document_type = @DocumentType
+                        AND t.is_actief = 1
+                        AND ISNULL(da.is_uitgesloten, 0) = 0
+                    ORDER BY t.volgorde ASC";
+
+                using var command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@DossierId", dossierId);
+                command.Parameters.AddWithValue("@GebruikerId", gebruikerId);
+                command.Parameters.AddWithValue("@DocumentType", documentType);
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                var artikelen = new List<ArtikelData>();
+                while (await reader.ReadAsync())
+                {
+                    artikelen.Add(new ArtikelData
+                    {
+                        Id = (int)reader["id"],
+                        DocumentType = ConvertToString(reader["document_type"]),
+                        ArtikelCode = ConvertToString(reader["artikel_code"]),
+                        ArtikelTitel = ConvertToString(reader["artikel_titel"]),
+                        ArtikelTekst = ConvertToString(reader["artikel_tekst"]),
+                        Volgorde = (int)reader["volgorde"],
+                        IsVerplicht = (bool)reader["is_verplicht"],
+                        IsConditioneel = (bool)reader["is_conditioneel"],
+                        ConditieVeld = reader["conditie_veld"] == DBNull.Value ? null : ConvertToString(reader["conditie_veld"]),
+                        Categorie = reader["categorie"] == DBNull.Value ? null : ConvertToString(reader["categorie"]),
+                        HelpTekst = reader["help_tekst"] == DBNull.Value ? null : ConvertToString(reader["help_tekst"]),
+                        Versie = (int)reader["versie"],
+                        IsActief = (bool)reader["is_actief"],
+                        // Gebruiker aanpassingen
+                        GebruikerTitel = reader["gebruiker_titel"] == DBNull.Value ? null : ConvertToString(reader["gebruiker_titel"]),
+                        GebruikerTekst = reader["gebruiker_tekst"] == DBNull.Value ? null : ConvertToString(reader["gebruiker_tekst"]),
+                        GebruikerActief = reader["gebruiker_actief"] == DBNull.Value ? null : (bool?)reader["gebruiker_actief"],
+                        // Dossier overrides
+                        DossierTekst = reader["dossier_tekst"] == DBNull.Value ? null : ConvertToString(reader["dossier_tekst"]),
+                        IsUitgesloten = (bool)reader["is_uitgesloten"]
+                    });
+                }
+
+                _logger.LogInformation("Retrieved {Count} artikelen for dossier {DossierId}", artikelen.Count, dossierId);
+                return artikelen;
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "Database error while retrieving artikelen for dossier {DossierId}", dossierId);
+                // Return empty list if table doesn't exist (backwards compatibility)
+                if (ex.Message.Contains("Invalid object name") && ex.Message.Contains("artikel"))
+                {
+                    _logger.LogWarning("Artikel tables do not exist yet, returning empty list");
+                    return new List<ArtikelData>();
+                }
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while retrieving artikelen for dossier {DossierId}", dossierId);
+                throw;
+            }
+        }
     }
 }

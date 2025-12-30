@@ -67,6 +67,15 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration
                     _logger.LogInformation("Using MFAM template (OPMfam.docx)");
                     return mfamUrl;
 
+                case "artikelen":
+                    var artikelenUrl = Environment.GetEnvironmentVariable("TemplateStorageUrlArtikelen");
+                    if (string.IsNullOrWhiteSpace(artikelenUrl))
+                    {
+                        throw new InvalidOperationException("TemplateStorageUrlArtikelen environment variable is not set. This template uses [[ARTIKELEN]] placeholder for dynamic article generation.");
+                    }
+                    _logger.LogInformation("Using artikelen template with [[ARTIKELEN]] placeholder");
+                    return artikelenUrl;
+
                 default:
                     _logger.LogWarning($"Unknown template type '{templateType}', falling back to default");
                     return GetTemplateUrlForType("default");
