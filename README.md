@@ -32,9 +32,9 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
 
 | Frontend | API | Doc Generator | Status |
 |----------|-----|---------------|--------|
-| 1.2.x | 1.1.x | 2.2.x | ✅ Actueel |
-| 1.1.x | 1.0.x | 2.1.x | ⚠️ Legacy |
-| 1.0.x | 1.0.x | 2.0.x | ❌ Niet ondersteund |
+| 1.3.x | 1.2.x | 2.3.x | ✅ Actueel |
+| 1.2.x | 1.1.x | 2.2.x | ⚠️ Legacy |
+| 1.1.x | 1.0.x | 2.1.x | ❌ Niet ondersteund |
 
 > **Let op**: Zorg dat alle componenten compatibele versies draaien om onverwacht gedrag te voorkomen.
 
@@ -69,7 +69,14 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
    - Vakantieregelingen (voorjaar, mei, zomer, herfst, kerst)
    - Feestdagenregelingen (Pasen, Koningsdag, Sinterklaas, etc.)
 
-5. **Template Placeholder Systemen**
+6. **Artikel Bibliotheek Integratie** (Nieuw in v2.3.0)
+   - Haalt artikelen op uit database met 3-laags prioriteit (dossier > gebruiker > systeem)
+   - Automatische conditionele filtering op basis van dossier data
+   - Placeholder vervanging binnen artikel teksten
+   - `[[ARTIKELEN]]` placeholder genereert alle actieve artikelen
+   - Ondersteunt `[[IF:Veld]]...[[ENDIF:Veld]]` binnen artikelen
+
+7. **Template Placeholder Systemen**
    - Ondersteunt meerdere placeholder formaten: `[[Key]]`, `{Key}`, `<<Key>>`, `[Key]`
    - Dynamische vervanging van persoons-, kind- en dossiergegevens
    - Speciale placeholders voor tabellen en lijsten
@@ -97,10 +104,15 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │   ├── OmgangData.cs                           # Omgangsregelingen
 │   ├── ZorgData.cs                             # Zorgregelingen
 │   ├── AlimentatieData.cs                      # Alimentatie informatie
-│   └── OuderschapsplanInfoData.cs              # Ouderschapsplan specifieke info
+│   ├── OuderschapsplanInfoData.cs              # Ouderschapsplan specifieke info
+│   └── ArtikelData.cs                          # Artikel bibliotheek data (v2.3.0)
 │
 ├── Services/                                    # Business logic services
 │   ├── DatabaseService.cs                      # Database interactie (SQL queries)
+│   │
+│   ├── Artikel/                                # Artikel bibliotheek services (v2.3.0)
+│   │   ├── IArtikelService.cs                  # Interface voor artikel verwerking
+│   │   └── ArtikelService.cs                   # Conditionele filtering en placeholder vervanging
 │   │
 │   └── DocumentGeneration/                     # Document generatie module
 │       ├── DocumentGenerationService.cs        # 🎯 ORCHESTRATOR - coördineert alle stappen
@@ -127,7 +139,8 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │           ├── ITableGenerator.cs              # Interface voor alle generators
 │           ├── OmgangTableGenerator.cs         # 📅 Omgangstabellen (visitation)
 │           ├── ZorgTableGenerator.cs           # 🏥 Zorgtabellen (care, vakanties, feestdagen)
-│           └── ChildrenListGenerator.cs        # 👶 Kinderen lijst generatie
+│           ├── ChildrenListGenerator.cs        # 👶 Kinderen lijst generatie
+│           └── ArtikelContentGenerator.cs      # 📚 Artikelen uit bibliotheek (v2.3.0)
 │
 ├── OuderschapsplanFunction.cs                   # ✨ HTTP Endpoint (142 regels, was 1669)
 ├── OuderschapsplanFunction.cs.OLD               # 📦 Backup van originele versie
@@ -1218,6 +1231,7 @@ Deze placeholders genereren complete tabellen en **moeten op een eigen regel sta
 [[TABEL_OMGANG]]                       - Genereert omgangsregeling tabel per week
 [[TABEL_ZORG]]                         - Genereert zorgtabellen (incl. vakanties, feestdagen, etc.)
 [[LIJST_KINDEREN]]                     - Genereert bullet list met kinderen
+[[ARTIKELEN]]                          - Genereert alle artikelen uit bibliotheek (v2.3.0)
 ```
 
 **Let op:**
@@ -1678,7 +1692,25 @@ Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in h
 
 ## Changelog
 
-### v2.2.0 (Current) - Communicatie Afspraken & Uitbreidingen
+### v2.3.0 (Current) - Artikel Bibliotheek Integratie
+
+**Nieuwe features:**
+- 📚 **Artikel Bibliotheek Integratie** - Dynamische artikelen uit database in documenten:
+  - `[[ARTIKELEN]]` placeholder genereert alle actieve artikelen
+  - 3-laags prioriteit systeem: dossier > gebruiker > systeem
+  - Conditionele filtering op basis van dossier data
+  - Placeholder vervanging binnen artikel teksten
+  - `[[IF:Veld]]...[[ENDIF:Veld]]` ondersteuning binnen artikelen
+- 🏗️ **Nieuwe services**:
+  - `ArtikelData.cs` - Data model voor artikelen
+  - `IArtikelService` / `ArtikelService` - Artikel verwerking
+  - `ArtikelContentGenerator` - Word paragraph generatie
+- 📄 **Template types** - Nieuw "artikelen" template type voor templates met `[[ARTIKELEN]]`
+
+**Breaking Changes:**
+- Geen! De integratie is 100% backwards compatible. Bestaande templates zonder `[[ARTIKELEN]]` blijven werken.
+
+### v2.2.0 - Communicatie Afspraken & Uitbreidingen
 
 **Nieuwe features:**
 - 📋 **CommunicatieAfspraken model** - Volledig nieuw model met 40+ placeholders voor:
