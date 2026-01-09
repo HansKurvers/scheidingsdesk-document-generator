@@ -56,6 +56,13 @@ namespace scheidingsdesk_document_generator.Models
         public List<ArtikelData> Artikelen { get; set; } = new List<ArtikelData>();
 
         /// <summary>
+        /// Custom placeholder values from the placeholder_catalogus
+        /// Key = placeholder_key, Value = waarde
+        /// Priority: dossier > gebruiker > systeem > standaard_waarde
+        /// </summary>
+        public Dictionary<string, string> CustomPlaceholders { get; set; } = new Dictionary<string, string>();
+
+        /// <summary>
         /// Gets party 1 (rol_id = 1)
         /// </summary>
         public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);

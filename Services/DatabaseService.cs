@@ -205,6 +205,44 @@ namespace scheidingsdesk_document_generator.Services
                     ELSE
                     BEGIN
                         SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 13: Custom placeholder values with priority resolution
+                    -- Priority: dossier > gebruiker > systeem > standaard_waarde
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'placeholder_catalogus' AND schema_id = SCHEMA_ID('dbo'))
+                    BEGIN
+                        SELECT
+                            pc.placeholder_key,
+                            COALESCE(
+                                pw_dossier.waarde,
+                                pw_gebruiker.waarde,
+                                pw_systeem.waarde,
+                                pc.standaard_waarde
+                            ) AS waarde
+                        FROM dbo.placeholder_catalogus pc
+                        LEFT JOIN dbo.placeholder_waarden pw_dossier
+                            ON pw_dossier.placeholder_id = pc.id
+                            AND pw_dossier.dossier_id = @DossierId
+                        LEFT JOIN dbo.placeholder_waarden pw_gebruiker
+                            ON pw_gebruiker.placeholder_id = pc.id
+                            AND pw_gebruiker.gebruiker_id = (SELECT gebruiker_id FROM dbo.dossiers WHERE id = @DossierId)
+                            AND pw_gebruiker.dossier_id IS NULL
+                        LEFT JOIN dbo.placeholder_waarden pw_systeem
+                            ON pw_systeem.placeholder_id = pc.id
+                            AND pw_systeem.gebruiker_id IS NULL
+                            AND pw_systeem.dossier_id IS NULL
+                        WHERE pc.is_systeem = 0
+                            AND pc.is_actief = 1
+                            AND COALESCE(
+                                pw_dossier.waarde,
+                                pw_gebruiker.waarde,
+                                pw_systeem.waarde,
+                                pc.standaard_waarde
+                            ) IS NOT NULL;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
                     END";
 
                 using var command = new SqlCommand(query, connection);
@@ -577,6 +615,30 @@ namespace scheidingsdesk_document_generator.Services
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Omgangsregeling table may not exist yet, skipping");
+                }
+
+                // Result set 13: Custom placeholder values
+                await reader.NextResultAsync();
+                try
+                {
+                    if (reader.FieldCount > 0)
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var key = SafeReadString(reader, "placeholder_key");
+                            var waarde = SafeReadString(reader, "waarde");
+                            if (!string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(waarde))
+                            {
+                                dossier.CustomPlaceholders[key] = waarde;
+                            }
+                        }
+                        _logger.LogInformation("Loaded {Count} custom placeholders for dossier {DossierId}",
+                            dossier.CustomPlaceholders.Count, dossierId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Placeholder catalogus table may not exist yet, skipping custom placeholders");
                 }
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);

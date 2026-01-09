@@ -106,6 +106,21 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             // Add communicatie afspraken data (always add placeholders, even if empty)
             AddCommunicatieAfsprakenReplacements(replacements, data.CommunicatieAfspraken, data.Partij1, data.Partij2, data.Kinderen);
 
+            // Add custom placeholders from the placeholder_catalogus
+            // These have priority: dossier > gebruiker > systeem > standaard_waarde
+            if (data.CustomPlaceholders.Any())
+            {
+                foreach (var placeholder in data.CustomPlaceholders)
+                {
+                    // Only add if not already set by a system placeholder
+                    if (!replacements.ContainsKey(placeholder.Key))
+                    {
+                        replacements[placeholder.Key] = placeholder.Value;
+                    }
+                }
+                _logger.LogInformation("Added {Count} custom placeholders", data.CustomPlaceholders.Count);
+            }
+
             return replacements;
         }
 
