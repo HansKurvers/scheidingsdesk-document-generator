@@ -233,12 +233,32 @@ namespace scheidingsdesk_document_generator.Services
                             AND pw_systeem.dossier_id IS NULL
                         WHERE pc.is_systeem = 0
                             AND pc.is_actief = 1
+                            AND ISNULL(pc.heeft_conditie, 0) = 0
                             AND COALESCE(
                                 pw_dossier.waarde,
                                 pw_gebruiker.waarde,
                                 pw_systeem.waarde,
                                 pc.standaard_waarde
                             ) IS NOT NULL;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 14: Conditional placeholders with their configuration
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'placeholder_catalogus' AND schema_id = SCHEMA_ID('dbo'))
+                       AND EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.placeholder_catalogus') AND name = 'heeft_conditie')
+                    BEGIN
+                        SELECT
+                            pc.id,
+                            pc.placeholder_key,
+                            pc.heeft_conditie,
+                            pc.conditie_config
+                        FROM dbo.placeholder_catalogus pc
+                        WHERE pc.is_actief = 1
+                            AND pc.heeft_conditie = 1
+                            AND pc.conditie_config IS NOT NULL;
                     END
                     ELSE
                     BEGIN
@@ -639,6 +659,35 @@ namespace scheidingsdesk_document_generator.Services
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Placeholder catalogus table may not exist yet, skipping custom placeholders");
+                }
+
+                // Result set 14: Conditional placeholders
+                await reader.NextResultAsync();
+                try
+                {
+                    if (reader.FieldCount > 0)
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var conditionalPlaceholder = new ConditionalPlaceholder
+                            {
+                                Id = SafeReadInt(reader, "id") ?? 0,
+                                PlaceholderKey = SafeReadString(reader, "placeholder_key") ?? string.Empty,
+                                HeeftConditie = SafeReadBoolean(reader, "heeft_conditie") ?? false,
+                                ConditieConfigJson = SafeReadString(reader, "conditie_config")
+                            };
+                            if (conditionalPlaceholder.HeeftConditie && !string.IsNullOrEmpty(conditionalPlaceholder.ConditieConfigJson))
+                            {
+                                dossier.ConditionalPlaceholders.Add(conditionalPlaceholder);
+                            }
+                        }
+                        _logger.LogInformation("Loaded {Count} conditional placeholders for dossier {DossierId}",
+                            dossier.ConditionalPlaceholders.Count, dossierId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Conditional placeholder columns may not exist yet, skipping conditional placeholders");
                 }
 
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);

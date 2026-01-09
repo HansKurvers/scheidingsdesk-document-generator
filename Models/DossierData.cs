@@ -63,6 +63,12 @@ namespace scheidingsdesk_document_generator.Models
         public Dictionary<string, string> CustomPlaceholders { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
+        /// Conditional placeholders from the placeholder_catalogus
+        /// These have heeft_conditie = 1 and need to be evaluated at document generation time
+        /// </summary>
+        public List<ConditionalPlaceholder> ConditionalPlaceholders { get; set; } = new List<ConditionalPlaceholder>();
+
+        /// <summary>
         /// Gets party 1 (rol_id = 1)
         /// </summary>
         public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);

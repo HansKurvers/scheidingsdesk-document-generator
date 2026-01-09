@@ -16,10 +16,12 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
     public class PlaceholderProcessor : IPlaceholderProcessor
     {
         private readonly ILogger<PlaceholderProcessor> _logger;
+        private readonly IConditieEvaluator _conditieEvaluator;
 
-        public PlaceholderProcessor(ILogger<PlaceholderProcessor> logger)
+        public PlaceholderProcessor(ILogger<PlaceholderProcessor> logger, IConditieEvaluator conditieEvaluator)
         {
             _logger = logger;
+            _conditieEvaluator = conditieEvaluator;
         }
 
         /// <summary>
@@ -119,6 +121,43 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     }
                 }
                 _logger.LogInformation("Added {Count} custom placeholders", data.CustomPlaceholders.Count);
+            }
+
+            // Evaluate conditional placeholders using ConditieEvaluator
+            // These are placeholders with heeft_conditie = 1 and a conditie_config
+            if (data.ConditionalPlaceholders.Any())
+            {
+                // Build evaluation context with computed fields
+                var context = _conditieEvaluator.BuildEvaluationContext(data, replacements);
+
+                foreach (var conditionalPlaceholder in data.ConditionalPlaceholders)
+                {
+                    var config = conditionalPlaceholder.ConditieConfig;
+                    if (config != null)
+                    {
+                        try
+                        {
+                            var result = _conditieEvaluator.Evaluate(config, context);
+                            var resolvedValue = _conditieEvaluator.ResolveNestedPlaceholders(result.RawResult, replacements);
+
+                            // Conditional placeholders override any existing value
+                            replacements[conditionalPlaceholder.PlaceholderKey] = resolvedValue;
+
+                            _logger.LogDebug("Conditional placeholder {Key} evaluated to: {Value} (rule: {Rule})",
+                                conditionalPlaceholder.PlaceholderKey,
+                                resolvedValue,
+                                result.MatchedRule?.ToString() ?? "default");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error evaluating conditional placeholder {Key}, using empty string",
+                                conditionalPlaceholder.PlaceholderKey);
+                            replacements[conditionalPlaceholder.PlaceholderKey] = string.Empty;
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Evaluated {Count} conditional placeholders", data.ConditionalPlaceholders.Count);
             }
 
             return replacements;

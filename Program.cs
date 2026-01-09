@@ -40,6 +40,7 @@ var host = new HostBuilder()
         services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
         services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
         services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
+        services.AddScoped<IConditieEvaluator, ConditieEvaluator>();
         services.AddScoped<GrammarRulesBuilder>();
 
         // Register artikel service
