@@ -32,9 +32,9 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
 
 | Frontend | API | Doc Generator | Status |
 |----------|-----|---------------|--------|
-| 1.3.x | 1.2.x | 2.3.x | ✅ Actueel |
-| 1.2.x | 1.1.x | 2.2.x | ⚠️ Legacy |
-| 1.1.x | 1.0.x | 2.1.x | ❌ Niet ondersteund |
+| 1.4.x | 1.3.x | 2.4.x | ✅ Actueel |
+| 1.3.x | 1.2.x | 2.3.x | ⚠️ Legacy |
+| 1.2.x | 1.1.x | 2.2.x | ❌ Niet ondersteund |
 
 > **Let op**: Zorg dat alle componenten compatibele versies draaien om onverwacht gedrag te voorkomen.
 
@@ -1692,7 +1692,23 @@ Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in h
 
 ## Changelog
 
-### v2.3.0 (Current) - Artikel Bibliotheek Integratie
+### v2.4.0 (Current) - Custom Placeholders & Conditionele Evaluatie
+
+**Nieuwe features:**
+- 🔧 **Custom Placeholders Integratie** - Placeholders uit `placeholder_catalogus` tabel:
+  - Automatisch ophalen van custom placeholders per dossier/gebruiker
+  - Ondersteuning voor `gebruiker` en `dossier` bron types
+  - Waarde-resolutie met prioriteit: dossier > gebruiker > systeem > standaard
+- 🧮 **Conditionele Placeholder Evaluatie** - Dynamische conditie-logica:
+  - Evaluatie van `conditie_config` JSON uit placeholder_catalogus
+  - Ondersteuning voor operatoren: `>`, `<`, `>=`, `<=`, `==`, `!=`
+  - Velden zoals `aantalKinderen`, `soortRelatie` beschikbaar voor condities
+  - Placeholders worden alleen opgenomen als conditie `true` evalueert
+
+**Breaking Changes:**
+- Geen! De integratie is 100% backwards compatible.
+
+### v2.3.0 - Artikel Bibliotheek Integratie
 
 **Nieuwe features:**
 - 📚 **Artikel Bibliotheek Integratie** - Dynamische artikelen uit database in documenten:
