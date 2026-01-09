@@ -32,9 +32,9 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
 
 | Frontend | API | Doc Generator | Status |
 |----------|-----|---------------|--------|
-| 1.4.x | 1.3.x | 2.4.x | ✅ Actueel |
-| 1.3.x | 1.2.x | 2.3.x | ⚠️ Legacy |
-| 1.2.x | 1.1.x | 2.2.x | ❌ Niet ondersteund |
+| 1.3.x | 1.2.x | 2.3.x | ✅ Actueel |
+| 1.2.x | 1.1.x | 2.2.x | ⚠️ Legacy |
+| 1.1.x | 1.0.x | 2.1.x | ❌ Niet ondersteund |
 
 > **Let op**: Zorg dat alle componenten compatibele versies draaien om onverwacht gedrag te voorkomen.
 
@@ -76,19 +76,7 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
    - `[[ARTIKELEN]]` placeholder genereert alle actieve artikelen
    - Ondersteunt `[[IF:Veld]]...[[ENDIF:Veld]]` binnen artikelen
 
-7. **Custom Placeholders Integratie** (Nieuw in v2.4.0)
-   - Ondersteunt custom placeholders uit de placeholder_catalogus tabel
-   - 3-laags waarde prioriteit: dossier > gebruiker > systeem standaardwaarde
-   - Automatische integratie met PlaceholderProcessor
-   - Werkt naadloos samen met bestaande systeem placeholders
-
-8. **Conditionele Placeholder Logica** (Nieuw in v2.5.0)
-   - Placeholders kunnen conditionele regels bevatten voor dynamische waarden
-   - Ondersteuning voor 13 operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `bevat`, `begint_met`, `eindigt_met`, `leeg`, `niet_leeg`, `in`, `niet_in`
-   - Geneste AND/OR condities voor complexe logica
-   - Automatische evaluatie tijdens document generatie
-
-9. **Template Placeholder Systemen**
+7. **Template Placeholder Systemen**
    - Ondersteunt meerdere placeholder formaten: `[[Key]]`, `{Key}`, `<<Key>>`, `[Key]`
    - Dynamische vervanging van persoons-, kind- en dossiergegevens
    - Speciale placeholders voor tabellen en lijsten
@@ -125,10 +113,6 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │   ├── Artikel/                                # Artikel bibliotheek services (v2.3.0)
 │   │   ├── IArtikelService.cs                  # Interface voor artikel verwerking
 │   │   └── ArtikelService.cs                   # Conditionele filtering en placeholder vervanging
-│   │
-│   ├── Conditie/                               # Conditionele logica services (v2.5.0)
-│   │   ├── IConditieEvaluator.cs               # Interface voor conditie evaluatie
-│   │   └── ConditieEvaluator.cs                # Evalueert conditionele placeholder regels
 │   │
 │   └── DocumentGeneration/                     # Document generatie module
 │       ├── DocumentGenerationService.cs        # 🎯 ORCHESTRATOR - coördineert alle stappen
@@ -335,9 +319,6 @@ services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
 services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
 services.AddScoped<GrammarRulesBuilder>();
 
-// Conditie evaluatie (v2.5.0)
-services.AddScoped<IConditieEvaluator, ConditieEvaluator>();
-
 // Table generators (Strategy Pattern)
 services.AddScoped<ITableGenerator, OmgangTableGenerator>();
 services.AddScoped<ITableGenerator, ZorgTableGenerator>(); // Handles ALL zorg categories including vakanties & feestdagen
@@ -439,7 +420,6 @@ public class DossierData
     public AlimentatieData? Alimentatie { get; set; }
     public OuderschapsplanInfoData? OuderschapsplanInfo { get; set; }
     public CommunicatieAfsprakenData? CommunicatieAfspraken { get; set; }  // Nieuw in v2.2.0
-    public Dictionary<string, string> CustomPlaceholders { get; set; }    // Nieuw in v2.4.0
 
     // Convenience properties
     public PersonData? Partij1 => Partijen.FirstOrDefault(p => p.RolId == 1);
@@ -1261,155 +1241,6 @@ Deze placeholders genereren complete tabellen en **moeten op een eigen regel sta
 
 ---
 
-### Custom Placeholders (Nieuw in v2.4.0)
-
-Custom placeholders worden beheerd via de **placeholder_catalogus** tabel en kunnen door professionals worden aangemaakt. Deze placeholders worden automatisch opgenomen in de document generatie.
-
-**Database tabellen:**
-
-```sql
--- Placeholder definities
-dbo.placeholder_catalogus (
-    id, placeholder_key, categorie, label, beschrijving,
-    voorbeeld_waarde, is_systeem, data_type, bron_type,
-    standaard_waarde, is_actief, ...
-)
-
--- Waarden per gebruiker of dossier
-dbo.placeholder_waarden (
-    id, placeholder_id, gebruiker_id, dossier_id, waarde, ...
-)
-```
-
-**Waarde prioriteit:**
-
-| Prioriteit | Bron | Beschrijving |
-|------------|------|--------------|
-| 1 (hoogst) | Dossier | Waarde specifiek voor dit dossier |
-| 2 | Gebruiker | Standaardwaarde van de professional |
-| 3 (laagst) | Systeem | standaard_waarde uit placeholder_catalogus |
-
-**Hoe het werkt:**
-
-1. **DatabaseService.GetDossierDataAsync()** haalt custom placeholder waarden op (result set 13)
-2. De query selecteert:
-   - Alle actieve custom placeholders (bron_type = 'gebruiker' of 'dossier')
-   - Effectieve waarde met prioriteit: `COALESCE(dpw.waarde, upw.waarde, pc.standaard_waarde)`
-3. **PlaceholderProcessor.BuildReplacements()** voegt custom placeholders toe aan de replacements dictionary
-4. Bestaande systeem placeholders worden NIET overschreven
-
-**Voorbeeld:**
-
-Als een professional de placeholder `[[MijnHandtekening]]` heeft aangemaakt met standaardwaarde "Met vriendelijke groet, Hans Kurvers", dan:
-
-1. Zonder eigen waarde → "Met vriendelijke groet, Hans Kurvers"
-2. Met gebruiker waarde "Hartelijk dank, Team Mediatie" → "Hartelijk dank, Team Mediatie"
-3. Met dossier waarde "Specifiek voor dit dossier" → "Specifiek voor dit dossier"
-
-**Code integratie** (PlaceholderProcessor.cs):
-
-```csharp
-// In BuildReplacements method
-if (data.CustomPlaceholders.Any())
-{
-    foreach (var placeholder in data.CustomPlaceholders)
-    {
-        // Voeg alleen toe als key nog niet bestaat (systeem heeft voorrang)
-        if (!replacements.ContainsKey(placeholder.Key))
-        {
-            replacements[placeholder.Key] = placeholder.Value;
-        }
-    }
-}
-```
-
----
-
-### Conditionele Placeholders (Nieuw in v2.5.0)
-
-Placeholders met `heeft_conditie = true` bevatten conditionele logica die tijdens document generatie wordt geëvalueerd. Dit maakt het mogelijk om dynamisch verschillende waarden te tonen op basis van dossiergegevens.
-
-**Voorbeeld: Geslachtsafhankelijke tekst**
-
-De placeholder `[[MeerderOuder]]` kan zo worden geconfigureerd:
-
-```json
-{
-  "regels": [
-    {
-      "conditie": { "veld": "Partij1Geslacht", "operator": "=", "waarde": "M" },
-      "resultaat": "de vader"
-    },
-    {
-      "conditie": { "veld": "Partij1Geslacht", "operator": "=", "waarde": "V" },
-      "resultaat": "de moeder"
-    }
-  ],
-  "default": "de ouder"
-}
-```
-
-**Evaluatie flow:**
-
-```
-1. PlaceholderProcessor haalt placeholder op uit database
-2. Als heeft_conditie = true:
-   └─→ ConditieEvaluator.Evaluate() wordt aangeroepen
-   └─→ Regels worden in volgorde geëvalueerd
-   └─→ Eerste match bepaalt het resultaat
-   └─→ Als geen match → default waarde
-3. Resultaat wordt gebruikt als placeholder waarde
-```
-
-**ConditieEvaluator service:**
-
-```csharp
-public interface IConditieEvaluator
-{
-    string? Evaluate(
-        ConditieConfig config,
-        Dictionary<string, string> context
-    );
-}
-```
-
-De `context` dictionary bevat alle beschikbare velden uit het dossier, zoals:
-- `Partij1Geslacht`, `Partij2Geslacht`
-- `AantalKinderen`, `AantalMinderjarigeKinderen`
-- Alle systeem placeholders
-
-**Ondersteunde operators:**
-
-| Operator | Beschrijving | Type vergelijking |
-|----------|--------------|-------------------|
-| `=` | Gelijk aan | Case-insensitive string |
-| `!=` | Niet gelijk aan | Case-insensitive string |
-| `>`, `>=`, `<`, `<=` | Numerieke vergelijking | Float parsing |
-| `bevat` | Substring zoeken | Case-insensitive |
-| `begint_met` | Prefix match | Case-insensitive |
-| `eindigt_met` | Suffix match | Case-insensitive |
-| `leeg` | Veld is leeg/null | - |
-| `niet_leeg` | Veld heeft waarde | - |
-| `in` | Waarde in komma-gescheiden lijst | Case-insensitive |
-| `niet_in` | Waarde niet in lijst | Case-insensitive |
-
-**Geneste condities (AND/OR):**
-
-```json
-{
-  "conditie": {
-    "operator": "AND",
-    "voorwaarden": [
-      { "veld": "Partij1Geslacht", "operator": "=", "waarde": "V" },
-      { "veld": "AantalKinderen", "operator": ">", "waarde": "1" }
-    ]
-  },
-  "resultaat": "de moeder van de kinderen"
-}
-```
-
----
-
 ### Best Practices voor Template Gebruik
 
 1. **Gebruik dubbele vierkante haken**: `[[Partij1Naam]]` (meest leesbaar)
@@ -1861,43 +1692,7 @@ Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in h
 
 ## Changelog
 
-### v2.5.0 (Current) - Conditionele Placeholder Logica
-
-**Nieuwe features:**
-- 🔀 **Conditionele Placeholders** - Placeholders met dynamische waarden op basis van dossiergegevens:
-  - `heeft_conditie` en `conditie_config` velden toegevoegd aan placeholder_catalogus
-  - `ConditieEvaluator` service voor regel-gebaseerde evaluatie
-  - 13 operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `bevat`, `begint_met`, `eindigt_met`, `leeg`, `niet_leeg`, `in`, `niet_in`
-  - Geneste AND/OR condities voor complexe logica
-- 🧪 **ConditieEvaluator Service** - Nieuwe service voor conditie evaluatie:
-  - `IConditieEvaluator` interface
-  - `ConditieEvaluator.cs` implementatie
-  - Geregistreerd in DI container
-- 📊 **DatabaseService Uitbreiding** - Ondersteuning voor conditionele placeholder data:
-  - `SafeReadBool()` helper voor boolean velden
-  - `SafeReadNullableString()` helper voor nullable strings
-  - Conditie config parsing uit database
-
-**Breaking Changes:**
-- Geen! Bestaande placeholders zonder conditie werken ongewijzigd.
-
-### v2.4.0 - Custom Placeholders Integratie
-
-**Nieuwe features:**
-- 🔧 **Custom Placeholders Systeem** - Ondersteuning voor custom placeholders uit placeholder_catalogus:
-  - `CustomPlaceholders` dictionary toegevoegd aan `DossierData.cs`
-  - DatabaseService haalt custom placeholder waarden op (result set 13)
-  - PlaceholderProcessor integreert custom placeholders automatisch
-  - 3-laags prioriteit: dossier > gebruiker > systeem standaardwaarde
-- 📊 **Placeholder Catalogus** - 192+ systeem placeholders + onbeperkt custom:
-  - Categorieën: partij1, partij2, kinderen, dossier, relatie, gezag, woonplaats, financieel, communicatie, grammatica, tabellen
-  - Data types: tekst, datum, bedrag, ja_nee, getal
-  - Bron types: gebruiker, dossier, systeem
-
-**Breaking Changes:**
-- Geen! Custom placeholders worden alleen toegevoegd als ze nog niet bestaan (systeem placeholders hebben voorrang).
-
-### v2.3.0 - Artikel Bibliotheek Integratie
+### v2.3.0 (Current) - Artikel Bibliotheek Integratie
 
 **Nieuwe features:**
 - 📚 **Artikel Bibliotheek Integratie** - Dynamische artikelen uit database in documenten:

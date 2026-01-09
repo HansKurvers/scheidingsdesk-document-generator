@@ -16,12 +16,10 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
     public class PlaceholderProcessor : IPlaceholderProcessor
     {
         private readonly ILogger<PlaceholderProcessor> _logger;
-        private readonly IConditieEvaluator _conditieEvaluator;
 
-        public PlaceholderProcessor(ILogger<PlaceholderProcessor> logger, IConditieEvaluator conditieEvaluator)
+        public PlaceholderProcessor(ILogger<PlaceholderProcessor> logger)
         {
             _logger = logger;
-            _conditieEvaluator = conditieEvaluator;
         }
 
         /// <summary>
@@ -121,46 +119,6 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
                     }
                 }
                 _logger.LogInformation("Added {Count} custom placeholders", data.CustomPlaceholders.Count);
-            }
-
-            // Evaluate conditional placeholders using the current replacements as context
-            if (data.ConditionalPlaceholders.Any())
-            {
-                var conditionalsEvaluated = 0;
-                foreach (var conditional in data.ConditionalPlaceholders)
-                {
-                    if (!string.IsNullOrEmpty(conditional.ConditieConfigJson))
-                    {
-                        var evaluatedValue = _conditieEvaluator.Evaluate(conditional.ConditieConfigJson, replacements);
-
-                        // Apply recursive placeholder replacement (max 5 levels deep)
-                        evaluatedValue = ReplacePlaceholdersInText(evaluatedValue, replacements, 5);
-
-                        // Only add/override if we got a value
-                        if (!string.IsNullOrEmpty(evaluatedValue))
-                        {
-                            replacements[conditional.PlaceholderKey] = evaluatedValue;
-                            conditionalsEvaluated++;
-                        }
-                    }
-                    else if (!string.IsNullOrEmpty(conditional.Waarde))
-                    {
-                        // No conditie, use direct value
-                        if (!replacements.ContainsKey(conditional.PlaceholderKey))
-                        {
-                            replacements[conditional.PlaceholderKey] = conditional.Waarde;
-                        }
-                    }
-                    else if (!string.IsNullOrEmpty(conditional.StandaardWaarde))
-                    {
-                        // Fallback to default value
-                        if (!replacements.ContainsKey(conditional.PlaceholderKey))
-                        {
-                            replacements[conditional.PlaceholderKey] = conditional.StandaardWaarde;
-                        }
-                    }
-                }
-                _logger.LogInformation("Evaluated {Count} conditional placeholders", conditionalsEvaluated);
             }
 
             return replacements;
@@ -386,40 +344,6 @@ namespace scheidingsdesk_document_generator.Services.DocumentGeneration.Processo
             replacements[$"{prefix}Nationaliteit2"] = person.Nationaliteit2 ?? "";
             replacements[$"{prefix}Nationaliteit1Bijvoeglijk"] = DutchLanguageHelper.ToNationalityAdjective(person.Nationaliteit1);
             replacements[$"{prefix}Nationaliteit2Bijvoeglijk"] = DutchLanguageHelper.ToNationalityAdjective(person.Nationaliteit2);
-        }
-
-        /// <summary>
-        /// Replaces placeholders in a text string recursively (for nested placeholders in conditional results)
-        /// </summary>
-        /// <param name="text">Text that may contain [[Placeholder]] markers</param>
-        /// <param name="replacements">Dictionary of placeholder values</param>
-        /// <param name="maxDepth">Maximum recursion depth to prevent infinite loops</param>
-        /// <returns>Text with placeholders replaced</returns>
-        private string ReplacePlaceholdersInText(string text, Dictionary<string, string> replacements, int maxDepth)
-        {
-            if (string.IsNullOrEmpty(text) || maxDepth <= 0)
-                return text;
-
-            var result = text;
-            var changed = false;
-
-            foreach (var replacement in replacements)
-            {
-                var placeholder = $"[[{replacement.Key}]]";
-                if (result.Contains(placeholder, StringComparison.OrdinalIgnoreCase))
-                {
-                    result = result.Replace(placeholder, replacement.Value, StringComparison.OrdinalIgnoreCase);
-                    changed = true;
-                }
-            }
-
-            // Recursively process if changes were made (to handle nested placeholders)
-            if (changed && maxDepth > 1)
-            {
-                result = ReplacePlaceholdersInText(result, replacements, maxDepth - 1);
-            }
-
-            return result;
         }
 
         /// <summary>
