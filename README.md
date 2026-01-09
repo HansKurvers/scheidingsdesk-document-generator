@@ -82,7 +82,13 @@ De Ouderschapsplan Document Generator is een serverless applicatie gebouwd met A
    - Automatische integratie met PlaceholderProcessor
    - Werkt naadloos samen met bestaande systeem placeholders
 
-8. **Template Placeholder Systemen**
+8. **Conditionele Placeholder Logica** (Nieuw in v2.5.0)
+   - Placeholders kunnen conditionele regels bevatten voor dynamische waarden
+   - Ondersteuning voor 13 operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `bevat`, `begint_met`, `eindigt_met`, `leeg`, `niet_leeg`, `in`, `niet_in`
+   - Geneste AND/OR condities voor complexe logica
+   - Automatische evaluatie tijdens document generatie
+
+9. **Template Placeholder Systemen**
    - Ondersteunt meerdere placeholder formaten: `[[Key]]`, `{Key}`, `<<Key>>`, `[Key]`
    - Dynamische vervanging van persoons-, kind- en dossiergegevens
    - Speciale placeholders voor tabellen en lijsten
@@ -119,6 +125,10 @@ Deze applicatie is gebouwd met de volgende principes in gedachten:
 │   ├── Artikel/                                # Artikel bibliotheek services (v2.3.0)
 │   │   ├── IArtikelService.cs                  # Interface voor artikel verwerking
 │   │   └── ArtikelService.cs                   # Conditionele filtering en placeholder vervanging
+│   │
+│   ├── Conditie/                               # Conditionele logica services (v2.5.0)
+│   │   ├── IConditieEvaluator.cs               # Interface voor conditie evaluatie
+│   │   └── ConditieEvaluator.cs                # Evalueert conditionele placeholder regels
 │   │
 │   └── DocumentGeneration/                     # Document generatie module
 │       ├── DocumentGenerationService.cs        # 🎯 ORCHESTRATOR - coördineert alle stappen
@@ -324,6 +334,9 @@ services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
 services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
 services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
 services.AddScoped<GrammarRulesBuilder>();
+
+// Conditie evaluatie (v2.5.0)
+services.AddScoped<IConditieEvaluator, ConditieEvaluator>();
 
 // Table generators (Strategy Pattern)
 services.AddScoped<ITableGenerator, OmgangTableGenerator>();
@@ -1312,6 +1325,91 @@ if (data.CustomPlaceholders.Any())
 
 ---
 
+### Conditionele Placeholders (Nieuw in v2.5.0)
+
+Placeholders met `heeft_conditie = true` bevatten conditionele logica die tijdens document generatie wordt geëvalueerd. Dit maakt het mogelijk om dynamisch verschillende waarden te tonen op basis van dossiergegevens.
+
+**Voorbeeld: Geslachtsafhankelijke tekst**
+
+De placeholder `[[MeerderOuder]]` kan zo worden geconfigureerd:
+
+```json
+{
+  "regels": [
+    {
+      "conditie": { "veld": "Partij1Geslacht", "operator": "=", "waarde": "M" },
+      "resultaat": "de vader"
+    },
+    {
+      "conditie": { "veld": "Partij1Geslacht", "operator": "=", "waarde": "V" },
+      "resultaat": "de moeder"
+    }
+  ],
+  "default": "de ouder"
+}
+```
+
+**Evaluatie flow:**
+
+```
+1. PlaceholderProcessor haalt placeholder op uit database
+2. Als heeft_conditie = true:
+   └─→ ConditieEvaluator.Evaluate() wordt aangeroepen
+   └─→ Regels worden in volgorde geëvalueerd
+   └─→ Eerste match bepaalt het resultaat
+   └─→ Als geen match → default waarde
+3. Resultaat wordt gebruikt als placeholder waarde
+```
+
+**ConditieEvaluator service:**
+
+```csharp
+public interface IConditieEvaluator
+{
+    string? Evaluate(
+        ConditieConfig config,
+        Dictionary<string, string> context
+    );
+}
+```
+
+De `context` dictionary bevat alle beschikbare velden uit het dossier, zoals:
+- `Partij1Geslacht`, `Partij2Geslacht`
+- `AantalKinderen`, `AantalMinderjarigeKinderen`
+- Alle systeem placeholders
+
+**Ondersteunde operators:**
+
+| Operator | Beschrijving | Type vergelijking |
+|----------|--------------|-------------------|
+| `=` | Gelijk aan | Case-insensitive string |
+| `!=` | Niet gelijk aan | Case-insensitive string |
+| `>`, `>=`, `<`, `<=` | Numerieke vergelijking | Float parsing |
+| `bevat` | Substring zoeken | Case-insensitive |
+| `begint_met` | Prefix match | Case-insensitive |
+| `eindigt_met` | Suffix match | Case-insensitive |
+| `leeg` | Veld is leeg/null | - |
+| `niet_leeg` | Veld heeft waarde | - |
+| `in` | Waarde in komma-gescheiden lijst | Case-insensitive |
+| `niet_in` | Waarde niet in lijst | Case-insensitive |
+
+**Geneste condities (AND/OR):**
+
+```json
+{
+  "conditie": {
+    "operator": "AND",
+    "voorwaarden": [
+      { "veld": "Partij1Geslacht", "operator": "=", "waarde": "V" },
+      { "veld": "AantalKinderen", "operator": ">", "waarde": "1" }
+    ]
+  },
+  "resultaat": "de moeder van de kinderen"
+}
+```
+
+---
+
 ### Best Practices voor Template Gebruik
 
 1. **Gebruik dubbele vierkante haken**: `[[Partij1Naam]]` (meest leesbaar)
@@ -1763,7 +1861,27 @@ Dit project is eigendom van Ouderschapsplan en bedoeld voor interne gebruik in h
 
 ## Changelog
 
-### v2.4.0 (Current) - Custom Placeholders Integratie
+### v2.5.0 (Current) - Conditionele Placeholder Logica
+
+**Nieuwe features:**
+- 🔀 **Conditionele Placeholders** - Placeholders met dynamische waarden op basis van dossiergegevens:
+  - `heeft_conditie` en `conditie_config` velden toegevoegd aan placeholder_catalogus
+  - `ConditieEvaluator` service voor regel-gebaseerde evaluatie
+  - 13 operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `bevat`, `begint_met`, `eindigt_met`, `leeg`, `niet_leeg`, `in`, `niet_in`
+  - Geneste AND/OR condities voor complexe logica
+- 🧪 **ConditieEvaluator Service** - Nieuwe service voor conditie evaluatie:
+  - `IConditieEvaluator` interface
+  - `ConditieEvaluator.cs` implementatie
+  - Geregistreerd in DI container
+- 📊 **DatabaseService Uitbreiding** - Ondersteuning voor conditionele placeholder data:
+  - `SafeReadBool()` helper voor boolean velden
+  - `SafeReadNullableString()` helper voor nullable strings
+  - Conditie config parsing uit database
+
+**Breaking Changes:**
+- Geen! Bestaande placeholders zonder conditie werken ongewijzigd.
+
+### v2.4.0 - Custom Placeholders Integratie
 
 **Nieuwe features:**
 - 🔧 **Custom Placeholders Systeem** - Ondersteuning voor custom placeholders uit placeholder_catalogus:
