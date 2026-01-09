@@ -243,6 +243,43 @@ namespace scheidingsdesk_document_generator.Services
                     ELSE
                     BEGIN
                         SELECT NULL WHERE 1=0; -- Empty result set
+                    END
+
+                    -- Result set 14: Conditional placeholders (those with heeft_conditie = 1)
+                    -- These require evaluation at document generation time
+                    IF EXISTS (SELECT * FROM sys.tables WHERE name = 'placeholder_catalogus' AND schema_id = SCHEMA_ID('dbo'))
+                       AND EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.placeholder_catalogus') AND name = 'heeft_conditie')
+                    BEGIN
+                        SELECT
+                            pc.id,
+                            pc.placeholder_key,
+                            COALESCE(
+                                pw_dossier.waarde,
+                                pw_gebruiker.waarde,
+                                pw_systeem.waarde,
+                                pc.standaard_waarde
+                            ) AS waarde,
+                            pc.standaard_waarde,
+                            pc.heeft_conditie,
+                            pc.conditie_config
+                        FROM dbo.placeholder_catalogus pc
+                        LEFT JOIN dbo.placeholder_waarden pw_dossier
+                            ON pw_dossier.placeholder_id = pc.id
+                            AND pw_dossier.dossier_id = @DossierId
+                        LEFT JOIN dbo.placeholder_waarden pw_gebruiker
+                            ON pw_gebruiker.placeholder_id = pc.id
+                            AND pw_gebruiker.gebruiker_id = (SELECT gebruiker_id FROM dbo.dossiers WHERE id = @DossierId)
+                            AND pw_gebruiker.dossier_id IS NULL
+                        LEFT JOIN dbo.placeholder_waarden pw_systeem
+                            ON pw_systeem.placeholder_id = pc.id
+                            AND pw_systeem.gebruiker_id IS NULL
+                            AND pw_systeem.dossier_id IS NULL
+                        WHERE pc.heeft_conditie = 1
+                            AND pc.is_actief = 1;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT NULL WHERE 1=0; -- Empty result set
                     END";
 
                 using var command = new SqlCommand(query, connection);
@@ -641,6 +678,37 @@ namespace scheidingsdesk_document_generator.Services
                     _logger.LogWarning(ex, "Placeholder catalogus table may not exist yet, skipping custom placeholders");
                 }
 
+                // Result set 14: Conditional placeholders
+                await reader.NextResultAsync();
+                try
+                {
+                    if (reader.FieldCount > 0)
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var conditionalPlaceholder = new CustomPlaceholderData
+                            {
+                                Id = SafeReadInt(reader, "id") ?? 0,
+                                PlaceholderKey = SafeReadString(reader, "placeholder_key") ?? string.Empty,
+                                Waarde = SafeReadNullableString(reader, "waarde"),
+                                StandaardWaarde = SafeReadNullableString(reader, "standaard_waarde"),
+                                HeeftConditie = SafeReadBool(reader, "heeft_conditie"),
+                                ConditieConfigJson = SafeReadNullableString(reader, "conditie_config")
+                            };
+                            if (!string.IsNullOrEmpty(conditionalPlaceholder.PlaceholderKey))
+                            {
+                                dossier.ConditionalPlaceholders.Add(conditionalPlaceholder);
+                            }
+                        }
+                        _logger.LogInformation("Loaded {Count} conditional placeholders for dossier {DossierId}",
+                            dossier.ConditionalPlaceholders.Count, dossierId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Conditional placeholders columns may not exist yet, skipping");
+                }
+
                 _logger.LogInformation("Successfully retrieved dossier data for dossier ID: {DossierId}", dossierId);
                 return dossier;
             }
@@ -845,6 +913,27 @@ namespace scheidingsdesk_document_generator.Services
 
             var value = reader[columnName];
             return value == DBNull.Value ? null : (DateTime?)value;
+        }
+
+        /// <summary>
+        /// Safely reads a boolean value from the reader, returns false if column doesn't exist or is null
+        /// </summary>
+        private static bool SafeReadBool(SqlDataReader reader, string columnName)
+        {
+            if (!ColumnExists(reader, columnName))
+                return false;
+
+            var value = reader[columnName];
+            return value != DBNull.Value && (bool)value;
+        }
+
+        /// <summary>
+        /// Safely reads a nullable string value from the reader, returns null if column doesn't exist or is null
+        /// Alias for SafeReadString for explicit nullable intent
+        /// </summary>
+        private static string? SafeReadNullableString(SqlDataReader reader, string columnName)
+        {
+            return SafeReadString(reader, columnName);
         }
 
         /// <summary>

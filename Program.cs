@@ -37,6 +37,7 @@ var host = new HostBuilder()
         // Register document generation services
         services.AddScoped<IDocumentGenerationService, DocumentGenerationService>();
         services.AddScoped<ITemplateProvider, TemplateProvider>();
+        services.AddScoped<IConditieEvaluator, ConditieEvaluator>();
         services.AddScoped<IPlaceholderProcessor, PlaceholderProcessor>();
         services.AddScoped<IContentControlProcessor, ContentControlProcessor>();
         services.AddScoped<IConditionalSectionProcessor, ConditionalSectionProcessor>();
